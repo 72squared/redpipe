@@ -100,6 +100,28 @@ class PipelineTestCase(BaseTestCase):
             Pipeline(self.r.pipeline()).RESPONSE_CALLBACKS,
             dict)
 
+    def test_reset(self):
+        with Pipeline(self.r.pipeline()) as p:
+            ref = p.zadd('foo', 1, 'a')
+        self.assertEqual(p._callbacks, [])
+        self.assertEqual(p._stack, [])
+        self.assertRaises(AttributeError, lambda: ref.result)
+        self.assertEqual(self.r.zrange('foo', 0, -1), [])
+
+        with Pipeline(self.r.pipeline()) as p:
+            ref = p.zadd('foo', 1, 'a')
+            p.execute()
+        self.assertEqual(p._callbacks, [])
+        self.assertEqual(p._stack, [])
+        self.assertEqual(ref.result, 1)
+        self.assertEqual(self.r.zrange('foo', 0, -1), [b'a'])
+
+        p = Pipeline(self.r.pipeline())
+        ref = p.zadd('foo', 1, 'a')
+        p.reset()
+        p.execute()
+        self.assertRaises(AttributeError, lambda: ref.result)
+
 
 class NestedPipelineTestCase(BaseTestCase):
     def test(self):
@@ -110,3 +132,30 @@ class NestedPipelineTestCase(BaseTestCase):
         self.assertRaises(AttributeError, lambda: ref.result)
         pipe.execute()
         self.assertEqual(ref.result, 1)
+
+    def test_reset(self):
+        parent_pipe = Pipeline(self.r.pipeline())
+        data = []
+        with NestedPipeline(parent_pipe) as p:
+            ref = p.zadd('foo', 2, 'b')
+
+            def cb():
+                data.append(ref.result)
+
+            p.on_execute(cb)
+            p.execute()
+        self.assertEqual(data, [])
+        self.assertRaises(AttributeError, lambda: ref.result)
+        self.assertEqual(self.r.zrange('foo', 0, -1), [])
+        parent_pipe.execute()
+
+        self.assertEqual(p._callbacks, [])
+        self.assertEqual(p._stack, [])
+        self.assertEqual(ref.result, 1)
+        self.assertEqual(data, [1])
+        self.assertEqual(self.r.zrange('foo', 0, -1), [b'b'])
+
+    def test_attributes(self):
+        self.assertIsInstance(
+            NestedPipeline(Pipeline(self.r.pipeline())).RESPONSE_CALLBACKS,
+            dict)

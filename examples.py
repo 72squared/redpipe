@@ -216,6 +216,11 @@ def test_user(k, pipe=None):
 
 
 if __name__ == '__main__':
+    user = User(user_id='1')
+    user.first_name = 'John'
+    user.last_name = 'Loehrer'
+    user.email = '72squared@gmail.com'
+    user.save()
 
     with Pipe() as pipe:
         users = [User('1', pipe=pipe), User('2', pipe=pipe)]
