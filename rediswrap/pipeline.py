@@ -108,7 +108,7 @@ class Pipeline(object):
 
     def on_execute(self, callback):
         """
-        
+        attach a callback to be called when the pipe finally executes.
         :param callback:
         :return:
         """
