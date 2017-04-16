@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+root_dir=$(cd -P -- "$(dirname -- "$0")" && pwd -P)
+source "$root_dir/setup.sh" || exit 1
+
+unset PYTHON_HOME
+POWDER_BLUE=$(tput setaf 153)
+NORMAL=$(tput sgr0)
+export PYTHONUNBUFFERED=1
+export PS1="\[${POWDER_BLUE}\][rediswrap]\w> \[${NORMAL}\]"
+export PATH="$venv_dir/bin:$PATH"
+export VIRTUAL_ENV="$venv_dir"
+
+exec "${@:-$SHELL}"

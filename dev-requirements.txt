@@ -1,0 +1,11 @@
+coverage >= 3.7.1
+pytest
+testfixtures >= 4.0.1
+mock == 1.0.1
+docopt==0.6.2
+tox
+flake8
+line_profiler
+python-coveralls
+redislite==3.0.271
+redis>=2.10.2
