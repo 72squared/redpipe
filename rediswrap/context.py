@@ -20,8 +20,7 @@ class PipelineContext(object):
     __slots__ = ['_pipe']
 
     def __init__(self, pipe=None):
-        self._pipe = Pipeline(connector.get()) if pipe is None \
-            else NestedPipeline(pipe)
+        self._pipe = context(pipe)
 
     def __enter__(self, pipe=None):
         return self._pipe
@@ -30,3 +29,7 @@ class PipelineContext(object):
         if type is None:
             self._pipe.execute()
         self._pipe.reset()
+
+
+def context(pipe=None):
+    return Pipeline(connector.get()) if pipe is None else NestedPipeline(pipe)

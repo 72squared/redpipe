@@ -1,81 +1,33 @@
 import redislite
 import time
+import rediswrap
 from rediswrap import Model, PipelineContext, \
     StringField, TextField, BooleanField, IntegerField, \
     connect
 
-# the redis client connection for our app
-CLIENT = redislite.StrictRedis()
-connect(CLIENT)
+# set up the redis client connection for our app
+connect(redislite.StrictRedis())
 
 
-class Followers(object):
+class Followers(rediswrap.SortedSet):
     """
     A class for storing followers as a sorted set.
     """
-    __slots__ = ['followed_id']
-
-    def __init__(self, followed_id):
-        """
-        keep track of the primary key
-        :param followed_id:
-        """
-        self.followed_id = followed_id
+    namespace = 'F'
 
     @property
-    def key(self):
-        """
-        format for the database
-        :return:
-        """
-        return "F{%s}" % self.followed_id
-
-    def add(self, follower_id, pipe=None):
-        """
-        add a follower
-        :param follower_id: str
-        :param pipe: pipeline()
-        :return:
-        """
-        with PipelineContext(pipe) as pipe:
-            return pipe.zadd(self.key, time.time(), follower_id)
-
-    def remove(self, follower_id, pipe):
-        """
-        remove a follower
-        :param follower_id:
-        :param pipe:
-        :return:
-        """
-        with PipelineContext(pipe) as pipe:
-            return pipe.zrem(self.key, follower_id)
-
-    def range(self, offset=0, limit=-1, pipe=None):
-        """
-        get a subset of the followers.
-        :param offset:
-        :param limit:
-        :param pipe:
-        :return:
-        """
+    def all(self):
         result = []
-        with PipelineContext(pipe) as pipe:
-            ref = pipe.zrange(self.key, offset, limit)
+        with self.pipe as pipe:
+            ref = pipe.zrange(self._key, 0, -1)
 
             def cb():
                 for v in ref.result:
                     result.append(v)
 
             pipe.on_execute(cb)
-        return result
 
-    def all(self, pipe=None):
-        """
-        get all of the followers
-        :param pipe:
-        :return:
-        """
-        return self.range(pipe=pipe)
+        return result
 
 
 class User(Model):
@@ -99,6 +51,10 @@ class User(Model):
     @property
     def last_name(self):
         return self._data['last_name']
+
+    @property
+    def email(self):
+        return self._data['email']
 
 
 def test_user(k, pipe=None):
@@ -150,14 +106,14 @@ if __name__ == '__main__':
         users = [User(u.key, pipe=pipe) for u in users]
 
         # create a list of followers for user 1
-        f = Followers('1')
+        f = Followers('1', pipe=pipe)
 
         # add some followers by id
         for n in range(2, 5):
-            f.add("%s" % n, pipe=pipe)
+            f.add("%s" % n, time.time())
 
         # get all of the followers we added
-        result = f.all(pipe=pipe)
+        result = f.all
 
         # now we run all of this in one big pipeline statement.
         # so far, nothing has hit the database.

@@ -1,6 +1,7 @@
 import json
 from decimal import Decimal
 from .exceptions import InvalidFieldValue  # noqa
+from .compat import long, unicode
 
 __all__ = '''
 Field
@@ -19,14 +20,10 @@ _NUMERIC = (0, 0.0, Decimal('0'))
 
 NULL = object()
 
-try:
-    INT_TYPES = (int, long)
-    FLOAT_TYPES = (int, long, float)
-    UNICODE_TYPES = (unicode, str)
-except NameError:
-    INT_TYPES = (int)
-    FLOAT_TYPES = (int, float)
-    UNICODE_TYPES = (str)
+
+INT_TYPES = (int, long)
+FLOAT_TYPES = (int, long, float)
+UNICODE_TYPES = (unicode, str)
 
 
 class Field(object):
@@ -58,7 +55,7 @@ class Field(object):
     """
     _allowed = ()
 
-    __slots__ = 'default'.split()
+    __slots__ = ['default']
 
     def __init__(self, default=NULL):
         self.default = default

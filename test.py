@@ -1,5 +1,8 @@
+#!/usr/bin/env python
+
 import unittest
 import redislite
+import rediswrap
 from rediswrap import Client, Pipeline, NestedPipeline
 
 
@@ -8,10 +11,12 @@ class BaseTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.r = redislite.StrictRedis()
+        rediswrap.connect(cls.r)
 
     @classmethod
     def tearDownClass(cls):
         cls.r = None
+        rediswrap.disconnect()
 
     def setUp(self):
         self.r.flushall()
@@ -159,3 +164,21 @@ class NestedPipelineTestCase(BaseTestCase):
         self.assertIsInstance(
             NestedPipeline(Pipeline(self.r.pipeline())).RESPONSE_CALLBACKS,
             dict)
+
+
+class StringCollectionTestCase(BaseTestCase):
+    def test(self):
+        rediswrap.connect_pipeline(self.r.pipeline)
+
+        class Foo(rediswrap.String):
+            namespace = 'F'
+        with rediswrap.PipelineContext() as pipe:
+            f = Foo('1', pipe=pipe)
+            set_ref = f.set('bar')
+            get_ref = f.get()
+
+        self.assertEqual(set_ref.result, 1)
+        self.assertEqual(get_ref.result, b'bar')
+
+if __name__ == '__main__':
+    unittest.main(verbosity=2)

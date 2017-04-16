@@ -14,7 +14,7 @@ class Model(object):
             self.change(pipe=pipe, **kwargs)
         else:
             with PipelineContext(pipe) as pipe:
-                ref = pipe.hgetall(self._namespaced_key)
+                ref = pipe.hgetall(self._key)
 
                 def cb():
                     if not ref.result:
@@ -30,7 +30,7 @@ class Model(object):
                 pipe.on_execute(cb)
 
     def change(self, pipe=None, **changes):
-        key = self._namespaced_key
+        key = self._key
         with PipelineContext(pipe) as pipe:
             for k, v in changes.items():
                 try:
@@ -53,7 +53,7 @@ class Model(object):
         return True if self._data else False
 
     @property
-    def _namespaced_key(self):
+    def _key(self):
         try:
             namespace = self._namespace
         except AttributeError:
@@ -63,7 +63,7 @@ class Model(object):
 
     def delete(self, pipe=None):
         with PipelineContext(pipe) as pipe:
-            pipe.delete(self._namespaced_key)
+            pipe.delete(self._key)
 
             def cb():
                 self._data = {}
