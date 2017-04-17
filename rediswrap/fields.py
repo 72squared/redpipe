@@ -76,7 +76,4 @@ class TextField(Field):
 
     @classmethod
     def from_persistence(cls, value):
-        try:
-            return value.decode('utf-8')
-        except (UnicodeDecodeError, UnicodeError):
-            return value
+        return value.decode('utf-8')

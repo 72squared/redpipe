@@ -22,11 +22,28 @@ class Collection(object):
     __slots__ = ['key', 'namespace', '_pipe']
 
     def __init__(self, key, pipe=None):
+        """
+        Pass in the key identifier for your object. This should not
+        include the namespace. For example if you pass in 'foo', and
+        your class has the namespace of A, when we talk to redis, the
+        key will be: `A{foo}`.
+
+        This allows for consistent namespacing and iteration through
+        all keys in the namespace.
+
+        :param key: str The name of your key.
+        :param pipe: optional Pipeline or PipelineContext
+        """
         self.key = key
         self._pipe = pipe
 
     @property
     def _key(self):
+        """
+        Get the key we pass to redis.
+        If no namespace is declared, it will use the class name.
+        :return: str
+        """
         try:
             namespace = self._namespace
         except AttributeError:
@@ -36,18 +53,22 @@ class Collection(object):
 
     @property
     def pipe(self):
+        """
+        Get a fresh PipelineContext to be used in a `with` block.
+        :return: PipelineContext()
+        """
         return PipelineContext(self._pipe)
 
     def delete(self):
         """
         Remove the collection from redis
         > s = Set('test')
-        > s.add('1')
+        > s.add('1').result
         1
         > s.delete()
-        > s.members
+        > s.members().result
         set([])
-        :return:
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.delete(self._key)
@@ -56,54 +77,85 @@ class Collection(object):
         """
         Allow the key to expire after ``time`` seconds.
 
-        > s = Set("test")
-        > s.add("1")
-        1
-        > s.set_expire(1)
-        > # from time import sleep
-        > # sleep(1)
-        > # s.members
-        # set([])
-        > s.clear()
+        > with PipelineContext() as pipe:
+        >   s = Set("test", pipe=pipe)
+        >   s.add("1")
+        >   s.set_expire(1)
+        >   time.sleep(1)
+        > Set("test").members().result
+        set([])
 
         :param time: time expressed in seconds.
-            If time is not specified,
-            then ``default_expire_time`` will be used.
-        :rtype: None
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.expire(self._key, time)
 
-    set_expire = expire
-
     def exists(self):
+        """
+        does the key exist in redis?
+        :return: DeferredResult()
+        """
         with self.pipe as pipe:
             return pipe.exists(self._key)
 
     def eval(self, script, *args):
+        """
+        Run a lua script against the key.
+        :param script: str  A lua script targeting the current key.
+        :param args: arguments to be passed to redis for the lua script
+        :return: DeferredResult()
+        """
         with self.pipe as pipe:
             return pipe.eval(script, 1, self.key, *args)
 
     def dump(self):
+        """
+        get a redis RDB-like serialization of the object.
+        :return: DeferredResult()
+        """
         with self.pipe as pipe:
             return pipe.dump(self._key)
 
     def restore(self, data, pttl=0):
+        """
+
+        :param data: redis RDB-like serialization
+        :param pttl: how many milliseconds till expiration of the key.
+        :return: DeferredResult()
+        """
         return self.eval(lua_restorenx, pttl, data)
 
     def ttl(self):
+        """
+        get the number of seconds until the key's expiration
+        :return: DeferredResult()
+        """
         with self.pipe as pipe:
             return pipe.ttl(self._key)
 
     def persist(self):
+        """
+        clear any expiration TTL set on the object
+        :return: DeferredResult()
+        """
         with self.pipe as pipe:
             return pipe.persist(self._key)
 
     def object(self, subcommand):
+        """
+        get the key's info stats
+        :param subcommand: REFCOUNT | ENCODING | IDLETIME
+        :return: DeferredResult()
+        """
         return self.eval(lua_object_info, subcommand)
 
-    def __repr__(self):
-        return "<%s: '%s'>" % (self.__class__.__name__, self.key)
+    def __str__(self):
+        """
+        A string representation of the Collection
+        :return: str
+        """
+        return "<%s:%s>" % (self.__class__.__name__, self.key)
 
 
 class String(Collection):
@@ -177,14 +229,14 @@ class Set(Collection):
         :rtype: integer representing the number of value added to the set.
 
         > s = Set("test")
-        > s.clear()
+        > s.delete()
         > s.add(["1", "2", "3"])
         3
         > s.add(["4"])
         1
         > print s
         <Set 'test' set(['1', '3', '2', '4'])>
-        > s.clear()
+        > s.delete()
 
         """
         with self.pipe as pipe:
@@ -202,7 +254,7 @@ class Set(Collection):
         3
         > s.srem(["1", "3"])
         2
-        > s.clear()
+        > s.delete()
 
         """
         with self.pipe as pipe:
@@ -230,8 +282,7 @@ class Set(Collection):
         with self.pipe as pipe:
             return pipe.smembers(self._key)
 
-    all = property(smembers)
-    members = all
+    members = smembers
 
     def scard(self):
         """
@@ -303,7 +354,7 @@ class List(Collection):
         4L
         > l.lrange(1, 2)
         ['b', 'c']
-        > l.clear()
+        > l.delete()
 
         """
         with self.pipe as pipe:
@@ -319,7 +370,7 @@ class List(Collection):
         > l = List("test")
         > l.lpush(['a', 'b'])
         2L
-        > l.clear()
+        > l.delete()
         """
         with self.pipe as pipe:
             return pipe.lpush(self._key, *_parse_values(values))
@@ -338,7 +389,7 @@ class List(Collection):
         4L
         > l.members
         ['b', 'a', 'c', 'd']
-        > l.clear()
+        > l.delete()
         """
         with self.pipe as pipe:
             return pipe.rpush(self._key, *_parse_values(values))
@@ -419,7 +470,7 @@ class List(Collection):
         True
         > l.members
         ['e', 'b', 'c']
-        > l.clear()
+        > l.delete()
 
         """
         with self.pipe as pipe:
@@ -539,7 +590,7 @@ class SortedSet(Collection):
         1
         > s.between(20, 30)
         ['b', 'c']
-        > s.clear()
+        > s.delete()
         """
         if limit is not None and offset is None:
             offset = 0
@@ -557,7 +608,7 @@ class SortedSet(Collection):
         1
         > s.add('b', 20)
         1
-        > s.clear()
+        > s.delete()
         """
 
         if nx:
@@ -599,7 +650,7 @@ class SortedSet(Collection):
         1
         > s.members
         []
-        > s.clear()
+        > s.delete()
         """
         with self.pipe as pipe:
             return pipe.zrem(self._key, *_parse_values(values))
@@ -607,17 +658,17 @@ class SortedSet(Collection):
     def zincrby(self, att, value=1):
         """
         Increment the score of the item by ``value``
-
-        :param att: the member to increment
-        :param value: the value to add to the current score
-        :returns: the new score of the member
-
-        > s = SortedSet("foo")
+         > s = SortedSet("foo")
         > s.add('a', 10)
         1
         > s.zincrby("a", 10)
         20.0
-        > s.clear()
+        > s.delete()
+        :param att: the member to increment
+        :param value: the value to add to the current score
+        :returns: the new score of the member
+
+
         """
         with self.pipe as pipe:
             return pipe.zincrby(self._key, att, value)
@@ -633,8 +684,8 @@ class SortedSet(Collection):
         1
         > s.revrank('a')
         1
-        > s.clear()
-        :param member:
+        > s.delete()
+        :param member: str
         """
         with self.pipe as pipe:
             return pipe.zrevrank(self._key, member)
@@ -658,7 +709,7 @@ class SortedSet(Collection):
         ['b', 'c']
         > s.zrange(1, 3, withscores=True)
         [('b', 20.0), ('c', 30.0)]
-        > s.clear()
+        > s.delete()
         """
         with self.pipe as pipe:
             return pipe.zrange(self._key, start, end, **kwargs)
@@ -677,7 +728,7 @@ class SortedSet(Collection):
         1
         > s.zrevrange(1, 2)
         ['b', 'a']
-        > s.clear()
+        > s.delete()
         :param kwargs:
         :param kwargs:
         :param end:
@@ -701,7 +752,7 @@ class SortedSet(Collection):
         1
         > s.zrangebyscore(20, 30)
         ['b', 'c']
-        > s.clear()
+        > s.delete()
         :param min: int
         :param max: int
         :param kwargs: dict
@@ -723,7 +774,7 @@ class SortedSet(Collection):
         1
         > s.zrangebyscore(20, 20)
         ['b']
-        > s.clear()
+        > s.delete()
         :param kwargs:
         :param min:
         :param max:
@@ -744,7 +795,7 @@ class SortedSet(Collection):
         1
         > s.zcard()
         3
-        > s.clear()
+        > s.delete()
         """
         with self.pipe as pipe:
             return pipe.zcard(self._key)
@@ -758,7 +809,7 @@ class SortedSet(Collection):
         1
         > s.score("a")
         10.0
-        > s.clear()
+        > s.delete()
         :param elem:
         """
         with self.pipe as pipe:
@@ -784,7 +835,7 @@ class SortedSet(Collection):
         2
         > s.members
         ['a']
-        > s.clear()
+        > s.delete()
         """
         with self.pipe as pipe:
             return pipe.zremrangebyrank(self._key, start, stop)
@@ -809,7 +860,7 @@ class SortedSet(Collection):
         2
         > s.members
         ['c']
-        > s.clear()
+        > s.delete()
         """
         with self.pipe as pipe:
             return pipe.zremrangebyscore(self._key, min_value, max_value)
@@ -823,7 +874,7 @@ class SortedSet(Collection):
         1
         > s.zrank("a")
         0
-        > s.clear()
+        > s.delete()
         :param elem:
         """
         with self.pipe as pipe:
@@ -858,7 +909,7 @@ class Hash(Collection):
         > h = Hash("foo")
         > h.hset("bar", "value")
         1L
-        > h.clear()
+        > h.delete()
         """
         with self.pipe as pipe:
             return pipe.hset(self._key, member, value)
@@ -876,7 +927,7 @@ class Hash(Collection):
         > h = Hash("foo")
         > h.hset("bar", "value")
         1L
-        > h.clear()
+        > h.delete()
         """
         with self.pipe as pipe:
             return pipe.hsetnx(self._key, member, value)
@@ -893,7 +944,7 @@ class Hash(Collection):
         1L
         > h.hdel("bar")
         1
-        > h.clear()
+        > h.delete()
         """
         with self.pipe as pipe:
             return pipe.hdel(self._key, *_parse_values(members))
@@ -951,7 +1002,7 @@ class Hash(Collection):
         10L
         > h.hincrby("bar", 2)
         12L
-        > h.clear()
+        > h.delete()
         """
         with self.pipe as pipe:
             return pipe.hincrby(self._key, field, increment)
@@ -1010,7 +1061,7 @@ class ShardedHash(Collection):
         > h = Hash("foo")
         > h.hset("bar", "value")
         1L
-        > h.clear()
+        > h.delete()
         """
         with self.pipe as pipe:
             return pipe.hset(self._sharded_key(member), member, value)
@@ -1027,7 +1078,7 @@ class ShardedHash(Collection):
         1L
         > h.hdel("bar")
         1
-        > h.clear()
+        > h.delete()
         """
         r = DeferredResult()
         with self.pipe as pipe:
@@ -1068,7 +1119,7 @@ class ShardedHash(Collection):
         10L
         > h.hincrby("bar", 2)
         12L
-        > h.clear()
+        > h.delete()
         """
         with self.pipe as pipe:
             return pipe.hincrby(self._sharded_key(field), field, increment)
