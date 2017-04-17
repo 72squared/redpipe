@@ -1,4 +1,4 @@
-from .exceptions import Error
+from .exceptions import AlreadyConnected
 
 
 class Connector(object):
@@ -8,7 +8,7 @@ class Connector(object):
     def connect_pipeline(self, pipeline_method):
         try:
             if self.get != pipeline_method:
-                raise Error('already connected')
+                raise AlreadyConnected("can't change connection.")
             return
         except AttributeError:
             pass
@@ -24,8 +24,8 @@ class Connector(object):
         except AttributeError:
             pass
 
-connector = Connector()
 
+connector = Connector()
 connect = connector.connect
 connect_pipeline = connector.connect_pipeline
 disconnect = connector.disconnect

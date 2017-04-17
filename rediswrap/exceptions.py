@@ -1,9 +1,14 @@
+__all__ = [
+    'Error',
+    'InvalidOperation',
+    'InvalidFieldValue',
+    'FieldError',
+    'AlreadyConnected',
+]
+
+
 class Error(Exception):
     """Base class for all ORM-related errors"""
-
-
-class UniqueKeyViolation(Error):
-    """Raised when trying to save an entity without a distinct column value"""
 
 
 class InvalidOperation(Error):
@@ -13,22 +18,8 @@ class InvalidOperation(Error):
      """
 
 
-class QueryError(InvalidOperation):
-    """
-    Raised when arguments to ``Model.get_by()``
-    or ``Query.filter`` are not valid
-    """
-
-
 class FieldError(Error):
     """Raised when your field definitions are not kosher"""
-
-
-class MissingField(FieldError):
-    """
-    Raised when a model has a required field,
-    but it is not provided on construction
-    """
 
 
 class InvalidFieldValue(FieldError):
@@ -38,9 +29,8 @@ class InvalidFieldValue(FieldError):
     """
 
 
-class LockException(Exception):
-    """Raised when unable to obtain a lock for a key"""
-
-
-class OperationUnsupportedException(Exception):
-    pass
+class AlreadyConnected(Error):
+    """
+    raised when you try to connect and change the ORM connection
+    without explicitly disconnecting first.
+    """

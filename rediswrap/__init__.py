@@ -6,3 +6,4 @@ from .context import PipelineContext  # noqa
 from .connection import Connector, connect, connect_pipeline, disconnect  # noqa
 from .model import Model  # noqa
 from .collections import *  # noqa
+from .exceptions import *  # noqa

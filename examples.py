@@ -2,7 +2,7 @@ import redislite
 import time
 import rediswrap
 from rediswrap import Model, PipelineContext, \
-    StringField, TextField, BooleanField, IntegerField, \
+    AsciiField, TextField, BooleanField, IntegerField, \
     connect
 
 # set up the redis client connection for our app
@@ -32,11 +32,11 @@ class Followers(rediswrap.SortedSet):
 
 class User(Model):
     _fields = {
-        'first_name': StringField(),
-        'last_name': StringField(),
-        'email': TextField(),
-        'beta_user': BooleanField(),
-        'admin': BooleanField(),
+        'first_name': AsciiField,
+        'last_name': AsciiField,
+        'email': TextField,
+        'beta_user': BooleanField,
+        'admin': BooleanField,
         'last_seen': IntegerField,
     }
 
@@ -70,7 +70,7 @@ def test_user(k, pipe=None):
         last_name='last%s' % k,
         email='user%s@test.com' % k
     )
-    u.change(pipe=pipe)
+    u.save(pipe=pipe)
     return u
 
 
@@ -82,7 +82,7 @@ if __name__ == '__main__':
         email='72squared@gmail.com',
         beta_user=True)
 
-    user.change(admin=True)
+    user.save(admin=True)
 
     with PipelineContext() as pipe:
         users = [User('1', pipe=pipe), User('2', pipe=pipe)]

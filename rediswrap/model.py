@@ -1,5 +1,6 @@
-import json
 from .context import PipelineContext
+from .fields import TextField
+from .exceptions import InvalidFieldValue
 
 
 class Model(object):
@@ -10,46 +11,57 @@ class Model(object):
     def __init__(self, key, pipe=None, **kwargs):
         self.key = key
         self._data = {}
-        if kwargs:
-            self.change(pipe=pipe, **kwargs)
-        else:
-            with PipelineContext(pipe) as pipe:
-                ref = pipe.hgetall(self._key)
+        with PipelineContext(pipe) as pipe:
+            if kwargs:
+                self.save(pipe=pipe, **kwargs)
+
+            self.load(pipe=pipe)
+
+    def load(self, pipe=None):
+        with PipelineContext(pipe) as pipe:
+            ref = pipe.hgetall(self._key)
+
+            def cb():
+                if not ref.result:
+                    return
+
+                for k, v in ref.result.items():
+                    v = v.decode('utf8')
+                    k = k.decode('utf8')
+                    try:
+                        v = self._from_persistence(k, v)
+                    except (KeyError, AttributeError):
+                        pass
+                    self._data[k] = v
+
+            pipe.on_execute(cb)
+
+    def save(self, pipe=None, **changes):
+        key = self._key
+        with PipelineContext(pipe) as pipe:
+            def build(k, v):
+                pv = self._to_persistence(k, v) if v is not None else None
+                if pv is None:
+                    pipe.hdel(key, k)
+                else:
+                    pipe.hset(key, k, pv)
 
                 def cb():
-                    if not ref.result:
-                        return
-
-                    for k, v in ref.result.items():
+                    if pv is None:
                         try:
-                            v = self._fields[k].from_persistence(v)
-                        except (KeyError, AttributeError):
+                            del self._data[k]
+                        except KeyError:
                             pass
+                    else:
                         self._data[k] = v
 
                 pipe.on_execute(cb)
 
-    def change(self, pipe=None, **changes):
-        key = self._key
-        with PipelineContext(pipe) as pipe:
             for k, v in changes.items():
-                try:
-                    pv = self._fields[k].to_persistence(v)
-                except KeyError:
-                    pv = v
-
-                if pv is None:
-                    pipe.hdel(key, k)
-                    try:
-                        del self._data[k]
-                    except KeyError:
-                        pass
-                else:
-                    pipe.hset(key, k, pv)
-                    self._data[k] = v
+                build(k, v)
 
     @property
-    def exists(self):
+    def persisted(self):
         return True if self._data else False
 
     @property
@@ -70,21 +82,42 @@ class Model(object):
 
             pipe.on_execute(cb)
 
+    def _to_persistence(self, k, v):
+        try:
+            field_validator = self._fields[k]
+            if not field_validator.validate(v):
+                raise InvalidFieldValue('invalid value for field %s' % k)
+            return field_validator.to_persistence(v)
+        except KeyError:
+            return TextField().to_persistence(v)
+
+    def _from_persistence(self, k, v):
+        try:
+            field_validator = self._fields[k]
+            return field_validator.from_persistence(v)
+        except KeyError:
+            return TextField().from_persistence(v)
+
+    def get(self, item, default=None):
+        return self._data.get(item, default)
+
     def __getattr__(self, item):
-        if item[0] == '_':
-            raise AttributeError('attribute not found: %s' % item)
-        return self._data[item]
+        try:
+            return self.key if item == '_key' else self._data[item]
+        except KeyError:
+            raise AttributeError(item)
+
+    def __getitem__(self, item):
+        return self.key if item == '_key' else self._data[item]
+
+    def __iter__(self):
+        for k, v in self.items():
+            yield k, v
+
+    def items(self):
+        yield '_key', self.key
+        for k, v in self._data.items():
+            yield k, v
 
     def __str__(self):
-        if self._data:
-            return "<%s-%s>" % (self.__class__.__name__, self.key)
-        else:
-            return ''
-
-    def __repr__(self):
-        if self._data:
-            data = {k: v for k, v in self._data.items()}
-            data['_key'] = self.key
-            return json.dumps(data)
-        else:
-            return ''
+        return "<%s-%s>" % (self.__class__.__name__, self.key)
