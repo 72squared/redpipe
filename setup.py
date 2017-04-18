@@ -7,7 +7,7 @@ import imp
 NAME = 'redpipe'
 
 MYDIR = path.abspath(os.path.dirname(__file__))
-long_description = open(os.path.join(MYDIR, 'README.md')).read()
+long_description = open(os.path.join(MYDIR, 'README.rst')).read()
 version = imp.load_source(
     'version',
     path.join('.', 'redpipe', 'version.py')).__version__
@@ -22,7 +22,8 @@ setup(
     author='John Loehrer',
     author_email='72squared@gmail.com',
     url='https://github.com/72squared/%s' % NAME,
-    download_url='https://github.com/72squared/%s/archive/0.0.1.tar.gz' % NAME,
+    download_url='https://github.com/72squared/%s/archive/%s.tar.gz' %
+                 (NAME, version),
     packages=[NAME],
     classifiers=[
         'Development Status :: 4 - Beta',
@@ -37,12 +38,9 @@ setup(
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Environment :: Web Environment',
-        'Operating System :: POSIX',
-    ],
+        'Operating System :: POSIX'],
     license='MIT',
-    install_requires=[
-        'redis>=2.10.2'
-    ],
+    install_requires=['redis>=2.10.2'],
     include_package_data=True,
     long_description=long_description,
     cmdclass=cmdclass,
