@@ -18,7 +18,7 @@ ext_modules = []
 setup(
     name=NAME,
     version=version,
-    description='makes redis pipelines easy and powerful',
+    description='Make Redis pipelines easier to use',
     author='John Loehrer',
     author_email='72squared@gmail.com',
     url='https://github.com/72squared/%s' % NAME,
