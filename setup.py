@@ -4,21 +4,21 @@ from os import path
 from setuptools import setup
 import imp
 
-NAME = 'rediswrap'
+NAME = 'redpipe'
 
 MYDIR = path.abspath(os.path.dirname(__file__))
 long_description = open(os.path.join(MYDIR, 'README.md')).read()
 version = imp.load_source(
     'version',
-    path.join('.', 'rediswrap', 'version.py')).__version__
+    path.join('.', 'redpipe', 'version.py')).__version__
 
 cmdclass = {}
 ext_modules = []
 
 setup(
-    name='rediswrap',
+    name=NAME,
     version=version,
-    description='RedisWrap',
+    description='makes redis pipelines easy and powerful',
     author='John Loehrer',
     author_email='72squared@gmail.com',
     url='https://github.com/72squared/%s' % NAME,

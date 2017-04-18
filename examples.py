@@ -1,15 +1,15 @@
 import redislite
 import time
-import rediswrap
-from rediswrap import Model, PipelineContext, \
+import redpipe
+from redpipe import Model, PipelineContext, \
     AsciiField, TextField, BooleanField, IntegerField, \
-    connect
+    connect_redis
 
 # set up the redis client connection for our app
-connect(redislite.StrictRedis())
+connect_redis(redislite.StrictRedis())
 
 
-class Followers(rediswrap.SortedSet):
+class Followers(redpipe.SortedSet):
     """
     A class for storing followers as a sorted set.
     """

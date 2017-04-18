@@ -26,7 +26,7 @@ cleancov:
 	-coverage erase
 
 cleanmeta:
-	-rm -rf rediswrap.egg-info/
+	-rm -rf redpipe.egg-info/
 
 cleanall: clean cleancov cleanmeta
 	-find . -type f -name "*~" -exec rm -f "{}" \;

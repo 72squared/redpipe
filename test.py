@@ -2,8 +2,7 @@
 import json
 import unittest
 import redislite
-import rediswrap
-from rediswrap import Client, Pipeline, NestedPipeline
+import redpipe
 
 
 class BaseTestCase(unittest.TestCase):
@@ -11,12 +10,12 @@ class BaseTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.r = redislite.StrictRedis()
-        rediswrap.connect(cls.r)
+        redpipe.connect_redis(cls.r)
 
     @classmethod
     def tearDownClass(cls):
         cls.r = None
-        rediswrap.disconnect()
+        redpipe.disconnect()
 
     def setUp(self):
         self.r.flushall()
@@ -28,14 +27,14 @@ class BaseTestCase(unittest.TestCase):
 class ClientTestCase(BaseTestCase):
 
     def test_string(self):
-        r = Client(self.r)
+        r = redpipe.Client(self.r)
         res = r.set('foo', b'bar')
         self.assertEqual(res.result, 1)
         res = r.get('foo')
         self.assertEqual(res.result, b'bar')
 
     def test_client_pipeline(self):
-        r = Client(self.r)
+        r = redpipe.Client(self.r)
         p = r.pipeline()
         p.set('foo', b'bar')
         g = p.get('foo')
@@ -47,13 +46,13 @@ class ClientTestCase(BaseTestCase):
         self.assertEqual(g.result, b'bar')
 
     def test_attributes(self):
-        self.assertIsInstance(Client(self.r).RESPONSE_CALLBACKS, dict)
+        self.assertIsInstance(redpipe.Client(self.r).RESPONSE_CALLBACKS, dict)
 
 
 class PipelineTestCase(BaseTestCase):
 
     def test_string(self):
-        p = Pipeline(self.r.pipeline())
+        p = redpipe.Pipeline(self.r.pipeline())
 
         p.set('foo', b'bar')
         g = p.get('foo')
@@ -65,7 +64,7 @@ class PipelineTestCase(BaseTestCase):
         self.assertEqual(g.result, b'bar')
 
     def test_zset(self):
-        p = Pipeline(self.r.pipeline())
+        p = redpipe.Pipeline(self.r.pipeline())
 
         p.zadd('foo', 1, 'a')
         p.zadd('foo', 2, 'b')
@@ -79,7 +78,7 @@ class PipelineTestCase(BaseTestCase):
         self.assertEqual(z.result, [b'a', b'b', b'c'])
 
     def test_callback(self):
-        p = Pipeline(self.r.pipeline())
+        p = redpipe.Pipeline(self.r.pipeline())
         results = {}
 
         def incr(k, v):
@@ -102,18 +101,17 @@ class PipelineTestCase(BaseTestCase):
 
     def test_attributes(self):
         self.assertIsInstance(
-            Pipeline(self.r.pipeline()).RESPONSE_CALLBACKS,
-            dict)
+            redpipe.Pipeline(self.r.pipeline()).RESPONSE_CALLBACKS, dict)
 
     def test_reset(self):
-        with Pipeline(self.r.pipeline()) as p:
+        with redpipe.Pipeline(self.r.pipeline()) as p:
             ref = p.zadd('foo', 1, 'a')
         self.assertEqual(p._callbacks, [])
         self.assertEqual(p._stack, [])
         self.assertRaises(AttributeError, lambda: ref.result)
         self.assertEqual(self.r.zrange('foo', 0, -1), [])
 
-        with Pipeline(self.r.pipeline()) as p:
+        with redpipe.Pipeline(self.r.pipeline()) as p:
             ref = p.zadd('foo', 1, 'a')
             p.execute()
         self.assertEqual(p._callbacks, [])
@@ -121,7 +119,7 @@ class PipelineTestCase(BaseTestCase):
         self.assertEqual(ref.result, 1)
         self.assertEqual(self.r.zrange('foo', 0, -1), [b'a'])
 
-        p = Pipeline(self.r.pipeline())
+        p = redpipe.Pipeline(self.r.pipeline())
         ref = p.zadd('foo', 1, 'a')
         p.reset()
         p.execute()
@@ -130,8 +128,8 @@ class PipelineTestCase(BaseTestCase):
 
 class NestedPipelineTestCase(BaseTestCase):
     def test(self):
-        pipe = Pipeline(self.r.pipeline())
-        nested_pipe = NestedPipeline(pipe)
+        pipe = redpipe.Pipeline(self.r.pipeline())
+        nested_pipe = redpipe.NestedPipeline(pipe)
         ref = nested_pipe.zadd('foo', 1, 'a')
         nested_pipe.execute()
         self.assertRaises(AttributeError, lambda: ref.result)
@@ -139,9 +137,9 @@ class NestedPipelineTestCase(BaseTestCase):
         self.assertEqual(ref.result, 1)
 
     def test_reset(self):
-        parent_pipe = Pipeline(self.r.pipeline())
+        parent_pipe = redpipe.Pipeline(self.r.pipeline())
         data = []
-        with NestedPipeline(parent_pipe) as p:
+        with redpipe.NestedPipeline(parent_pipe) as p:
             ref = p.zadd('foo', 2, 'b')
 
             def cb():
@@ -162,17 +160,15 @@ class NestedPipelineTestCase(BaseTestCase):
 
     def test_attributes(self):
         self.assertIsInstance(
-            NestedPipeline(Pipeline(self.r.pipeline())).RESPONSE_CALLBACKS,
-            dict)
+            redpipe.NestedPipeline(
+                redpipe.Pipeline(self.r.pipeline())).RESPONSE_CALLBACKS, dict)
 
 
 class StringCollectionTestCase(BaseTestCase):
     def test(self):
-        rediswrap.connect_pipeline(self.r.pipeline)
-
-        class Foo(rediswrap.String):
+        class Foo(redpipe.String):
             namespace = 'F'
-        with rediswrap.PipelineContext() as pipe:
+        with redpipe.PipelineContext() as pipe:
             f = Foo('1', pipe=pipe)
             set_ref = f.set('bar')
             get_ref = f.get()
@@ -184,7 +180,7 @@ class StringCollectionTestCase(BaseTestCase):
 class FieldsTestCase(unittest.TestCase):
 
     def test_float(self):
-        field = rediswrap.FloatField
+        field = redpipe.FloatField
         self.assertTrue(field.validate(2.12))
         self.assertTrue(field.validate(0.12456))
         self.assertFalse(field.validate(''))
@@ -199,7 +195,7 @@ class FieldsTestCase(unittest.TestCase):
         self.assertRaises(ValueError, lambda: field.from_persistence('x'))
 
     def test_int(self):
-        field = rediswrap.IntegerField
+        field = redpipe.IntegerField
         self.assertTrue(field.validate(2))
         self.assertTrue(field.validate(12456))
         self.assertFalse(field.validate(''))
@@ -212,7 +208,7 @@ class FieldsTestCase(unittest.TestCase):
         self.assertRaises(ValueError, lambda: field.from_persistence('x'))
 
     def test_text(self):
-        field = rediswrap.TextField
+        field = redpipe.TextField
         self.assertFalse(field.validate(1))
         self.assertFalse(field.validate(False))
         self.assertFalse(field.validate(0.12456))
@@ -233,11 +229,11 @@ class FieldsTestCase(unittest.TestCase):
 
 class ModelTestCase(BaseTestCase):
 
-    class User(rediswrap.Model):
+    class User(redpipe.Model):
         _namespace = 'U'
         _fields = {
-            'first_name': rediswrap.TextField,
-            'last_name': rediswrap.TextField,
+            'first_name': redpipe.TextField,
+            'last_name': redpipe.TextField,
         }
 
     def test(self):
@@ -274,7 +270,7 @@ class ModelTestCase(BaseTestCase):
 
     def test_pipeline(self):
         user_ids = ["%s" % i for i in range(1, 3)]
-        with rediswrap.PipelineContext() as pipe:
+        with redpipe.PipelineContext() as pipe:
             users = [self.create_user(i, pipe=pipe, a=None, b='123')
                      for i in user_ids]
             self.assertEqual(
@@ -294,13 +290,13 @@ class ModelTestCase(BaseTestCase):
             ['123' for _ in retrieved_users])
 
     def test_fields(self):
-        class Multi(rediswrap.Model):
+        class Multi(redpipe.Model):
             _namespace = 'M'
             _fields = {
-                'boolean': rediswrap.BooleanField,
-                'integer': rediswrap.IntegerField,
-                'float': rediswrap.FloatField,
-                'text': rediswrap.TextField,
+                'boolean': redpipe.BooleanField,
+                'integer': redpipe.IntegerField,
+                'float': redpipe.FloatField,
+                'text': redpipe.TextField,
             }
 
         data = {
@@ -326,11 +322,11 @@ class ModelTestCase(BaseTestCase):
         self.assertEqual(dict(m), expected)
 
         self.assertRaises(
-            rediswrap.InvalidFieldValue,
+            redpipe.InvalidFieldValue,
             lambda: Multi('m3', text=123))
 
         self.assertRaises(
-            rediswrap.InvalidFieldValue,
+            redpipe.InvalidFieldValue,
             lambda: Multi('m3', boolean='abc'))
 
 
@@ -338,27 +334,27 @@ class ConnectTestCase(unittest.TestCase):
 
     def test(self):
         r = redislite.StrictRedis()
-        rediswrap.connect(r)
-        rediswrap.connect(r)
+        redpipe.connect_redis(r)
+        redpipe.connect_redis(r)
         self.assertRaises(
-            rediswrap.AlreadyConnected,
-            lambda: rediswrap.connect(redislite.StrictRedis()))
-        rediswrap.disconnect()
-        rediswrap.connect(redislite.StrictRedis())
+            redpipe.AlreadyConnected,
+            lambda: redpipe.connect_redis(redislite.StrictRedis()))
+        redpipe.disconnect()
+        redpipe.connect_redis(redislite.StrictRedis())
 
         # tear down the connection
-        rediswrap.disconnect()
+        redpipe.disconnect()
 
         # calling it multiple times doesn't hurt anything
-        rediswrap.disconnect()
+        redpipe.disconnect()
 
 
 class StringTestCase(BaseTestCase):
-    class Flag(rediswrap.String):
+    class Flag(redpipe.String):
         _namespace = 'STRING'
 
     def test(self):
-        with rediswrap.PipelineContext() as pipe:
+        with redpipe.PipelineContext() as pipe:
             f = self.Flag('1', pipe=pipe)
             f.set('2')
             before = f.get()
@@ -376,7 +372,7 @@ class StringTestCase(BaseTestCase):
         self.assertIsNotNone(serialize.result)
         self.assertFalse(exists.result)
 
-        with rediswrap.PipelineContext() as pipe:
+        with redpipe.PipelineContext() as pipe:
             f = self.Flag('2', pipe=pipe)
             restore = f.restore(serialize.result)
             ref = f.get()
@@ -400,11 +396,11 @@ class StringTestCase(BaseTestCase):
 
 
 class SetTestCase(BaseTestCase):
-    class Col(rediswrap.Set):
+    class Col(redpipe.Set):
         _namespace = 'SET'
 
     def test(self):
-        with rediswrap.PipelineContext() as pipe:
+        with redpipe.PipelineContext() as pipe:
             c = self.Col('1', pipe=pipe)
             sadd = c.sadd(['a', 'b', 'c'])
             saddnx = c.sadd('a')
@@ -429,11 +425,11 @@ class SetTestCase(BaseTestCase):
 
 
 class ListTestCase(BaseTestCase):
-    class Col(rediswrap.List):
+    class Col(redpipe.List):
         _namespace = 'LIST'
 
     def test(self):
-        with rediswrap.PipelineContext() as pipe:
+        with redpipe.PipelineContext() as pipe:
             c = self.Col('1', pipe=pipe)
             lpush = c.lpush('a', 'b', 'c', 'd')
             members = c.members()
@@ -465,11 +461,11 @@ class ListTestCase(BaseTestCase):
 
 
 class SortedSetTestCase(BaseTestCase):
-    class Collection(rediswrap.SortedSet):
+    class Collection(redpipe.SortedSet):
         _namespace = 'SORTEDSET'
 
     def test(self):
-        with rediswrap.PipelineContext() as pipe:
+        with redpipe.PipelineContext() as pipe:
             c = self.Collection('1', pipe=pipe)
             c.add('2', 2)
             c.add('3', 3)
@@ -487,7 +483,7 @@ class SortedSetTestCase(BaseTestCase):
             zrevrank = c.zrevrank('5')
             zrevrange = c.zrevrange(0, 1)
             self.assertRaises(
-                rediswrap.InvalidOperation,
+                redpipe.InvalidOperation,
                 lambda: c.zadd('4', 4, xx=True, nx=True))
             c.delete()
             zrange = c.zrange(0, -1)
@@ -507,7 +503,7 @@ class SortedSetTestCase(BaseTestCase):
         self.assertEqual(zrevrank.result, 0)
         self.assertEqual(zrevrange.result, [b'5', b'4'])
 
-        with rediswrap.PipelineContext() as pipe:
+        with redpipe.PipelineContext() as pipe:
             c = self.Collection('1')
             c.zadd('a', 1)
             c.zadd('b', 2)
@@ -527,11 +523,11 @@ class SortedSetTestCase(BaseTestCase):
 
 
 class HashTestCase(BaseTestCase):
-    class Collection(rediswrap.Hash):
+    class Collection(redpipe.Hash):
         _namespace = 'HASH'
 
     def test(self):
-        with rediswrap.PipelineContext() as pipe:
+        with redpipe.PipelineContext() as pipe:
             c = self.Collection('1', pipe=pipe)
             hset = c.hset('a', '1')
             hmset = c.hmset({'b': '2', 'c': '3', 'd': '4'})
