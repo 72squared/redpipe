@@ -1,9 +1,6 @@
-import hashlib
 from .context import PipelineContext
 from .lua import lua_restorenx, lua_object_info
 from .exceptions import InvalidOperation
-from .result import DeferredResult
-from .compat import long
 
 __all__ = """
 String
@@ -11,15 +8,17 @@ Set
 List
 SortedSet
 Hash
-ShardedHash
 """.split()
 
 
 class Collection(object):
     """
-    Base class for all collections. This class should not be used directly.
+    Base class for all collections.
+    This class should not be used directly.
     """
-    __slots__ = ['key', 'namespace', '_pipe']
+    __slots__ = ['key', '_pipe']
+
+    _namespace = None
 
     def __init__(self, key, pipe=None):
         """
@@ -44,11 +43,7 @@ class Collection(object):
         If no namespace is declared, it will use the class name.
         :return: str
         """
-        try:
-            namespace = self._namespace
-        except AttributeError:
-            namespace = self.__class__.__name__
-
+        namespace = self._namespace or self.__class__.__name__
         return "%s{%s}" % (namespace, self.key)
 
     @property
@@ -61,13 +56,7 @@ class Collection(object):
 
     def delete(self):
         """
-        Remove the collection from redis
-        > s = Set('test')
-        > s.add('1').result
-        1
-        > s.delete()
-        > s.members().result
-        set([])
+        Remove the key from redis
         :return: DeferredResult()
         """
         with self.pipe as pipe:
@@ -76,15 +65,6 @@ class Collection(object):
     def expire(self, time):
         """
         Allow the key to expire after ``time`` seconds.
-
-        > with PipelineContext() as pipe:
-        >   s = Set("test", pipe=pipe)
-        >   s.add("1")
-        >   s.set_expire(1)
-        >   time.sleep(1)
-        > Set("test").members().result
-        set([])
-
         :param time: time expressed in seconds.
         :return: DeferredResult()
         """
@@ -107,7 +87,7 @@ class Collection(object):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            return pipe.eval(script, 1, self.key, *args)
+            return pipe.eval(script, 1, self._key, *args)
 
     def dump(self):
         """
@@ -119,7 +99,7 @@ class Collection(object):
 
     def restore(self, data, pttl=0):
         """
-
+        Restore serialized dump of a key back into redis
         :param data: redis RDB-like serialization
         :param pttl: how many milliseconds till expiration of the key.
         :return: DeferredResult()
@@ -159,9 +139,13 @@ class Collection(object):
 
 
 class String(Collection):
+    """
+    Manipulate a String key in Redis.
+    """
     def get(self):
         """
         set the value as a string in the key
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.get(self._key)
@@ -170,6 +154,7 @@ class String(Collection):
         """
         set the value as a string in the key
         :param value:
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.set(self._key, value)
@@ -177,6 +162,7 @@ class String(Collection):
     def incr(self):
         """
         increment the value for key by 1
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.incr(self._key)
@@ -184,7 +170,8 @@ class String(Collection):
     def incrby(self, value=1):
         """
         increment the value for key by value: int
-        :param value:
+        :param value: int
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.incrby(self._key, value)
@@ -192,7 +179,8 @@ class String(Collection):
     def incrbyfloat(self, value=1.0):
         """
         increment the value for key by value: float
-        :param value:
+        :param value: int
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.incrbyfloat(self._key, value)
@@ -201,7 +189,7 @@ class String(Collection):
         """
         Set the value as a string in the key only if the key doesn't exist.
         :param value:
-        :return:
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.setnx(self._key, value)
@@ -216,28 +204,14 @@ def _parse_values(values):
 
 class Set(Collection):
     """
-    .. default-domain:: set
-
-    This class represent a Set in redis.
+    Manipulate a Set key in redis.
     """
 
     def sadd(self, *values):
         """
         Add the specified members to the Set.
-
         :param values: a list of values or a simple value.
-        :rtype: integer representing the number of value added to the set.
-
-        > s = Set("test")
-        > s.delete()
-        > s.add(["1", "2", "3"])
-        3
-        > s.add(["4"])
-        1
-        > print s
-        <Set 'test' set(['1', '3', '2', '4'])>
-        > s.delete()
-
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.sadd(self._key, *_parse_values(values))
@@ -247,15 +221,7 @@ class Set(Collection):
         Remove the values from the Set if they are present.
 
         :param values: a list of values or a simple value.
-        :rtype: boolean indicating if the values have been removed.
-
-        > s = Set("test")
-        > s.add(["1", "2", "3"])
-        3
-        > s.srem(["1", "3"])
-        2
-        > s.delete()
-
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.srem(self._key, *_parse_values(values))
@@ -264,16 +230,7 @@ class Set(Collection):
         """
         Remove and return (pop) a random element from the Set.
 
-        :rtype: String representing the value poped.
-
-        > s = Set("test")
-        > s.add("1")
-        1
-        > s.spop()
-        '1'
-        > s.members
-        set([])
-
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.spop(self._key)
@@ -286,9 +243,9 @@ class Set(Collection):
 
     def scard(self):
         """
-        Returns the cardinality of the Set.
+        How many items in the set?
 
-        :rtype: String containing the cardinality.
+        :return: DeferredResult()
 
         """
         with self.pipe as pipe:
@@ -296,9 +253,9 @@ class Set(Collection):
 
     def sismember(self, value):
         """
-        Return ``True`` if the provided value is in the ``Set``.
+        Is the provided value is in the ``Set`?
         :param value:
-
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.sismember(self._key, value)
@@ -306,13 +263,7 @@ class Set(Collection):
     def srandmember(self):
         """
         Return a random member of the set.
-
-        > s = Set("test")
-        > s.add(['a', 'b', 'c'])
-        3
-        > s.srandmember() # doctest: +ELLIPSIS
-        '...'
-        > # 'a', 'b' or 'c'
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.srandmember(self._key)
@@ -324,20 +275,20 @@ class Set(Collection):
 
 class List(Collection):
     """
-    This class represent a list object as seen in redis.
+    Manipulate a List key in redis
     """
 
-    def all(self):
+    def members(self):
         """
         Returns all items in the list.
+        :return: DeferredResult()
         """
         return self.lrange(0, -1)
-
-    members = property(all)
 
     def llen(self):
         """
         Returns the length of the list.
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.llen(self._key)
@@ -348,14 +299,7 @@ class List(Collection):
 
         :param start: integer representing the start index of the range
         :param stop: integer representing the size of the list.
-
-        > l = List("test")
-        > l.push(['a', 'b', 'c', 'd'])
-        4L
-        > l.lrange(1, 2)
-        ['b', 'c']
-        > l.delete()
-
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.lrange(self._key, start, stop)
@@ -365,12 +309,7 @@ class List(Collection):
         Push the value into the list from the *left* side
 
         :param values: a list of values or single value to push
-        :rtype: long representing the number of values pushed.
-
-        > l = List("test")
-        > l.lpush(['a', 'b'])
-        2L
-        > l.delete()
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.lpush(self._key, *_parse_values(values))
@@ -380,35 +319,16 @@ class List(Collection):
         Push the value into the list from the *right* side
 
         :param values: a list of values or single value to push
-        :rtype: long representing the size of the list.
-
-        > l = List("test")
-        > l.lpush(['a', 'b'])
-        2L
-        > l.rpush(['c', 'd'])
-        4L
-        > l.members
-        ['b', 'a', 'c', 'd']
-        > l.delete()
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.rpush(self._key, *_parse_values(values))
-
-    def extend(self, iterable):
-        """
-        Extend list by appending elements from the iterable.
-
-        :param iterable: an iterable objects.
-        """
-        with self.pipe as pipe:
-            for e in iterable:
-                pipe.rpush(self._key, *_parse_values(e))
 
     def lpop(self):
         """
         Pop the first object from the left.
 
-        :return: the popped value.
+        :return: DeferredResult()
 
         """
         with self.pipe as pipe:
@@ -428,8 +348,7 @@ class List(Collection):
         Remove first occurrence of value.
         :param num:
         :param value:
-        :return: 1 if the value has been removed, 0 otherwise
-        if you see an error here, did you use redis.StrictRedis()?
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.lrem(self._key, num, value)
@@ -440,7 +359,7 @@ class List(Collection):
 
         :param start:
         :param end:
-        :return: None
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.ltrim(self._key, start, end)
@@ -450,7 +369,7 @@ class List(Collection):
         Return the value at the index *idx*
 
         :param idx: the index to fetch the value.
-        :return: the value or None if out of range.
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.lindex(self._key, idx)
@@ -461,17 +380,7 @@ class List(Collection):
 
         :param value:
         :param idx:
-        :return: True is the operation succeed.
-
-        > l = List('test')
-        > l.push(['a', 'b', 'c'])
-        3L
-        > l.lset(0, 'e')
-        True
-        > l.members
-        ['e', 'b', 'c']
-        > l.delete()
-
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.lset(self._key, idx, value)
@@ -488,127 +397,26 @@ class List(Collection):
 
 class SortedSet(Collection):
     """
-    This class represents a SortedSet in redis.
-    Use it if you want to arrange your set in any order.
-
+    Manipulate a SortedSet key in redis.
     """
 
-    @property
     def members(self):
         """
         Returns the members of the set.
+        :return: DeferredResult()
         """
         return self.zrange(0, -1)
-
-    @property
-    def revmembers(self):
-        """
-        Returns the members of the set in reverse.
-        """
-        return self.zrevrange(0, -1)
-
-    def lt(self, v, limit=None, offset=None):
-        """
-        Returns the list of the members of the set that have scores
-        less than v.
-
-        :param v: the score to compare to.
-        :param limit: limit the result to *n* elements
-        :param offset: Skip the first *n* elements
-        """
-        if limit is not None and offset is None:
-            offset = 0
-        return self.zrangebyscore("-inf", "(%f" % v, start=offset, num=limit)
-
-    def le(self, v, limit=None, offset=None):
-        """
-        Returns the list of the members of the set that have scores
-        less than or equal to v.
-
-        :param v: the score to compare to.
-        :param limit: limit the result to *n* elements
-        :param offset: Skip the first *n* elements
-
-        """
-        if limit is not None and offset is None:
-            offset = 0
-        return self.zrangebyscore("-inf", v, start=offset, num=limit)
-
-    def gt(self, v, limit=None, offset=None, withscores=False):
-        """Returns the list of the members of the set that have scores
-        greater than v.
-        :param withscores:
-        :param offset:
-        :param limit:
-        :param v:
-        """
-        if limit is not None and offset is None:
-            offset = 0
-        return self.zrangebyscore(
-            "(%f" % v, "+inf",
-            start=offset,
-            num=limit,
-            withscores=withscores)
-
-    def ge(self, v, limit=None, offset=None, withscores=False):
-        """Returns the list of the members of the set that have scores
-        greater than or equal to v.
-
-        :param withscores:
-        :param v: the score to compare to.
-        :param limit: limit the result to *n* elements
-        :param offset: Skip the first *n* elements
-
-        """
-        if limit is not None and offset is None:
-            offset = 0
-        return self.zrangebyscore(
-            "%f" % v, "+inf",
-            start=offset,
-            num=limit,
-            withscores=withscores)
-
-    def between(self, low, high, limit=None, offset=None):
-        """
-        Returns the list of the members of the set that have scores
-        between min and max.
-
-        .. Note::
-            The min and max are inclusive when comparing the values.
-
-        :param low: the minimum score to compare to.
-        :param high: the maximum score to compare to.
-        :param limit: limit the result to *n* elements
-        :param offset: Skip the first *n* elements
-
-        > s = SortedSet("foo")
-        > s.add('a', 10)
-        1
-        > s.add('b', 20)
-        1
-        > s.add('c', 30)
-        1
-        > s.between(20, 30)
-        ['b', 'c']
-        > s.delete()
-        """
-        if limit is not None and offset is None:
-            offset = 0
-        return self.zrangebyscore(low, high, start=offset, num=limit)
 
     def zadd(self, members, score=1, nx=False, xx=False, ch=False, incr=False):
         """
         Add members in the set and assign them the score.
-
         :param members: a list of item or a single item
         :param score: the score the assign to the item(s)
-
-        > s = SortedSet("foo")
-        > s.add('a', 10)
-        1
-        > s.add('b', 20)
-        1
-        > s.delete()
+        :param nx:
+        :param xx:
+        :param ch:
+        :param incr:
+        :return: DeferredResult()
         """
 
         if nx:
@@ -638,32 +446,16 @@ class SortedSet(Collection):
     def zrem(self, *values):
         """
         Remove the values from the SortedSet
-
         :param values:
         :return: True if **at least one** value is successfully
                  removed, False otherwise
-
-        > s = SortedSet('foo')
-        > s.add('a', 10)
-        1
-        > s.zrem('a')
-        1
-        > s.members
-        []
-        > s.delete()
         """
         with self.pipe as pipe:
             return pipe.zrem(self._key, *_parse_values(values))
 
     def zincrby(self, att, value=1):
         """
-        Increment the score of the item by ``value``
-         > s = SortedSet("foo")
-        > s.add('a', 10)
-        1
-        > s.zincrby("a", 10)
-        20.0
-        > s.delete()
+        Increment the score of the item by `value`
         :param att: the member to increment
         :param value: the value to add to the current score
         :returns: the new score of the member
@@ -676,15 +468,6 @@ class SortedSet(Collection):
     def zrevrank(self, member):
         """
         Returns the ranking in reverse order for the member
-
-        > s = SortedSet("foo")
-        > s.add('a', 10)
-        1
-        > s.add('b', 20)
-        1
-        > s.revrank('a')
-        1
-        > s.delete()
         :param member: str
         """
         with self.pipe as pipe:
@@ -694,22 +477,6 @@ class SortedSet(Collection):
         """
         Returns all the elements including between ``start`` (non included) and
         ``stop`` (included).
-
-        :param kwargs:
-        :param end:
-        :param start:
-        > s = SortedSet("foo")
-        > s.add('a', 10)
-        1
-        > s.add('b', 20)
-        1
-        > s.add('c', 30)
-        1
-        > s.zrange(1, 3)
-        ['b', 'c']
-        > s.zrange(1, 3, withscores=True)
-        [('b', 20.0), ('c', 30.0)]
-        > s.delete()
         """
         with self.pipe as pipe:
             return pipe.zrange(self._key, start, end, **kwargs)
@@ -718,17 +485,6 @@ class SortedSet(Collection):
         """
         Returns the range of items included between ``start`` and ``stop``
         in reverse order (from high to low)
-
-        > s = SortedSet("foo")
-        > s.add('a', 10)
-        1
-        > s.add('b', 20)
-        1
-        > s.add('c', 30)
-        1
-        > s.zrevrange(1, 2)
-        ['b', 'a']
-        > s.delete()
         :param kwargs:
         :param kwargs:
         :param end:
@@ -739,63 +495,60 @@ class SortedSet(Collection):
             return pipe.zrevrange(self._key, start, end, **kwargs)
 
     # noinspection PyShadowingBuiltins
-    def zrangebyscore(self, min, max, **kwargs):
+    def zrangebyscore(self, min, max, start=None, num=None,
+                      withscores=False, score_cast_func=float):
         """
         Returns the range of elements included between the scores (min and max)
-
-        > s = SortedSet("foo")
-        > s.add('a', 10)
-        1
-        > s.add('b', 20)
-        1
-        > s.add('c', 30)
-        1
-        > s.zrangebyscore(20, 30)
-        ['b', 'c']
-        > s.delete()
-        :param min: int
-        :param max: int
-        :param kwargs: dict
-        """
-        with self.pipe as pipe:
-            return pipe.zrangebyscore(self._key, min, max, **kwargs)
-
-    # noinspection PyShadowingBuiltins
-    def zrevrangebyscore(self, max, min, **kwargs):
-        """
-        Returns the range of elements included between the scores (min and max)
-
-        > s = SortedSet("foo")
-        > s.add('a', 10)
-        1
-        > s.add('b', 20)
-        1
-        > s.add('c', 30)
-        1
-        > s.zrangebyscore(20, 20)
-        ['b']
-        > s.delete()
-        :param kwargs:
         :param min:
         :param max:
+        :param start:
+        :param num:
+        :param withscores:
+        :param score_cast_func:
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
-            return pipe.zrevrangebyscore(self._key, max, min, **kwargs)
+            return pipe.zrangebyscore(self._key,
+                                      min,
+                                      max,
+                                      start=start,
+                                      num=num,
+                                      withscores=withscores,
+                                      score_cast_func=score_cast_func)
+
+    # noinspection PyShadowingBuiltins
+    def zrevrangebyscore(self, max, min, start=None, num=None,
+                         withscores=False, score_cast_func=float):
+        """
+        Returns the range of elements between the scores (min and max).
+
+        If ``start`` and ``num`` are specified, then return a slice
+        of the range.
+
+        ``withscores`` indicates to return the scores along with the values.
+        The return type is a list of (value, score) pairs
+
+        `score_cast_func`` a callable used to cast the score return value
+        :param max: int
+        :param min: int
+        :param start: int
+        :param num: int
+        :param withscores: bool
+        :param score_cast_func:
+        :return: DeferredResult()
+        """
+        with self.pipe as pipe:
+            return pipe.zrevrangebyscore(self._key,
+                                         max, min,
+                                         start=start,
+                                         num=num,
+                                         withscores=withscores,
+                                         score_cast_func=score_cast_func)
 
     def zcard(self):
         """
         Returns the cardinality of the SortedSet.
-
-        > s = SortedSet("foo")
-        > s.add("a", 1)
-        1
-        > s.add("b", 2)
-        1
-        > s.add("c", 3)
-        1
-        > s.zcard()
-        3
-        > s.delete()
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.zcard(self._key)
@@ -803,14 +556,8 @@ class SortedSet(Collection):
     def zscore(self, elem):
         """
         Return the score of an element
-
-        > s = SortedSet("foo")
-        > s.add("a", 10)
-        1
-        > s.score("a")
-        10.0
-        > s.delete()
         :param elem:
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.zscore(self._key, elem)
@@ -819,23 +566,9 @@ class SortedSet(Collection):
         """
         Remove a range of element between the rank ``start`` and
         ``stop`` both included.
-
         :param stop:
         :param start:
-        :return: the number of item deleted
-
-        > s = SortedSet("foo")
-        > s.add("a", 10)
-        1
-        > s.add("b", 20)
-        1
-        > s.add("c", 30)
-        1
-        > s.zremrangebyrank(1, 2)
-        2
-        > s.members
-        ['a']
-        > s.delete()
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.zremrangebyrank(self._key, start, stop)
@@ -844,23 +577,9 @@ class SortedSet(Collection):
         """
         Remove a range of element by between score ``min_value`` and
         ``max_value`` both included.
-
         :param max_value:
         :param min_value:
-        :returns: the number of items deleted.
-
-        > s = SortedSet("foo")
-        > s.add("a", 10)
-        1
-        > s.add("b", 20)
-        1
-        > s.add("c", 30)
-        1
-        > s.zremrangebyscore(10, 20)
-        2
-        > s.members
-        ['c']
-        > s.delete()
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.zremrangebyscore(self._key, min_value, max_value)
@@ -868,13 +587,6 @@ class SortedSet(Collection):
     def zrank(self, elem):
         """
         Returns the rank of the element.
-
-        > s = SortedSet("foo")
-        > s.add("a", 10)
-        1
-        > s.zrank("a")
-        0
-        > s.delete()
         :param elem:
         """
         with self.pipe as pipe:
@@ -889,9 +601,13 @@ class SortedSet(Collection):
 
 
 class Hash(Collection):
+    """
+    Manipulate a Hash key in Redis.
+    """
     def hlen(self):
         """
         Returns the number of elements in the Hash.
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.hlen(self._key)
@@ -902,14 +618,7 @@ class Hash(Collection):
 
         :param value:
         :param member:
-        :returns: 1 if member is a new field and the value has been
-                  stored, 0 if the field existed and the value has been
-                  updated.
-
-        > h = Hash("foo")
-        > h.hset("bar", "value")
-        1L
-        > h.delete()
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.hset(self._key, member, value)
@@ -920,14 +629,7 @@ class Hash(Collection):
 
         :param value:
         :param member:
-        :returns: 1 if member is a new field and the value has been
-                  stored, 0 if the field existed and the value has been
-                  updated.
-
-        > h = Hash("foo")
-        > h.hset("bar", "value")
-        1L
-        > h.delete()
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.hsetnx(self._key, member, value)
@@ -937,14 +639,7 @@ class Hash(Collection):
         Delete one or more hash field.
 
         :param members: on or more fields to remove.
-        :return: the number of fields that were removed
-
-        > h = Hash("foo")
-        > h.hset("bar", "value")
-        1L
-        > h.hdel("bar")
-        1
-        > h.delete()
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.hdel(self._key, *_parse_values(members))
@@ -952,6 +647,7 @@ class Hash(Collection):
     def hkeys(self):
         """
         Returns all fields name in the Hash
+        return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.hkeys(self._key)
@@ -959,8 +655,7 @@ class Hash(Collection):
     def hgetall(self):
         """
         Returns all the fields and values in the Hash.
-
-        :rtype: dict
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.hgetall(self._key)
@@ -968,8 +663,7 @@ class Hash(Collection):
     def hvals(self):
         """
         Returns all the values in the Hash
-
-        :rtype: list
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.hvals(self._key)
@@ -978,6 +672,7 @@ class Hash(Collection):
         """
         Returns the value stored in the field, None if the field doesn't exist.
         :param field:
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.hget(self._key, field)
@@ -986,6 +681,7 @@ class Hash(Collection):
         """
         Returns ``True`` if the field exists, ``False`` otherwise.
         :param field:
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.hexists(self._key, field)
@@ -995,14 +691,7 @@ class Hash(Collection):
         Increment the value of the field.
         :param increment:
         :param field:
-        :returns: the value of the field after incrementation
-
-        > h = Hash("foo")
-        > h.hincrby("bar", 10)
-        10L
-        > h.hincrby("bar", 2)
-        12L
-        > h.delete()
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
             return pipe.hincrby(self._key, field, increment)
@@ -1011,115 +700,16 @@ class Hash(Collection):
         """
         Returns the values stored in the fields.
         :param fields:
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
-            return pipe.hmget(self.key, fields)
+            return pipe.hmget(self._key, fields)
 
     def hmset(self, mapping):
         """
         Sets or updates the fields with their corresponding values.
-
         :param mapping: a dict with keys and values
+        :return: DeferredResult()
         """
         with self.pipe as pipe:
-            return pipe.hmset(self.key, mapping)
-
-
-class ShardedHash(Collection):
-    _shards = 1000
-
-    def __repr__(self):
-        return "<%s '%s'>" % (self.__class__.__name__, self.key)
-
-    def _sharded_key(self, member):
-        return "%s:%s" % (
-            self._key,
-            long(hashlib.md5(member).hexdigest(), 16) % self._shards)
-
-    def hlen(self):
-        r = DeferredResult()
-        with self.pipe as pipe:
-            results = [pipe.hlen("%s:%s" % (self.key, i))
-                       for i in range(0, self._shards)]
-
-            def cb():
-                r.set(sum([ref.result for ref in results]))
-
-            pipe.on_execute(cb)
-            return r
-
-    def hset(self, member, value):
-        """
-        Set ``member`` in the Hash at ``value``.
-
-        :param value:
-        :param member:
-        :returns: 1 if member is a new field and the value has been
-                  stored, 0 if the field existed and the value has been
-                  updated.
-
-        > h = Hash("foo")
-        > h.hset("bar", "value")
-        1L
-        > h.delete()
-        """
-        with self.pipe as pipe:
-            return pipe.hset(self._sharded_key(member), member, value)
-
-    def hdel(self, *members):
-        """
-        Delete one or more hash field.
-
-        :param members: on or more fields to remove.
-        :return: the number of fields that were removed
-
-        > h = Hash("foo")
-        > h.hset("bar", "value")
-        1L
-        > h.hdel("bar")
-        1
-        > h.delete()
-        """
-        r = DeferredResult()
-        with self.pipe as pipe:
-            results = [pipe.hdel(self._sharded_key(member), member)
-                       for member in _parse_values(members)]
-
-            def cb():
-                r.set(sum([ref.result for ref in results]))
-
-            pipe.on_execute(cb)
-            return r
-
-    def hget(self, field):
-        """
-        Returns the value stored in the field, None if the field doesn't exist.
-        :param field:
-        """
-        with self.pipe as pipe:
-            return pipe.hget(self._sharded_key(field), field)
-
-    def hexists(self, field):
-        """
-        Returns ``True`` if the field exists, ``False`` otherwise.
-        :param field:
-        """
-        with self.pipe as pipe:
-            return pipe.hexists(self._sharded_key(field), field)
-
-    def hincrby(self, field, increment=1):
-        """
-        Increment the value of the field.
-        :param increment:
-        :param field:
-        :returns: the value of the field after incrementation
-
-        > h = Hash("foo")
-        > h.hincrby("bar", 10)
-        10L
-        > h.hincrby("bar", 2)
-        12L
-        > h.delete()
-        """
-        with self.pipe as pipe:
-            return pipe.hincrby(self._sharded_key(field), field, increment)
+            return pipe.hmset(self._key, mapping)

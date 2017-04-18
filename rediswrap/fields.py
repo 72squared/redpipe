@@ -40,10 +40,21 @@ class BooleanField(Field):
 
     @classmethod
     def to_persistence(cls, obj):
+        """
+        convert a boolean value into something we can persist to redis.
+        An empty string is the representation for False.
+        :param obj:
+        :return:
+        """
         return '1' if obj else ''
 
     @classmethod
     def from_persistence(cls, obj):
+        """
+        convert from redis bytes into a boolean value
+        :param obj:
+        :return:
+        """
         return bool(obj)
 
 
@@ -72,8 +83,19 @@ class TextField(Field):
 
     @classmethod
     def to_persistence(cls, value):
+        """
+        serialize utf-8 character string into bytes for redis to write.
+        :param value:
+        :return: utf-8 encoded bytes
+        """
         return value.encode('utf-8')
 
     @classmethod
     def from_persistence(cls, value):
+        """
+        take bytes returned from redis and convert them into
+        unicode safe string.
+        :param value:
+        :return: utf-8 decoded string
+        """
         return value.decode('utf-8')

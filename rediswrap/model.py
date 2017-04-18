@@ -5,7 +5,7 @@ from .exceptions import InvalidFieldValue
 
 class Model(object):
     __slots__ = ['key', '_data']
-
+    _namespace = None
     _fields = {}
 
     def __init__(self, key, pipe=None, **kwargs):
@@ -66,11 +66,7 @@ class Model(object):
 
     @property
     def _key(self):
-        try:
-            namespace = self._namespace
-        except AttributeError:
-            namespace = self.__class__.__name__
-
+        namespace = self._namespace or self.__class__.__name__
         return "%s{%s}" % (namespace, self.key)
 
     def delete(self, pipe=None):
