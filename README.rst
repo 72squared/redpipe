@@ -18,11 +18,11 @@ The redislite module requires Python 2.7 or higher.
 Installation
 ------------
 
-To install redislite, simply:
+To install, use pip:
 
 .. code-block::
 
-    $ pip install redislite
+    $ pip install redpipe
 
 or from source:
 
