@@ -1,0 +1,21 @@
+sudo: false
+language: python
+python:
+  - "2.7"
+  - "3.3"
+  - "3.4"
+  - "3.5"
+  - "3.6-dev"
+  - "nightly"
+install:
+  - pip install -r dev-requirements.txt
+
+script:
+  - coverage erase
+  - coverage run --source redpipe -p -m py.test
+after_success:
+  - coverage combine
+  - coveralls
+matrix:
+  allow_failures:
+    - python: "nightly"
