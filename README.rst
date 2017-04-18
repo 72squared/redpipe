@@ -3,7 +3,7 @@ RedPipe
 
 *Making Redis pipelines easier to use in python.*
 
-*Redis* Pipelining is powerful. 
+*Redis* pipelining is powerful (see <https://redis.io/topics/pipelining>).
 But the results aren't available until you execute the pipeline. 
 It's inconvenient to use pipelines in python. 
 This is especially true when trying to create modular and reusable components.
@@ -182,3 +182,5 @@ Lightweight ORM
 
 .. |Coverage Status| image:: https://coveralls.io/repos/github/72squared/redpipe/badge.svg?branch=master
    :target: https://coveralls.io/github/72squared/redpipe?branch=master
+
+.. |Redis Pipelining|https://redis.io/topics/pipelining
