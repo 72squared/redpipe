@@ -2,15 +2,79 @@ RedPipe
 =======
 *Making Redis pipelines easier to use in python.*
 
-|Build Status| |Coverage Status| |Version|
+|BuildStatus| |CoverageStatus| |Version| |Python|
 
 This project is in an *alpha* state so the interface may change.
 
 The code is well tested and rapidly stabilizing.
 Check back soon.
 
-Summary
--------
+Requirements
+------------
+
+The redislite module requires Python 2.7 or higher.
+
+
+Installation
+------------
+
+To install redislite, simply:
+
+.. code-block::
+
+    $ pip install redislite
+
+or from source:
+
+.. code-block::
+
+    $ python setup.py install
+
+Getting Started
+---------------
+Using redpipe is really easy.
+We can pipeline multiple calls to redis and assign the results to variables.
+
+.. code-block:: python
+
+    import redpipe
+    import redis
+    client = redis.Redis()
+    pipe = redpipe.Pipeline(client.pipeline())
+    foo = pipe.incr('foo')
+    bar = pipe.incr('bar)
+    pipe.execute()
+    print([foo.result, bar.result])
+
+Here is an equivalent block of code with some more sugar:
+
+.. code-block:: python
+
+    import redpipe
+    import redis
+
+    redpipe.connect_redis(redis.Redis())
+    with redpipe.PipelineContext() as pipe:
+        foo = pipe.incr('foo')
+        bar = pipe.incr('bar)
+
+    print([foo.result, bar.result])
+
+The `PipelineContext` object is very powerful.
+We'll cover more of what it can do later.
+For now, notice we are using the `with` control-flow structure block.
+As you leave the block, it triggers the `__exit__` method on the `PipelineContext`.
+This method verifies no exception was thrown and executes the pipeline.
+
+We can safely consume the results after leaving the context block.
+
+In both cases, we perform an operation on a pipeline object and get a reference back in return.
+The reference is empty until the pipeline executes.
+
+Don't understand? Read on!
+
+Why RedPipe?
+------------
 `Redis pipelining <https://redis.io/topics/pipelining>`_ is really powerful.
 It can dramatically reduce the number of network round trips.
 Each individual call to `Redis` is really fast.
@@ -21,9 +85,6 @@ But the results aren't available until you execute the pipeline.
 This makes it inconvenient to use pipelines in *python*.
 And it is especially inconvenient when trying to create modular and reusable components.
 
-
-The Problem
------------
 Take a look at how pipelining is normally done.
 
 .. code:: python
@@ -55,8 +116,6 @@ Here's what I'd like to be able to do:
 
 The problem is that I don't have a way to access the result of that operation.
 
-Solution
---------
 *RedPipe* solves all that.
 It returns a *DeferredResult* object from each method invocation in *Redis* pipeline.
 The DeferredResult object gets populated with data once the pipeline executes.
@@ -90,7 +149,8 @@ This gives us the ability to create reusable building blocks.
     print(increment_and_expire('key3').result)
 
 Now our function will always pipeline the *incrby* and *expire* commands together.
-And, if we pass in a pipeline, it will combine the other calls too!
+When we pass in another PipelineContext() into another PipelineContext() it creates a nexted structure.
+When we pass in a pipeline to our function, it will combine with the other calls above it too!
 So you could pipeline a hundred of calls without any more complexity:
 
 .. code:: python
@@ -98,7 +158,7 @@ So you could pipeline a hundred of calls without any more complexity:
     with redpipe.PipelineContext() as pipe:
         results = [increment_and_expire('key%d' % i, pipe=pipe) for i in range(0, 100)]
 
-
+We have sent 200 redis commands with only 1 network round-trip. Pretty cool, eh?
 This only scratches the surface of what we can do.
 
 Callbacks
@@ -237,7 +297,12 @@ That's where `redpipe.Model` comes in.
             return self.key
 
 
-    # now let's use the model.
+You can see we defined a few fields and gave them types that we can use in python.
+The fields will perform basic data validation on the input and correctly serialize and deserialize from a *Redis* hash key.
+Now, let's use the model.
+
+.. code:: python
+
     with redpipe.PipelineContext() as pipe:
         # create a few users
         u1 = User('1', name='Bob', last_seen=int(time()), pipe=pipe)
@@ -245,20 +310,30 @@ That's where `redpipe.Model` comes in.
 
     print("first batch: %s" % [dict(u1), dict(u2)])
 
-    # when we exit the context, all the models are saved to redis
-    # in one pipeline operation.
-    # now let's read those two users we created and modify them
+When we exit the context, all the models are saved to *Redis* in one pipeline operation.
+Let's read those two users we created and modify them.
+
+.. code:: python
+
     with redpipe.PipelineContext() as pipe:
         users = [User('1', pipe=pipe), User('2', pipe=pipe)]
         users[0].save(name='Bobby', last_seen=int(time()), pipe=pipe)
 
     print("second batch: %s" % [dict(u1), dict(u2)])
 
-.. |Build Status| image:: https://travis-ci.org/72squared/redpipe.svg?branch=master
+When you pass just the key into the object it knows to read from the database rather than write.
+
+The interface for models is simple but powerful.
+
+
+.. |BuildStatus| image:: https://travis-ci.org/72squared/redpipe.svg?branch=master
     :target: https://travis-ci.org/72squared/redpipe
 
-.. |Coverage Status| image:: https://coveralls.io/repos/github/72squared/redpipe/badge.svg?branch=master
+.. |CoverageStatus| image:: https://coveralls.io/repos/github/72squared/redpipe/badge.svg?branch=master
     :target: https://coveralls.io/github/72squared/redpipe?branch=master
 
 .. |Version| image:: https://badge.fury.io/py/redpipe.svg
     :target: https://badge.fury.io/py/redpipe
+
+.. |Python| image:: https://img.shields.io/badge/python-2.7,3.4,pypy-blue.svg
+    :target:  https://pypi.python.org/pypi/redpipe/
