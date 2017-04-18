@@ -121,35 +121,40 @@ It returns a *DeferredResult* object from each method invocation in *Redis* pipe
 The DeferredResult object gets populated with data once the pipeline executes.
 This gives us the ability to create reusable building blocks.
 
+
+here's how *RedPipe* allows me to do what I wanted to do above.
+
 .. code:: python
 
-    import redis
-    import redpipe
-
-    # initialize our connection
-    redpipe.connect_redis(redis.StrictRedis())
-
-    # here's the function I couldn't do above.
     def increment_and_expire(key, num=1, expire=60, pipe=None):
         with redpipe.PipelineContext(pipe) as pipe:
             ref = pipe.incrby(key, num)
             pipe.expire(key, expire)
             return ref
 
-    # now we can call our reusable function
+Now we have a reusable function!
+`PipelineContext` can give us a pipeline if none is passed into the function.
+Or it wraps the one passed in.
+The nested PipelineContext() inside the function combines with the one passed in.
+
+.. code:: python
+
     with redpipe.PipelineContext() as pipe:
         key1 = increment_and_expire('key1', pipe=pipe)
         key2 = increment_and_expire('key2', pipe=pipe)
 
-    # now that I've exited the context block, I can consume the results.
     print(key1.result)
     print(key2.result)
 
-    # and i can do the function all by itself without passing in a pipe
+Or I can call the function all by itself without passing in a pipe.
+
+.. code:: python
+
     print(increment_and_expire('key3').result)
 
-Now our function will always pipeline the *incrby* and *expire* commands together.
-When we pass in another PipelineContext() into another PipelineContext() it creates a nexted structure.
+The function will always pipeline the *incrby* and *expire* commands together.
+
+When we pass in another PipelineContext() into another PipelineContext() it creates a nested structure.
 When we pass in a pipeline to our function, it will combine with the other calls above it too!
 So you could pipeline a hundred of calls without any more complexity:
 
