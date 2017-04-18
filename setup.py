@@ -22,6 +22,7 @@ setup(
     author='John Loehrer',
     author_email='72squared@gmail.com',
     url='https://github.com/72squared/%s' % NAME,
+    download_url='https://github.com/72squared/%s/archive/0.0.1.tar.gz' % NAME,
     packages=[NAME],
     classifiers=[
         'Development Status :: 4 - Beta',
