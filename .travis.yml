@@ -21,4 +21,4 @@ after_success:
 matrix:
   allow_failures:
     - python: "nightly"
-    - python: "pypy3"
+    - python: "pypy3" # https://bitbucket.org/pypy/pypy/issues/2450/cant-import-psutil-on-pypy3-missing
