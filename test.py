@@ -244,6 +244,11 @@ class ModelTestCase(BaseTestCase):
         )
         return u
 
+    def test_core(self):
+        self.create_user('1')
+        ref = self.User.core('1').hgetall()
+        self.assertEqual(ref.result[b'first_name'], b'first1')
+
     def test_pipeline(self):
         user_ids = ["%s" % i for i in range(1, 3)]
         with redpipe.PipelineContext() as pipe:

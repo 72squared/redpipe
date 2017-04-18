@@ -1,11 +1,30 @@
+from six import add_metaclass
 from .context import PipelineContext
 from .fields import TextField
 from .exceptions import InvalidFieldValue
+from .collections import Hash
 
 __all__ = ['Model']
 
 
+class ModelMeta(type):
+    def __new__(mcs, name, bases, d):
+        if name in ['Model']:
+            return type.__new__(mcs, name, bases, d)
+
+        class ModelHash(Hash):
+            _keyspace = d.get('_keyspace', None)
+            _context = d.get('_context', None)
+
+        d['core'] = ModelHash
+
+        model = type.__new__(mcs, name, bases, d)
+        return model
+
+
+@add_metaclass(ModelMeta)
 class Model(object):
+    __metaclass__ = ModelMeta
     __slots__ = ['key', '_data']
     _keyspace = None
     _context = None
@@ -22,7 +41,7 @@ class Model(object):
 
     def load(self, pipe=None):
         with PipelineContext(pipe, name=self._context) as pipe:
-            ref = pipe.hgetall(self._key)
+            ref = self.core(self.key, pipe=pipe).hgetall()
 
             def cb():
                 if not ref.result:
@@ -40,14 +59,15 @@ class Model(object):
             pipe.on_execute(cb)
 
     def save(self, pipe=None, **changes):
-        key = self._key
         with PipelineContext(pipe, name=self._context) as pipe:
+            core = self.core(self.key, pipe=pipe)
+
             def build(k, v):
                 pv = self._to_persistence(k, v) if v is not None else None
                 if pv is None:
-                    pipe.hdel(key, k)
+                    core.hdel(k)
                 else:
-                    pipe.hset(key, k, pv)
+                    core.hset(k, pv)
 
                 def cb():
                     if pv is None:
@@ -67,14 +87,9 @@ class Model(object):
     def persisted(self):
         return True if self._data else False
 
-    @property
-    def _key(self):
-        namespace = self._keyspace or self.__class__.__name__
-        return "%s{%s}" % (namespace, self.key)
-
     def delete(self, pipe=None):
         with PipelineContext(pipe, name=self._context) as pipe:
-            pipe.delete(self._key)
+            self.core(self.key, pipe=pipe).delete()
 
             def cb():
                 self._data = {}

@@ -40,7 +40,7 @@ setup(
         'Environment :: Web Environment',
         'Operating System :: POSIX'],
     license='MIT',
-    install_requires=['redis>=2.10.2'],
+    install_requires=['redis>=2.10.2', 'six'],
     include_package_data=True,
     long_description=long_description,
     cmdclass=cmdclass,
