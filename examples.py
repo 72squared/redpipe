@@ -2,7 +2,7 @@ import redislite
 import time
 import redpipe
 from redpipe import Model, PipelineContext, \
-    AsciiField, TextField, BooleanField, IntegerField, \
+    TextField, BooleanField, IntegerField, \
     connect_redis
 
 # set up the redis client connection for our app
@@ -32,8 +32,8 @@ class Followers(redpipe.SortedSet):
 
 class User(Model):
     _fields = {
-        'first_name': AsciiField,
-        'last_name': AsciiField,
+        'first_name': TextField,
+        'last_name': TextField,
         'email': TextField,
         'beta_user': BooleanField,
         'admin': BooleanField,
@@ -92,10 +92,10 @@ if __name__ == '__main__':
     print("list of users after execute: %s" % users)
 
     user = User('1')
-    print("user 1: %s" % user)
+    print("user 1: %s" % dict(user))
 
     user.delete()
-    print("user 1 after delete: %s" % user)
+    print("user 1 after delete: %s" % dict(user))
 
     with PipelineContext() as pipe:
 
@@ -120,10 +120,12 @@ if __name__ == '__main__':
         # Amazing, right?
         print("list of users before execute: %s" % result)
 
+    print("list of users after execute: %s" % result)
+
     # print out the list of the generated users
     print("test users after execute:")
 
     for u in users:
-        print("    %s" % repr(u))
+        print("    %s" % dict(u))
 
     print("followers: %s" % result)
