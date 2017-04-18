@@ -1,7 +1,7 @@
 from .version import __version__  # noqa
 from .pipeline import *  # noqa
 from .fields import *  # noqa
-from .context import PipelineContext  # noqa
+from .context import *  # noqa
 from .connection import *  # noqa
 from .model import *  # noqa
 from .collections import *  # noqa

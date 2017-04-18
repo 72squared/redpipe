@@ -1,6 +1,8 @@
-from .pipeline import Pipeline, NestedPipeline
-from .connection import connector, resolve_connection_name
-from .exceptions import InvalidPipeline
+from .pipeline import pipeline
+
+__all__ = [
+    'PipelineContext',
+]
 
 
 class PipelineContext(object):
@@ -21,35 +23,32 @@ class PipelineContext(object):
     __slots__ = ['_pipe']
 
     def __init__(self, pipe=None, name=None):
+        """
+        set up a pipeline context.
+        :param pipe: redpipe.Pipeline() or redpipe.NestedPipeline() or None
+        :param name: str the name of the callable in the connector
+        """
         self._pipe = pipeline(pipe, name)
 
     def __enter__(self):
+        """
+        enter the control-flow block.
+        Do not call directly.
+        :return: redpipe.Pipeline() or redpipe.NestedPipeline()
+        """
         return self._pipe
 
     def __exit__(self, type, value, traceback):
+        """
+        Tear down the with control block.
+        only execute the pipeline if there were no exceptions.
+        Always reset it.
+        Do not call directly.
+        :param type:
+        :param value:
+        :param traceback:
+        :return: None
+        """
         if type is None:
             self._pipe.execute()
         self._pipe.reset()
-
-
-def pipeline(pipe=None, name=None):
-    name = resolve_connection_name(name)
-    if pipe is None:
-        return Pipeline(connector.get(name), name)
-
-    try:
-        for p in pipe:
-            if p.connection_name == name:
-                pipe = p
-                break
-    except (AttributeError, TypeError):
-        pass
-
-    try:
-        if pipe.connection_name != name:
-            raise InvalidPipeline(
-                "%s and %s should match" % (pipe.connection_name, name))
-    except AttributeError:
-        raise InvalidPipeline('invalid pipeline object passed in')
-
-    return NestedPipeline(pipe, name)

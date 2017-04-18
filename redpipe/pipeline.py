@@ -1,10 +1,12 @@
 import functools
 from .result import DeferredResult
-from .connection import resolve_connection_name
+from .connection import connector, resolve_connection_name
+from .exceptions import InvalidPipeline
 
 __all__ = [
     'Pipeline',
-    'NestedPipeline'
+    'NestedPipeline',
+    'pipeline'
 ]
 
 
@@ -174,3 +176,26 @@ class NestedPipeline(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.reset()
+
+
+def pipeline(pipe=None, name=None):
+    name = resolve_connection_name(name)
+    if pipe is None:
+        return Pipeline(connector.get(name), name)
+
+    try:
+        for p in pipe:
+            if p.connection_name == name:
+                pipe = p
+                break
+    except (AttributeError, TypeError):
+        pass
+
+    try:
+        if pipe.connection_name != name:
+            raise InvalidPipeline(
+                "%s and %s should match" % (pipe.connection_name, name))
+    except AttributeError:
+        raise InvalidPipeline('invalid pipeline object passed in')
+
+    return NestedPipeline(pipe, name)
