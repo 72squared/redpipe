@@ -1,15 +1,26 @@
 RedPipe
 =======
-
 *Making Redis pipelines easier to use in python.*
 
-*Redis* pipelining is `powerful <https://redis.io/topics/pipelining>`_.
+|Build Status| |Coverage Status| |Version|
+
+This project is in an *alpha* state so the interface may change.
+
+The code is well tested and rapidly stabilizing.
+Check back soon.
+
+Summary
+-------
+`Redis pipelining <https://redis.io/topics/pipelining>`_ is really powerful.
+It can dramatically reduce the number of network round trips.
+Each individual call to `Redis` is really fast.
+But if you have to access a bunch of different keys in your application, it adds up.
+
+Pipelining can reduce the amount of round trips your application needs to make.
 But the results aren't available until you execute the pipeline.
-It's inconvenient to use pipelines in python.
-This is especially true when trying to create modular and reusable components.
+This makes it inconvenient to use pipelines in *python*.
+And it is especially inconvenient when trying to create modular and reusable components.
 
-
-|Build Status| |Coverage Status|
 
 The Problem
 -----------
@@ -166,15 +177,15 @@ Working with Keyspaces
 ----------------------
 Usually when working with *Redis*, people will group a collection of keys that are similar under a namespace.
 They use a key pattern with a prefix and curly braces around the unique identifier for that record.
-For example, for users 1 and 2, I might have keys `U{1}` and `U{2}`.
+For example, for a list of followers for user ids `1` and `2`, I might have keys `F{1}` and `F{2}`.
 *RedPipe* gives you a way to easily manipulate these keyspaces.
 Here's an example of a sorted set:
 
 .. code:: python
 
     class Followers(redpipe.SortedSet):
-        _namespace = 'F'
-        _db = 'default'
+        _keyspace = 'F'
+        _context = 'default'
 
     with redpipe.PipelineContext('default') as pipe:
         f1 = Followers('1', pipe=pipe)
@@ -186,7 +197,10 @@ Here's an example of a sorted set:
     print(f1_members.result)
     print(f2_members.result)
 
-All of the sorted set functions are exposed on the Followers class.
+Note how we can specify what named context we want to use with the `_context` variable.
+Or you can omit it if you are using just one default connection to redis.
+
+All of the `redis-py` sorted set functions are exposed on the `Followers` class.
 In a similar way, we support the other *Redis* primitives:
 
     * strings
@@ -194,10 +208,6 @@ In a similar way, we support the other *Redis* primitives:
     * lists
     * hashes
     * sorted sets
-
-
-
-
 
 Models
 ------
@@ -208,17 +218,12 @@ That's where `redpipe.Model` comes in.
 
 .. code:: python
 
-    import redpipe
-    import redis
+    # assume we already set up our connection
     from time import time
-
-    # configure redpipe.
-    # only need to do this once in your application.
-    redpipe.connect_redis(redis.StrictRedis())
 
     # set up a model object.
     class User(redpipe.Model):
-        _namespace = 'U'
+        _keyspace = 'U'
         _fields = {
             'name': redpipe.TextField,
             'last_name': redpipe.TextField,
@@ -249,7 +254,10 @@ That's where `redpipe.Model` comes in.
     print("second batch: %s" % [dict(u1), dict(u2)])
 
 .. |Build Status| image:: https://travis-ci.org/72squared/redpipe.svg?branch=master
-   :target: https://travis-ci.org/72squared/redpipe
+    :target: https://travis-ci.org/72squared/redpipe
 
 .. |Coverage Status| image:: https://coveralls.io/repos/github/72squared/redpipe/badge.svg?branch=master
-   :target: https://coveralls.io/github/72squared/redpipe?branch=master
+    :target: https://coveralls.io/github/72squared/redpipe?branch=master
+
+.. |Version| image:: https://badge.fury.io/py/redpipe.svg
+    :target: https://badge.fury.io/py/redpipe

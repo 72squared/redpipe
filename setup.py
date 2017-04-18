@@ -26,7 +26,7 @@ setup(
                  (NAME, version),
     packages=[NAME],
     classifiers=[
-        'Development Status :: 4 - Beta',
+        'Development Status :: 3 - Alpha',
         'Programming Language :: Python',
         'Programming Language :: Python',
         'Programming Language :: Python :: Implementation :: CPython',

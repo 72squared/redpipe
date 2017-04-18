@@ -7,6 +7,8 @@ python:
   - "3.5"
   - "3.6-dev"
   - "nightly"
+  - "pypy"
+  - "pypy3"
 install:
   - pip install -r dev-requirements.txt
 
@@ -19,3 +21,5 @@ after_success:
 matrix:
   allow_failures:
     - python: "nightly"
+    - python: "pypy"
+    - python: "pypy3"

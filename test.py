@@ -231,7 +231,7 @@ class FieldsTestCase(unittest.TestCase):
 class ModelTestCase(BaseTestCase):
 
     class User(redpipe.Model):
-        _namespace = 'U'
+        _keyspace = 'U'
         _fields = {
             'first_name': redpipe.TextField,
             'last_name': redpipe.TextField,
@@ -292,7 +292,7 @@ class ModelTestCase(BaseTestCase):
 
     def test_fields(self):
         class Multi(redpipe.Model):
-            _namespace = 'M'
+            _keyspace = 'M'
             _fields = {
                 'boolean': redpipe.BooleanField,
                 'integer': redpipe.IntegerField,
@@ -390,7 +390,7 @@ class ConnectTestCase(unittest.TestCase):
 
 class StringTestCase(BaseTestCase):
     class Flag(redpipe.String):
-        _namespace = 'STRING'
+        _keyspace = 'STRING'
 
     def test(self):
         with redpipe.PipelineContext() as pipe:
@@ -436,7 +436,7 @@ class StringTestCase(BaseTestCase):
 
 class SetTestCase(BaseTestCase):
     class Col(redpipe.Set):
-        _namespace = 'SET'
+        _keyspace = 'SET'
 
     def test(self):
         with redpipe.PipelineContext() as pipe:
@@ -465,7 +465,7 @@ class SetTestCase(BaseTestCase):
 
 class ListTestCase(BaseTestCase):
     class Col(redpipe.List):
-        _namespace = 'LIST'
+        _keyspace = 'LIST'
 
     def test(self):
         with redpipe.PipelineContext() as pipe:
@@ -501,7 +501,7 @@ class ListTestCase(BaseTestCase):
 
 class SortedSetTestCase(BaseTestCase):
     class Collection(redpipe.SortedSet):
-        _namespace = 'SORTEDSET'
+        _keyspace = 'SORTEDSET'
 
     def test(self):
         with redpipe.PipelineContext() as pipe:
@@ -563,7 +563,7 @@ class SortedSetTestCase(BaseTestCase):
 
 class HashTestCase(BaseTestCase):
     class Collection(redpipe.Hash):
-        _namespace = 'HASH'
+        _keyspace = 'HASH'
 
     def test(self):
         with redpipe.PipelineContext() as pipe:

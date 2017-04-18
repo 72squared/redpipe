@@ -18,8 +18,8 @@ class Collection(object):
     """
     __slots__ = ['key', '_pipe']
 
-    _namespace = None
-    _db = None
+    _keyspace = None
+    _context = None
 
     def __init__(self, key, pipe=None):
         """
@@ -44,7 +44,7 @@ class Collection(object):
         If no namespace is declared, it will use the class name.
         :return: str
         """
-        namespace = self._namespace or self.__class__.__name__
+        namespace = self._keyspace or self.__class__.__name__
         return "%s{%s}" % (namespace, self.key)
 
     @property
@@ -53,7 +53,7 @@ class Collection(object):
         Get a fresh PipelineContext to be used in a `with` block.
         :return: PipelineContext()
         """
-        return PipelineContext(self._pipe, name=self._db)
+        return PipelineContext(self._pipe, name=self._context)
 
     def delete(self):
         """
