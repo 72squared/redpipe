@@ -4,6 +4,7 @@ __all__ = [
     'InvalidFieldValue',
     'FieldError',
     'AlreadyConnected',
+    'InvalidPipeline'
 ]
 
 
@@ -33,4 +34,17 @@ class AlreadyConnected(Error):
     """
     raised when you try to connect and change the ORM connection
     without explicitly disconnecting first.
+    """
+
+
+class NotConfigured(Error):
+    """
+    raised when you try to use a connection that isn't configured.
+    """
+
+
+class InvalidPipeline(Error):
+    """
+    raised when you pass in a pipeline into context that doesn't
+    have the same name.
     """

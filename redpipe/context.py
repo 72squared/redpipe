@@ -1,5 +1,6 @@
 from .pipeline import Pipeline, NestedPipeline
-from .connection import connector
+from .connection import connector, resolve_connection_name
+from .exceptions import InvalidPipeline
 
 
 class PipelineContext(object):
@@ -8,21 +9,21 @@ class PipelineContext(object):
     the block statement.
 
     example:
-        with Pipe() as pipe:
+        with PipelineContext() as pipe:
             pipe.zadd(key, score, element)
 
     this is equivalent to writing:
-        pipe = pipeline()
+        pipe = context()
         pipe.zadd(key, score, element)
         pipe.execute()
 
     """
     __slots__ = ['_pipe']
 
-    def __init__(self, pipe=None):
-        self._pipe = context(pipe)
+    def __init__(self, pipe=None, name=None):
+        self._pipe = pipeline(pipe, name)
 
-    def __enter__(self, pipe=None):
+    def __enter__(self):
         return self._pipe
 
     def __exit__(self, type, value, traceback):
@@ -31,5 +32,24 @@ class PipelineContext(object):
         self._pipe.reset()
 
 
-def context(pipe=None):
-    return Pipeline(connector.get()) if pipe is None else NestedPipeline(pipe)
+def pipeline(pipe=None, name=None):
+    name = resolve_connection_name(name)
+    if pipe is None:
+        return Pipeline(connector.get(name), name)
+
+    try:
+        for p in pipe:
+            if p.connection_name == name:
+                pipe = p
+                break
+    except (AttributeError, TypeError):
+        pass
+
+    try:
+        if pipe.connection_name != name:
+            raise InvalidPipeline(
+                "%s and %s should match" % (pipe.connection_name, name))
+    except AttributeError:
+        raise InvalidPipeline('invalid pipeline object passed in')
+
+    return NestedPipeline(pipe, name)

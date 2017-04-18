@@ -360,7 +360,32 @@ class ConnectTestCase(unittest.TestCase):
                 lambda: redpipe.connect_redis(
                     redislite.StrictRedis()))
         finally:
-            redpipe.disconnect()
+            redpipe.reset()
+
+    def test_multi(self):
+        try:
+            redpipe.connect_redis(redislite.StrictRedis(), name='a')
+            redpipe.connect_redis(redislite.StrictRedis(), name='b')
+            with redpipe.PipelineContext(name='a') as a:
+                with redpipe.PipelineContext(name='b') as b:
+                    with redpipe.PipelineContext([a, b], name='b') as bb:
+                        bbres = bb.set('foo', 'bar')
+                    bres = b.get('foo')
+
+                    self.assertRaises(
+                        redpipe.InvalidPipeline,
+                        lambda: redpipe.PipelineContext(a, name='b')
+                    )
+                    self.assertRaises(
+                        redpipe.InvalidPipeline,
+                        lambda: redpipe.PipelineContext(dict())
+                    )
+                ares = a.get('foo')
+            self.assertEqual(bres.result, b'bar')
+            self.assertEqual(bbres.result, True)
+            self.assertIsNone(ares.result)
+        finally:
+            redpipe.reset()
 
 
 class StringTestCase(BaseTestCase):

@@ -1,5 +1,6 @@
 import functools
 from .result import DeferredResult
+from .connection import resolve_connection_name
 
 
 class Pipeline(object):
@@ -11,13 +12,14 @@ class Pipeline(object):
     lots of calls within nested functions
     and not have to wait for the execute call.
     """
-    __slots__ = ['_pipe', '_stack', '_callbacks']
+    __slots__ = ['connection_name', '_pipe', '_stack', '_callbacks']
 
-    def __init__(self, pipe):
+    def __init__(self, pipe, name=None):
         """
         pass in the redispy client pipeline object.
         :param pipe: redis.StrictRedis.pipeline() or redis.Redis.pipeline()
         """
+        self.connection_name = resolve_connection_name(name)
         self._pipe = pipe
         self._stack = []
         self._callbacks = []
@@ -116,9 +118,10 @@ class Pipeline(object):
 
 
 class NestedPipeline(object):
-    __slots__ = ['_pipe', '_stack', '_callbacks']
+    __slots__ = ['connection_name', '_pipe', '_stack', '_callbacks']
 
-    def __init__(self, pipe):
+    def __init__(self, pipe, name=None):
+        self.connection_name = resolve_connection_name(name)
         self._pipe = pipe
         self._stack = []
         self._callbacks = []

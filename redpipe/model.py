@@ -6,19 +6,20 @@ from .exceptions import InvalidFieldValue
 class Model(object):
     __slots__ = ['key', '_data']
     _namespace = None
+    _db = None
     _fields = {}
 
     def __init__(self, key, pipe=None, **kwargs):
         self.key = key
         self._data = {}
-        with PipelineContext(pipe) as pipe:
+        with PipelineContext(pipe, name=self._db) as pipe:
             if kwargs:
                 self.save(pipe=pipe, **kwargs)
 
             self.load(pipe=pipe)
 
     def load(self, pipe=None):
-        with PipelineContext(pipe) as pipe:
+        with PipelineContext(pipe, name=self._db) as pipe:
             ref = pipe.hgetall(self._key)
 
             def cb():
@@ -38,7 +39,7 @@ class Model(object):
 
     def save(self, pipe=None, **changes):
         key = self._key
-        with PipelineContext(pipe) as pipe:
+        with PipelineContext(pipe, name=self._db) as pipe:
             def build(k, v):
                 pv = self._to_persistence(k, v) if v is not None else None
                 if pv is None:
@@ -70,7 +71,7 @@ class Model(object):
         return "%s{%s}" % (namespace, self.key)
 
     def delete(self, pipe=None):
-        with PipelineContext(pipe) as pipe:
+        with PipelineContext(pipe, name=self._db) as pipe:
             pipe.delete(self._key)
 
             def cb():

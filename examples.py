@@ -7,6 +7,7 @@ from redpipe import Model, PipelineContext, \
 
 # set up the redis client connection for our app
 connect_redis(redislite.StrictRedis())
+connect_redis(redislite.StrictRedis(), name='alt')
 
 
 class Followers(redpipe.SortedSet):
@@ -129,3 +130,13 @@ if __name__ == '__main__':
         print("    %s" % dict(u))
 
     print("followers: %s" % result)
+
+    # example of talking to two databases.
+    with PipelineContext() as primary:
+        with PipelineContext(name='alt') as alt:
+            key = '123'
+            first = primary.incr(key)
+            second = alt.incr(key)
+
+    print(first.result)
+    print(second.result)

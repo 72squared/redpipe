@@ -19,6 +19,7 @@ class Collection(object):
     __slots__ = ['key', '_pipe']
 
     _namespace = None
+    _db = None
 
     def __init__(self, key, pipe=None):
         """
@@ -52,7 +53,7 @@ class Collection(object):
         Get a fresh PipelineContext to be used in a `with` block.
         :return: PipelineContext()
         """
-        return PipelineContext(self._pipe)
+        return PipelineContext(self._pipe, name=self._db)
 
     def delete(self):
         """
