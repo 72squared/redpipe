@@ -12,7 +12,7 @@ install:
 
 script:
   - coverage erase
-  - coverage run --source redpipe -p -m py.test
+  - coverage run --source redpipe -p -m py.test test.py
 after_success:
   - coverage combine
   - coveralls

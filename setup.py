@@ -40,7 +40,7 @@ setup(
     ],
     license='MIT',
     install_requires=[
-
+        'redis>=2.10.2'
     ],
     include_package_data=True,
     long_description=long_description,
