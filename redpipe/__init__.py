@@ -7,3 +7,4 @@ from .connection import *  # noqa
 from .model import Model  # noqa
 from .collections import *  # noqa
 from .exceptions import *  # noqa
+from .result import *  # noqa

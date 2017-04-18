@@ -1,3 +1,8 @@
+__all__ = [
+    'DeferredResult',
+    'InstantResult'
+]
+
 
 class DeferredResult(object):
     __slots__ = ['result']

@@ -57,13 +57,13 @@ This gives us the ability to create reusable building blocks.
     import redpipe
 
     # initialize our connection
-    redpipe.connect(redis.StrictRedis())
+    redpipe.connect_redis(redis.StrictRedis())
 
     # here's the function I couldn't do above.
     def increment_and_expire(key, num=1, expire=60, pipe=None):
         with redpipe.PipelineContext(pipe) as pipe:
             ref = pipe.incrby(key, num)
-            pipe.expire(expire)
+            pipe.expire(key, expire)
             return ref
 
     # now we can call our reusable function
@@ -139,8 +139,8 @@ But what if you need to talk to multiple backends?
 
 .. code:: python
 
-    redpipe.connect(redis.StrictRedis(port=6379), name='users')
-    redpipe.connect(redis.StrictRedis(port=6380), name='messages')
+    redpipe.connect_redis(redis.StrictRedis(port=6379), name='users')
+    redpipe.connect_redis(redis.StrictRedis(port=6380), name='messages')
     with redpipe.PipelineContext(name='users') as users:
         users.hset('u{1}', 'name', 'joe')
 
@@ -156,7 +156,7 @@ RedPipe supports Redis Cluster.
 
     import rediscluster
     import redpipe
-    redpipe.connect_redis_pipeline(rediscluster.StrictRedisCluster().pipeline)
+    redpipe.connect(rediscluster.StrictRedisCluster().pipeline)
 
 This interface is still a little rough.
 I hope to get better patterns around this soon.
@@ -214,7 +214,7 @@ That's where `redpipe.Model` comes in.
 
     # configure redpipe.
     # only need to do this once in your application.
-    redpipe.connect(redis.StrictRedis())
+    redpipe.connect_redis(redis.StrictRedis())
 
     # set up a model object.
     class User(redpipe.Model):
