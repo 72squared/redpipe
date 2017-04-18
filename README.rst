@@ -68,8 +68,8 @@ This gives us the ability to create reusable building blocks.
 
     # now we can call our reusable function
     with redpipe.PipelineContext() as pipe:
-        key1 = increment_and_expire('key1')
-        key2 = increment_and_expire('key2')
+        key1 = increment_and_expire('key1', pipe=pipe)
+        key2 = increment_and_expire('key2', pipe=pipe)
 
     # now that I've exited the context block, I can consume the results.
     print(key1.result)
