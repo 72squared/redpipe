@@ -10,7 +10,6 @@ class Connector(object):
         try:
             if self.get().connection_pool != pipeline_method().connection_pool:
                 raise AlreadyConnected("can't change connection.")
-            return
         except AttributeError:
             pass
 

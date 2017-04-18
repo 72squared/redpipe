@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import json
 import unittest
+import redis
 import redislite
 import redpipe
 
@@ -333,20 +334,33 @@ class ModelTestCase(BaseTestCase):
 class ConnectTestCase(unittest.TestCase):
 
     def test(self):
-        r = redislite.StrictRedis()
-        redpipe.connect_redis(r)
-        redpipe.connect_redis(r)
-        self.assertRaises(
-            redpipe.AlreadyConnected,
-            lambda: redpipe.connect_redis(redislite.StrictRedis()))
-        redpipe.disconnect()
-        redpipe.connect_redis(redislite.StrictRedis())
+        try:
+            r = redislite.StrictRedis()
+            redpipe.connect_redis(r)
+            redpipe.connect_redis(r)
+            self.assertRaises(
+                redpipe.AlreadyConnected,
+                lambda: redpipe.connect_redis(redislite.StrictRedis()))
+            redpipe.disconnect()
+            redpipe.connect_redis(redislite.StrictRedis())
 
-        # tear down the connection
-        redpipe.disconnect()
+            # tear down the connection
+            redpipe.disconnect()
 
-        # calling it multiple times doesn't hurt anything
-        redpipe.disconnect()
+            # calling it multiple times doesn't hurt anything
+            redpipe.disconnect()
+
+            redpipe.connect_redis(r)
+            redpipe.connect_redis(
+                redis.Redis(connection_pool=r.connection_pool))
+            redpipe.connect(r.pipeline)
+
+            self.assertRaises(
+                redpipe.AlreadyConnected,
+                lambda: redpipe.connect_redis(
+                    redislite.StrictRedis()))
+        finally:
+            redpipe.disconnect()
 
 
 class StringTestCase(BaseTestCase):
