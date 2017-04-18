@@ -2,6 +2,8 @@ from .context import PipelineContext
 from .fields import TextField
 from .exceptions import InvalidFieldValue
 
+__all__ = ['Model']
+
 
 class Model(object):
     __slots__ = ['key', '_data']

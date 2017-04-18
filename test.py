@@ -25,31 +25,6 @@ class BaseTestCase(unittest.TestCase):
         self.r.flushall()
 
 
-class ClientTestCase(BaseTestCase):
-
-    def test_string(self):
-        r = redpipe.Client(self.r)
-        res = r.set('foo', b'bar')
-        self.assertEqual(res.result, 1)
-        res = r.get('foo')
-        self.assertEqual(res.result, b'bar')
-
-    def test_client_pipeline(self):
-        r = redpipe.Client(self.r)
-        p = r.pipeline()
-        p.set('foo', b'bar')
-        g = p.get('foo')
-
-        # can't access it until it's ready
-        self.assertRaises(AttributeError, lambda: g.result)
-        p.execute()
-
-        self.assertEqual(g.result, b'bar')
-
-    def test_attributes(self):
-        self.assertIsInstance(redpipe.Client(self.r).RESPONSE_CALLBACKS, dict)
-
-
 class PipelineTestCase(BaseTestCase):
 
     def test_string(self):
@@ -59,7 +34,7 @@ class PipelineTestCase(BaseTestCase):
         g = p.get('foo')
 
         # can't access it until it's ready
-        self.assertRaises(AttributeError, lambda: g.result)
+        self.assertRaises(redpipe.ResultNotReady, lambda: g.result)
         p.execute()
 
         self.assertEqual(g.result, b'bar')
@@ -73,7 +48,7 @@ class PipelineTestCase(BaseTestCase):
         z = p.zrange('foo', 0, -1)
 
         # can't access it until it's ready
-        self.assertRaises(AttributeError, lambda: z.result)
+        self.assertRaises(redpipe.ResultNotReady, lambda: z.result)
         p.execute()
 
         self.assertEqual(z.result, [b'a', b'b', b'c'])
@@ -109,7 +84,7 @@ class PipelineTestCase(BaseTestCase):
             ref = p.zadd('foo', 1, 'a')
         self.assertEqual(p._callbacks, [])
         self.assertEqual(p._stack, [])
-        self.assertRaises(AttributeError, lambda: ref.result)
+        self.assertRaises(redpipe.ResultNotReady, lambda: ref.result)
         self.assertEqual(self.r.zrange('foo', 0, -1), [])
 
         with redpipe.Pipeline(self.r.pipeline()) as p:
@@ -124,7 +99,7 @@ class PipelineTestCase(BaseTestCase):
         ref = p.zadd('foo', 1, 'a')
         p.reset()
         p.execute()
-        self.assertRaises(AttributeError, lambda: ref.result)
+        self.assertRaises(redpipe.ResultNotReady, lambda: ref.result)
 
 
 class NestedPipelineTestCase(BaseTestCase):
@@ -133,7 +108,7 @@ class NestedPipelineTestCase(BaseTestCase):
         nested_pipe = redpipe.NestedPipeline(pipe)
         ref = nested_pipe.zadd('foo', 1, 'a')
         nested_pipe.execute()
-        self.assertRaises(AttributeError, lambda: ref.result)
+        self.assertRaises(redpipe.ResultNotReady, lambda: ref.result)
         pipe.execute()
         self.assertEqual(ref.result, 1)
 
@@ -149,7 +124,7 @@ class NestedPipelineTestCase(BaseTestCase):
             p.on_execute(cb)
             p.execute()
         self.assertEqual(data, [])
-        self.assertRaises(AttributeError, lambda: ref.result)
+        self.assertRaises(redpipe.ResultNotReady, lambda: ref.result)
         self.assertEqual(self.r.zrange('foo', 0, -1), [])
         parent_pipe.execute()
 
@@ -404,7 +379,7 @@ class StringTestCase(BaseTestCase):
             f.delete()
             exists = f.exists()
             after = f.get()
-            self.assertRaises(AttributeError, lambda: before.result)
+            self.assertRaises(redpipe.ResultNotReady, lambda: before.result)
         self.assertEqual(before.result, b'2')
         self.assertEqual(after.result, None)
         self.assertAlmostEqual(ttl.result, 3, delta=1)
@@ -526,7 +501,7 @@ class SortedSetTestCase(BaseTestCase):
                 lambda: c.zadd('4', 4, xx=True, nx=True))
             c.delete()
             zrange = c.zrange(0, -1)
-            self.assertRaises(AttributeError, lambda: members.result)
+            self.assertRaises(redpipe.ResultNotReady, lambda: members.result)
         self.assertEqual(add.result, 1)
         self.assertEqual(zaddincr.result, 5)
         self.assertEqual(zscore_after_incr.result, 5)

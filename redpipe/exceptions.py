@@ -1,5 +1,6 @@
 __all__ = [
     'Error',
+    'ResultNotReady',
     'InvalidOperation',
     'InvalidFieldValue',
     'FieldError',
@@ -9,7 +10,13 @@ __all__ = [
 
 
 class Error(Exception):
-    """Base class for all ORM-related errors"""
+    """Base class for all redpipe errors"""
+
+
+class ResultNotReady(Error):
+    """
+    Raised when you access a data from a DeferredResult before it is assigned.
+    """
 
 
 class InvalidOperation(Error):

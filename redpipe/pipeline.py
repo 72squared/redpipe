@@ -2,6 +2,11 @@ import functools
 from .result import DeferredResult
 from .connection import resolve_connection_name
 
+__all__ = [
+    'Pipeline',
+    'NestedPipeline'
+]
+
 
 class Pipeline(object):
     """
@@ -147,7 +152,7 @@ class NestedPipeline(object):
 
         def build(res, ref):
             def cb():
-                ref.result = res.result
+                ref.set(res.result)
 
             self._pipe.on_execute(cb)
 
