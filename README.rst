@@ -131,9 +131,80 @@ The pipeline context knows how to nest these operations.
 As each child context completes it passes its commands and callbacks up a level.
 The top pipeline context executes the functions and callbacks, creating the final result.
 
+Multiple Connections
+--------------------
+So far the examples I've shown have assumed only one connection to `Redis`.
+But what if you need to talk to multiple backends?
+*RedPipe* allows you to set up different connections and then refer to them:
 
-Lightweight ORM
----------------
+.. code:: python
+
+    redpipe.connect(redis.StrictRedis(port=6379), name='users')
+    redpipe.connect(redis.StrictRedis(port=6380), name='messages')
+    with redpipe.PipelineContext(name='users') as users:
+        users.hset('u{1}', 'name', 'joe')
+
+    with redpipe.PipelineContext(name='messages') as messages:
+        messages.hset('m{1}', 'body', 'hi there')
+
+
+Redis Cluster Support
+---------------------
+RedPipe supports Redis Cluster.
+
+.. code:: python
+
+    import rediscluster
+    import redpipe
+    redpipe.connect_redis_pipeline(rediscluster.StrictRedisCluster().pipeline)
+
+This interface is still a little rough.
+I hope to get better patterns around this soon.
+
+
+Working with Keyspaces
+----------------------
+Usually when working with *Redis*, people will group a collection of keys that are similar under a namespace.
+They use a key pattern with a prefix and curly braces around the unique identifier for that record.
+For example, for users 1 and 2, I might have keys `U{1}` and `U{2}`.
+*RedPipe* gives you a way to easily manipulate these keyspaces.
+Here's an example of a sorted set:
+
+.. code:: python
+
+    class Followers(redpipe.SortedSet):
+        _namespace = 'F'
+        _db = 'default'
+
+    with redpipe.PipelineContext('default') as pipe:
+        f1 = Followers('1', pipe=pipe)
+        f2 = Followers('2', pipe=pipe)
+        f1.zadd('a', score=1)
+        f2.zadd('a', score=2)
+        f1_members = f1.zrange(0, -1)
+        f2_members = f2.zrange(0, -1)
+    print(f1_members.result)
+    print(f2_members.result)
+
+All of the sorted set functions are exposed on the Followers class.
+In a similar way, we support the other *Redis* primitives:
+
+    * strings
+    * sets
+    * lists
+    * hashes
+    * sorted sets
+
+
+
+
+
+Models
+------
+It is convenient to store records of data in Hashes in redis.
+But hashes only represent string key-value pairs.
+We need a way to type-cast variables in Redis hash fields.
+That's where `redpipe.Model` comes in.
 
 .. code:: python
 
