@@ -114,7 +114,7 @@ Let me show you what I mean:
 
     def increment_keys(keys, pipe=None):
         ref = redpipe.DeferredResult()
-        with redpipe.Context(pipe) as pipe:
+        with redpipe.PipelineContext(pipe) as pipe:
             results = [pipe.incr(key) for key in keys]
             def cb():
                 ref.set(sum([r.result for r in results]))
@@ -187,13 +187,14 @@ Here's an example of a sorted set:
         _keyspace = 'F'
         _context = 'default'
 
-    with redpipe.PipelineContext('default') as pipe:
+    with redpipe.PipelineContext(name='default') as pipe:
         f1 = Followers('1', pipe=pipe)
         f2 = Followers('2', pipe=pipe)
         f1.zadd('a', score=1)
         f2.zadd('a', score=2)
         f1_members = f1.zrange(0, -1)
         f2_members = f2.zrange(0, -1)
+
     print(f1_members.result)
     print(f2_members.result)
 
