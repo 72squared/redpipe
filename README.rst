@@ -41,11 +41,18 @@ Use the standard `redis-py <https://redis-py.readthedocs.io/en/latest/#>`_ clien
     client = redis.Redis()
     redpipe.connect_redis(client)
 
+You only need to do this setup once during application bootstrapping.
+
 This example just sets one connection up as a default, since that is the most common case.
 But you can connect multiple redis connections to *RedPipe*.
+You can use `redis.StrictRedis` if you want too.
+It doesn't matter.
+Whatever you use normally in your application.
+The goal is to reuse your application's existing redis connection.
+RedPipe can be used to do everything in your application or you can just use it in certain spots.
+
 More on this later.
 
-You only need to do this setup once during application bootstrapping.
 
 Getting Started
 ---------------

@@ -1,5 +1,5 @@
 from redis.client import StrictPipeline
-from .exceptions import AlreadyConnected, NotConfigured
+from .exceptions import AlreadyConnected, InvalidPipeline
 
 __all__ = [
     'ConnectionManager',
@@ -31,15 +31,7 @@ class ConnectionManager(object):
         try:
             return self.connections[name]()
         except KeyError:
-            raise NotConfigured('%s is not configured' % name)
-
-    def fetch(self, names=None):
-        if names is None:
-            names = self.connections.keys()
-        else:
-            names = [n for n in names]
-
-        return {n: c() for n, c in self.connections.items() if n in names}
+            raise InvalidPipeline('%s is not configured' % name)
 
     def connect(self, pipeline_method, name=None):
         """
@@ -54,7 +46,7 @@ class ConnectionManager(object):
         try:
             if self.get(name).connection_pool != new_pool:
                 raise AlreadyConnected("can't change connection for %s" % name)
-        except NotConfigured:
+        except InvalidPipeline:
             pass
 
         self.connections[name] = pipeline_method

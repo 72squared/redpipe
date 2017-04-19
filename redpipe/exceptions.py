@@ -44,14 +44,7 @@ class AlreadyConnected(Error):
     """
 
 
-class NotConfigured(Error):
-    """
-    raised when you try to use a connection that isn't configured.
-    """
-
-
 class InvalidPipeline(Error):
     """
-    raised when you pass in a pipeline into context that doesn't
-    have the same name.
+    raised when you try to use a pipeline that isn't configured correctly.
     """

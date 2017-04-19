@@ -5,10 +5,9 @@ from .exceptions import InvalidPipeline
 from .async import promise, wait
 __all__ = [
     'pipeline',
-    'multi_pipeline',
     'Pipeline',
     'NestedPipeline',
-    'MultiPipeline'
+    'SuperPipeline'
 ]
 
 
@@ -28,8 +27,8 @@ class Pipeline(object):
         pass in the redispy client pipeline object.
         :param pipe: redis.StrictRedis.pipeline() or redis.Redis.pipeline()
         """
-        self.connection_name = resolve_connection_name(name)
-        self._pipe = pipe or connector.get(self.connection_name)
+        self.connection_name = name
+        self._pipe = pipe
         self._stack = []
         self._callbacks = []
         self.auto = autocommit
@@ -43,6 +42,9 @@ class Pipeline(object):
         """
         # get the original attribute from the client.
         # this could be a class method, or an instance attribute.
+        if self._pipe is None:
+            raise InvalidPipeline('not configured')
+
         f = getattr(self._pipe, item)
 
         # if it is just an attribute, return it.
@@ -110,16 +112,17 @@ class Pipeline(object):
             if exc_type is None and self.auto:
                 self.execute()
         finally:
-            self._pipe.__exit__(exc_type, exc_val, exc_tb)
-            self._stack = []
-            self._callbacks = []
+            if self._pipe is not None:
+                self._pipe.__exit__(exc_type, exc_val, exc_tb)
+            self.reset()
 
     def reset(self):
         """
         cleanup method. get rid of the stack and callbacks.
         :return:
         """
-        self._pipe.reset()
+        if self._pipe is not None:
+            self._pipe.reset()
         self._stack = []
         self._callbacks = []
 
@@ -136,7 +139,7 @@ class NestedPipeline(object):
     __slots__ = ['connection_name', '_pipe', '_stack', '_callbacks', 'auto']
 
     def __init__(self, pipe, name=None, autocommit=False):
-        self.connection_name = resolve_connection_name(name)
+        self.connection_name = name
         self._pipe = pipe
         self._stack = []
         self._callbacks = []
@@ -191,59 +194,46 @@ class NestedPipeline(object):
             self.reset()
 
 
-class MultiPipeline(object):
-    __slots__ = ['multi_pipelines', '_callbacks', 'auto']
+class SuperPipeline(Pipeline):
+    __slots__ = ['pipelines', '_pipe']
 
-    def __init__(self, names=None, autocommit=False):
-        conns = connector.fetch(names)
-        self.multi_pipelines = [Pipeline(conn, name)
-                                for name, conn in conns.items()]
-        self._callbacks = []
-        self.auto = autocommit
+    def __init__(self, autocommit=False):
+        try:
+            pipe = connector.get()
+        except InvalidPipeline:
+            pipe = None
+        super(SuperPipeline, self).__init__(pipe=pipe, autocommit=autocommit)
+        self.pipelines = {n: Pipeline(c(), name=n)
+                          for n, c in connector.connections.items()}
 
     def reset(self):
-        self.multi_pipelines = []
-        self._callbacks = []
+        super(SuperPipeline, self).reset()
+        for c in self.pipelines.values():
+            c.reset()
 
     def execute(self, raise_on_error=True):
-        pipelines = self.multi_pipelines
-        callbacks = self._callbacks
-        self.reset()
+
+        pipelines = self.pipelines
         promises = [promise(pipe.execute, raise_on_error=raise_on_error)
-                    for pipe in pipelines]
+                    for pipe in pipelines.values()]
         wait(*promises)
 
-        for cb in callbacks:
-            cb()
-
-    def on_execute(self, callback):
-        self._callbacks.append(callback)
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        try:
-            if exc_type is None and self.auto:
-                self.execute()
-        finally:
-            self.reset()
-
-
-def multi_pipeline(names=None, autocommit=False):
-    return MultiPipeline(names=names, autocommit=autocommit)
+        super(SuperPipeline, self).execute(raise_on_error=raise_on_error)
 
 
 def pipeline(pipe=None, name=None, autocommit=False):
+    if pipe is None and name is None:
+        return SuperPipeline(autocommit=autocommit)
+
     name = resolve_connection_name(name)
     if pipe is None:
         return Pipeline(connector.get(name), name, autocommit=autocommit)
 
     try:
-        for p in pipe.multi_pipelines:
-            if p.connection_name == name:
-                return NestedPipeline(p, name, autocommit=autocommit)
-    except AttributeError:
+        # SuperPipeline object
+        pipe = pipe.pipelines[name]
+        return NestedPipeline(pipe, name, autocommit=autocommit)
+    except (AttributeError, KeyError):
         pass
 
     try:

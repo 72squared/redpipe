@@ -352,12 +352,15 @@ class ConnectTestCase(unittest.TestCase):
 
     def test_multi(self):
 
-        redpipe.connect_redis(redislite.StrictRedis(), name='a')
-        redpipe.connect_redis(redislite.StrictRedis(), name='b')
+        a_conn = redislite.StrictRedis()
+        b_conn = redislite.StrictRedis()
+        redpipe.connect_redis(a_conn)
+        redpipe.connect_redis(a_conn, name='a')
+        redpipe.connect_redis(b_conn, name='b')
 
         key = 'foo'
         verify_callback = []
-        with redpipe.multi_pipeline() as pipe:
+        with redpipe.pipeline() as pipe:
             a = self.incr_a(key, pipe)
             b = self.incr_b(key, pipe)
 
@@ -373,7 +376,7 @@ class ConnectTestCase(unittest.TestCase):
 
         # test failure
         try:
-            with redpipe.multi_pipeline(autocommit=True) as pipe:
+            with redpipe.pipeline(autocommit=True) as pipe:
                 a = self.incr_a(key, pipe)
                 raise Exception('boo')
         except Exception:
@@ -383,12 +386,15 @@ class ConnectTestCase(unittest.TestCase):
 
     def test_multi_auto(self):
 
-        redpipe.connect_redis(redislite.StrictRedis(), name='a')
-        redpipe.connect_redis(redislite.StrictRedis(), name='b')
+        a_conn = redislite.StrictRedis()
+        b_conn = redislite.StrictRedis()
+        redpipe.connect_redis(a_conn)
+        redpipe.connect_redis(a_conn, name='a')
+        redpipe.connect_redis(b_conn, name='b')
 
         key = 'foo'
         verify_callback = []
-        with redpipe.multi_pipeline(autocommit=True) as pipe:
+        with redpipe.pipeline(autocommit=True) as pipe:
             a = self.incr_a(key, pipe)
             b = self.incr_b(key, pipe)
 
@@ -402,13 +408,15 @@ class ConnectTestCase(unittest.TestCase):
         self.assertEqual(verify_callback, [1])
 
     def test_multi_invalid_connection(self):
-
-        redpipe.connect_redis(redislite.StrictRedis(), name='a')
-        redpipe.connect_redis(redislite.StrictRedis(port=987654321), name='b')
+        a_conn = redislite.StrictRedis()
+        b_conn = redislite.StrictRedis(port=987654321)
+        redpipe.connect_redis(a_conn)
+        redpipe.connect_redis(a_conn, name='a')
+        redpipe.connect_redis(b_conn, name='b')
 
         key = 'foo'
         verify_callback = []
-        with redpipe.multi_pipeline() as pipe:
+        with redpipe.pipeline() as pipe:
             b = self.incr_b(key, pipe)
             a = self.incr_a(key, pipe)
 
@@ -426,8 +434,11 @@ class ConnectTestCase(unittest.TestCase):
         self.assertEqual(verify_callback, [])
 
     def test_pipeline_invalid_name(self):
-        redpipe.connect_redis(redislite.StrictRedis(), name='a')
-        redpipe.connect_redis(redislite.StrictRedis(), name='b')
+        a_conn = redislite.StrictRedis()
+        b_conn = redislite.StrictRedis()
+        redpipe.connect_redis(a_conn)
+        redpipe.connect_redis(a_conn, name='a')
+        redpipe.connect_redis(b_conn, name='b')
 
         def do_invalid():
             with redpipe.pipeline(name='b') as pipe:
@@ -436,49 +447,35 @@ class ConnectTestCase(unittest.TestCase):
         self.assertRaises(redpipe.InvalidPipeline, do_invalid)
 
     def test_pipeline_invalid_object(self):
-        redpipe.connect_redis(redislite.StrictRedis(), name='a')
-        redpipe.connect_redis(redislite.StrictRedis(), name='b')
+        a_conn = redislite.StrictRedis()
+        b_conn = redislite.StrictRedis()
+        redpipe.connect_redis(a_conn)
+        redpipe.connect_redis(a_conn, name='a')
+        redpipe.connect_redis(b_conn, name='b')
 
         def do_invalid():
             self.incr_a(key='foo', pipe='invalid')
 
         self.assertRaises(redpipe.InvalidPipeline, do_invalid)
 
-    def test_multi_pipeline_specific(self):
-        redpipe.connect_redis(redislite.StrictRedis(), name='a')
-        redpipe.connect_redis(redislite.StrictRedis(), name='b')
+    def test_unconfigured_pipeline(self):
 
-        key = 'foo'
-        verify_callback = []
-        with redpipe.multi_pipeline(names=['a', 'b'], autocommit=True) as pipe:
-            a = self.incr_a(key, pipe)
-            b = self.incr_b(key, pipe)
+        def a_invalid():
+            self.incr_a(key='foo')
 
+        callbacks = []
+
+        self.assertRaises(redpipe.InvalidPipeline, a_invalid)
+        with redpipe.pipeline(autocommit=1) as pipe:
             def cb():
-                verify_callback.append(1)
+                callbacks.append(1)
+
+            self.assertRaises(
+                redpipe.InvalidPipeline, lambda: pipe.incr('foo'))
 
             pipe.on_execute(cb)
 
-        self.assertEqual(a.result, 1)
-        self.assertEqual(b.result, 1)
-        self.assertEqual(verify_callback, [1])
-
-        verify_callback = []
-        results = {}
-
-        def blow_up():
-            with redpipe.multi_pipeline(names=['a'], autocommit=True) as pipe:
-                results['a'] = self.incr_a(key, pipe)
-                results['b'] = self.incr_b(key, pipe)
-
-                def cb():
-                    verify_callback.append(1)
-
-                pipe.on_execute(cb)
-        self.assertRaises(redpipe.InvalidPipeline, blow_up)
-        self.assertEqual({k for k in results.keys()}, {'a'})
-        self.assertRaises(redpipe.ResultNotReady, lambda: results['a'].result)
-        self.assertEqual(verify_callback, [])
+        self.assertEqual(callbacks, [1])
 
 
 class StringTestCase(BaseTestCase):
