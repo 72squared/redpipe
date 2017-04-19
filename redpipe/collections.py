@@ -1,4 +1,4 @@
-from .context import PipelineContext
+from .pipeline import pipeline
 from .lua import lua_restorenx, lua_object_info
 from .exceptions import InvalidOperation
 
@@ -19,7 +19,7 @@ class Collection(object):
     __slots__ = ['key', '_pipe']
 
     _keyspace = None
-    _context = None
+    _connection = None
 
     def __init__(self, key, pipe=None):
         """
@@ -32,7 +32,7 @@ class Collection(object):
         all keys in the namespace.
 
         :param key: str The name of your key.
-        :param pipe: optional Pipeline or PipelineContext
+        :param pipe: optional Pipeline or NestedPipeline
         """
         self.key = key
         self._pipe = pipe
@@ -50,10 +50,10 @@ class Collection(object):
     @property
     def pipe(self):
         """
-        Get a fresh PipelineContext to be used in a `with` block.
-        :return: PipelineContext()
+        Get a fresh pipeline() to be used in a `with` block.
+        :return: pipeline(autocommit=True)
         """
-        return PipelineContext(self._pipe, name=self._context)
+        return pipeline(self._pipe, name=self._connection, autocommit=True)
 
     def delete(self):
         """

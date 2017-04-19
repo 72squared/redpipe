@@ -1,5 +1,5 @@
 from six import add_metaclass
-from .context import PipelineContext
+from .pipeline import pipeline
 from .fields import TextField
 from .exceptions import InvalidFieldValue
 from .collections import Hash
@@ -13,8 +13,8 @@ class ModelMeta(type):
             return type.__new__(mcs, name, bases, d)
 
         class ModelHash(Hash):
-            _keyspace = d.get('_keyspace', None)
-            _context = d.get('_context', None)
+            _keyspace = d.get('_keyspace', name)
+            _connection = d.get('_connection', None)
 
         d['core'] = ModelHash
 
@@ -27,20 +27,20 @@ class Model(object):
     __metaclass__ = ModelMeta
     __slots__ = ['key', '_data']
     _keyspace = None
-    _context = None
+    _connection = None
     _fields = {}
 
     def __init__(self, key, pipe=None, **kwargs):
         self.key = key
         self._data = {}
-        with PipelineContext(pipe, name=self._context) as pipe:
+        with pipeline(pipe, name=self._connection, autocommit=True) as pipe:
             if kwargs:
                 self.save(pipe=pipe, **kwargs)
 
             self.load(pipe=pipe)
 
     def load(self, pipe=None):
-        with PipelineContext(pipe, name=self._context) as pipe:
+        with pipeline(pipe, name=self._connection, autocommit=True) as pipe:
             ref = self.core(self.key, pipe=pipe).hgetall()
 
             def cb():
@@ -59,7 +59,7 @@ class Model(object):
             pipe.on_execute(cb)
 
     def save(self, pipe=None, **changes):
-        with PipelineContext(pipe, name=self._context) as pipe:
+        with pipeline(pipe, name=self._connection, autocommit=True) as pipe:
             core = self.core(self.key, pipe=pipe)
 
             def build(k, v):
@@ -88,7 +88,7 @@ class Model(object):
         return True if self._data else False
 
     def delete(self, pipe=None):
-        with PipelineContext(pipe, name=self._context) as pipe:
+        with pipeline(pipe, name=self._connection, autocommit=True) as pipe:
             self.core(self.key, pipe=pipe).delete()
 
             def cb():

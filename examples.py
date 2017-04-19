@@ -1,7 +1,7 @@
 import redislite
 import time
 import redpipe
-from redpipe import Model, PipelineContext, \
+from redpipe import Model, pipeline, \
     TextField, BooleanField, IntegerField, \
     connect_redis
 
@@ -85,7 +85,7 @@ if __name__ == '__main__':
 
     user.save(admin=True)
 
-    with PipelineContext() as pipe:
+    with pipeline(autocommit=True) as pipe:
         users = [User('1', pipe=pipe), User('2', pipe=pipe)]
 
         print("list of users before execute: %s" % users)
@@ -98,7 +98,7 @@ if __name__ == '__main__':
     user.delete()
     print("user 1 after delete: %s" % dict(user))
 
-    with PipelineContext() as pipe:
+    with pipeline(autocommit=True) as pipe:
 
         # create a bunch of test users
         users = [test_user(k, pipe=pipe) for k in range(1, 3)]
@@ -132,8 +132,8 @@ if __name__ == '__main__':
     print("followers: %s" % result)
 
     # example of talking to two databases.
-    with PipelineContext() as primary:
-        with PipelineContext(name='alt') as alt:
+    with pipeline(autocommit=True) as primary:
+        with pipeline(name='alt', autocommit=True) as alt:
             key = '123'
             first = primary.incr(key)
             second = alt.incr(key)

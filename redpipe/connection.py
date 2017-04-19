@@ -33,6 +33,14 @@ class ConnectionManager(object):
         except KeyError:
             raise NotConfigured('%s is not configured' % name)
 
+    def fetch(self, names=None):
+        if names is None:
+            names = self.connections.keys()
+        else:
+            names = [n for n in names]
+
+        return {n: c() for n, c in self.connections.items() if n in names}
+
     def connect(self, pipeline_method, name=None):
         """
         Low level logic to bind a callable method to a name.

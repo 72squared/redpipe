@@ -16,7 +16,7 @@ class BaseTestCase(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.r = None
-        redpipe.disconnect()
+        redpipe.reset()
 
     def setUp(self):
         self.r.flushall()
@@ -144,7 +144,7 @@ class StringCollectionTestCase(BaseTestCase):
     def test(self):
         class Foo(redpipe.String):
             namespace = 'F'
-        with redpipe.PipelineContext() as pipe:
+        with redpipe.pipeline(autocommit=True) as pipe:
             f = Foo('1', pipe=pipe)
             set_ref = f.set('bar')
             get_ref = f.get()
@@ -251,7 +251,7 @@ class ModelTestCase(BaseTestCase):
 
     def test_pipeline(self):
         user_ids = ["%s" % i for i in range(1, 3)]
-        with redpipe.PipelineContext() as pipe:
+        with redpipe.pipeline(autocommit=True) as pipe:
             users = [self.create_user(i, pipe=pipe, a=None, b='123')
                      for i in user_ids]
             self.assertEqual(
@@ -312,60 +312,173 @@ class ModelTestCase(BaseTestCase):
 
 
 class ConnectTestCase(unittest.TestCase):
+    def tearDown(self):
+        redpipe.reset()
+
+    def incr_a(self, key, pipe=None):
+        with redpipe.pipeline(pipe, name='a', autocommit=True) as pipe:
+            return pipe.incr(key)
+
+    def incr_b(self, key, pipe=None):
+        with redpipe.pipeline(pipe, name='b', autocommit=True) as pipe:
+            return pipe.incr(key)
 
     def test(self):
-        try:
-            r = redislite.StrictRedis()
-            redpipe.connect_redis(r)
-            redpipe.connect_redis(r)
-            self.assertRaises(
-                redpipe.AlreadyConnected,
-                lambda: redpipe.connect_redis(redislite.StrictRedis()))
-            redpipe.disconnect()
-            redpipe.connect_redis(redislite.StrictRedis())
 
-            # tear down the connection
-            redpipe.disconnect()
+        r = redislite.StrictRedis()
+        redpipe.connect_redis(r)
+        redpipe.connect_redis(r)
+        self.assertRaises(
+            redpipe.AlreadyConnected,
+            lambda: redpipe.connect_redis(redislite.StrictRedis()))
+        redpipe.disconnect()
+        redpipe.connect_redis(redislite.StrictRedis())
 
-            # calling it multiple times doesn't hurt anything
-            redpipe.disconnect()
+        # tear down the connection
+        redpipe.disconnect()
 
-            redpipe.connect_redis(r)
-            redpipe.connect_redis(
-                redis.Redis(connection_pool=r.connection_pool))
-            redpipe.connect(r.pipeline)
+        # calling it multiple times doesn't hurt anything
+        redpipe.disconnect()
 
-            self.assertRaises(
-                redpipe.AlreadyConnected,
-                lambda: redpipe.connect_redis(
-                    redislite.StrictRedis()))
-        finally:
-            redpipe.reset()
+        redpipe.connect_redis(r)
+        redpipe.connect_redis(
+            redis.Redis(connection_pool=r.connection_pool))
+        redpipe.connect(r.pipeline)
+
+        self.assertRaises(
+            redpipe.AlreadyConnected,
+            lambda: redpipe.connect_redis(
+                redislite.StrictRedis()))
 
     def test_multi(self):
-        try:
-            redpipe.connect_redis(redislite.StrictRedis(), name='a')
-            redpipe.connect_redis(redislite.StrictRedis(), name='b')
-            with redpipe.PipelineContext(name='a') as a:
-                with redpipe.PipelineContext(name='b') as b:
-                    with redpipe.PipelineContext([a, b], name='b') as bb:
-                        bbres = bb.set('foo', 'bar')
-                    bres = b.get('foo')
 
-                    self.assertRaises(
-                        redpipe.InvalidPipeline,
-                        lambda: redpipe.PipelineContext(a, name='b')
-                    )
-                    self.assertRaises(
-                        redpipe.InvalidPipeline,
-                        lambda: redpipe.PipelineContext(dict())
-                    )
-                ares = a.get('foo')
-            self.assertEqual(bres.result, b'bar')
-            self.assertEqual(bbres.result, True)
-            self.assertIsNone(ares.result)
-        finally:
-            redpipe.reset()
+        redpipe.connect_redis(redislite.StrictRedis(), name='a')
+        redpipe.connect_redis(redislite.StrictRedis(), name='b')
+
+        key = 'foo'
+        verify_callback = []
+        with redpipe.multi_pipeline() as pipe:
+            a = self.incr_a(key, pipe)
+            b = self.incr_b(key, pipe)
+
+            def cb():
+                verify_callback.append(1)
+
+            pipe.on_execute(cb)
+            pipe.execute()
+
+        self.assertEqual(a.result, 1)
+        self.assertEqual(b.result, 1)
+        self.assertEqual(verify_callback, [1])
+
+        # test failure
+        try:
+            with redpipe.multi_pipeline(autocommit=True) as pipe:
+                a = self.incr_a(key, pipe)
+                raise Exception('boo')
+        except Exception:
+            pass
+
+        self.assertRaises(redpipe.ResultNotReady, lambda: a.result)
+
+    def test_multi_auto(self):
+
+        redpipe.connect_redis(redislite.StrictRedis(), name='a')
+        redpipe.connect_redis(redislite.StrictRedis(), name='b')
+
+        key = 'foo'
+        verify_callback = []
+        with redpipe.multi_pipeline(autocommit=True) as pipe:
+            a = self.incr_a(key, pipe)
+            b = self.incr_b(key, pipe)
+
+            def cb():
+                verify_callback.append(1)
+
+            pipe.on_execute(cb)
+
+        self.assertEqual(a.result, 1)
+        self.assertEqual(b.result, 1)
+        self.assertEqual(verify_callback, [1])
+
+    def test_multi_invalid_connection(self):
+
+        redpipe.connect_redis(redislite.StrictRedis(), name='a')
+        redpipe.connect_redis(redislite.StrictRedis(port=987654321), name='b')
+
+        key = 'foo'
+        verify_callback = []
+        with redpipe.multi_pipeline() as pipe:
+            b = self.incr_b(key, pipe)
+            a = self.incr_a(key, pipe)
+
+            def cb():
+                verify_callback.append(1)
+
+            pipe.on_execute(cb)
+            self.assertRaises(redis.ConnectionError, pipe.execute)
+
+        # you can see here that it's not a 2-phase commit.
+        # the goal is not tranactional integrity.
+        # it is parallel execution of network tasks.
+        self.assertEqual(a.result, 1)
+        self.assertRaises(redpipe.ResultNotReady, lambda: b.result)
+        self.assertEqual(verify_callback, [])
+
+    def test_pipeline_invalid_name(self):
+        redpipe.connect_redis(redislite.StrictRedis(), name='a')
+        redpipe.connect_redis(redislite.StrictRedis(), name='b')
+
+        def do_invalid():
+            with redpipe.pipeline(name='b') as pipe:
+                self.incr_a(key='foo', pipe=pipe)
+
+        self.assertRaises(redpipe.InvalidPipeline, do_invalid)
+
+    def test_pipeline_invalid_object(self):
+        redpipe.connect_redis(redislite.StrictRedis(), name='a')
+        redpipe.connect_redis(redislite.StrictRedis(), name='b')
+
+        def do_invalid():
+            self.incr_a(key='foo', pipe='invalid')
+
+        self.assertRaises(redpipe.InvalidPipeline, do_invalid)
+
+    def test_multi_pipeline_specific(self):
+        redpipe.connect_redis(redislite.StrictRedis(), name='a')
+        redpipe.connect_redis(redislite.StrictRedis(), name='b')
+
+        key = 'foo'
+        verify_callback = []
+        with redpipe.multi_pipeline(names=['a', 'b'], autocommit=True) as pipe:
+            a = self.incr_a(key, pipe)
+            b = self.incr_b(key, pipe)
+
+            def cb():
+                verify_callback.append(1)
+
+            pipe.on_execute(cb)
+
+        self.assertEqual(a.result, 1)
+        self.assertEqual(b.result, 1)
+        self.assertEqual(verify_callback, [1])
+
+        verify_callback = []
+        results = {}
+
+        def blow_up():
+            with redpipe.multi_pipeline(names=['a'], autocommit=True) as pipe:
+                results['a'] = self.incr_a(key, pipe)
+                results['b'] = self.incr_b(key, pipe)
+
+                def cb():
+                    verify_callback.append(1)
+
+                pipe.on_execute(cb)
+        self.assertRaises(redpipe.InvalidPipeline, blow_up)
+        self.assertEqual({k for k in results.keys()}, {'a'})
+        self.assertRaises(redpipe.ResultNotReady, lambda: results['a'].result)
+        self.assertEqual(verify_callback, [])
 
 
 class StringTestCase(BaseTestCase):
@@ -373,7 +486,7 @@ class StringTestCase(BaseTestCase):
         _keyspace = 'STRING'
 
     def test(self):
-        with redpipe.PipelineContext() as pipe:
+        with redpipe.pipeline(autocommit=True) as pipe:
             f = self.Flag('1', pipe=pipe)
             f.set('2')
             before = f.get()
@@ -391,7 +504,7 @@ class StringTestCase(BaseTestCase):
         self.assertIsNotNone(serialize.result)
         self.assertFalse(exists.result)
 
-        with redpipe.PipelineContext() as pipe:
+        with redpipe.pipeline(autocommit=True) as pipe:
             f = self.Flag('2', pipe=pipe)
             restore = f.restore(serialize.result)
             ref = f.get()
@@ -419,7 +532,7 @@ class SetTestCase(BaseTestCase):
         _keyspace = 'SET'
 
     def test(self):
-        with redpipe.PipelineContext() as pipe:
+        with redpipe.pipeline(autocommit=True) as pipe:
             c = self.Col('1', pipe=pipe)
             sadd = c.sadd(['a', 'b', 'c'])
             saddnx = c.sadd('a')
@@ -448,7 +561,7 @@ class ListTestCase(BaseTestCase):
         _keyspace = 'LIST'
 
     def test(self):
-        with redpipe.PipelineContext() as pipe:
+        with redpipe.pipeline(autocommit=True) as pipe:
             c = self.Col('1', pipe=pipe)
             lpush = c.lpush('a', 'b', 'c', 'd')
             members = c.members()
@@ -484,7 +597,7 @@ class SortedSetTestCase(BaseTestCase):
         _keyspace = 'SORTEDSET'
 
     def test(self):
-        with redpipe.PipelineContext() as pipe:
+        with redpipe.pipeline(autocommit=True) as pipe:
             c = self.Collection('1', pipe=pipe)
             c.add('2', 2)
             c.add('3', 3)
@@ -522,8 +635,8 @@ class SortedSetTestCase(BaseTestCase):
         self.assertEqual(zrevrank.result, 0)
         self.assertEqual(zrevrange.result, [b'5', b'4'])
 
-        with redpipe.PipelineContext() as pipe:
-            c = self.Collection('1')
+        with redpipe.pipeline(autocommit=True) as pipe:
+            c = self.Collection('1', pipe=pipe)
             c.zadd('a', 1)
             c.zadd('b', 2)
             zrangebyscore = c.zrangebyscore(0, 10, start=0, num=1)
@@ -546,7 +659,7 @@ class HashTestCase(BaseTestCase):
         _keyspace = 'HASH'
 
     def test(self):
-        with redpipe.PipelineContext() as pipe:
+        with redpipe.pipeline(autocommit=True) as pipe:
             c = self.Collection('1', pipe=pipe)
             hset = c.hset('a', '1')
             hmset = c.hmset({'b': '2', 'c': '3', 'd': '4'})
