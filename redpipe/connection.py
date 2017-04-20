@@ -13,7 +13,7 @@ __all__ = [
 CONNECTION_DEFAULT_NAME = 'default'
 
 
-def resolve_connection_name(name):
+def resolve_connection_name(name=None):
     return CONNECTION_DEFAULT_NAME if name is None else name
 
 
@@ -25,6 +25,10 @@ class ConnectionManager(object):
 
     def __init__(self):
         self.connections = {}
+
+    def has_single_default_connection(self):
+        return True if len(self.connections) == 1 and \
+            self.connections.get(CONNECTION_DEFAULT_NAME) else False
 
     def get(self, name=None):
         name = resolve_connection_name(name)
@@ -67,6 +71,9 @@ class ConnectionManager(object):
         """
         connection_pool = redis_client.connection_pool
         response_callbacks = redis_client.response_callbacks
+
+        if connection_pool.connection_kwargs.get('decode_responses', False):
+            raise InvalidPipeline('decode_responses set to True')
 
         def pipeline_method():
             """

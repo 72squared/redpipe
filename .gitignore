@@ -6,5 +6,5 @@
 /build
 /*.egg-info
 /dist
-
+/docs/_*
 

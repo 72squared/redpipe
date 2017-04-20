@@ -213,11 +213,10 @@ class SuperPipeline(Pipeline):
 
     def execute(self, raise_on_error=True):
 
-        pipelines = self.pipelines
         promises = [promise(pipe.execute, raise_on_error=raise_on_error)
-                    for pipe in pipelines.values()]
-        wait(*promises)
+                    for pipe in self.pipelines.values()]
 
+        wait(*promises)
         super(SuperPipeline, self).execute(raise_on_error=raise_on_error)
 
 

@@ -18,15 +18,16 @@ ext_modules = []
 setup(
     name=NAME,
     version=version,
-    description='Make Redis pipelines easier to use',
+    description='Easy Redis pipelines',
     author='John Loehrer',
     author_email='72squared@gmail.com',
     url='https://github.com/72squared/%s' % NAME,
     download_url='https://github.com/72squared/%s/archive/%s.tar.gz' %
                  (NAME, version),
+    keywords='redis redis-pipeline orm database',
     packages=[NAME],
     classifiers=[
-        'Development Status :: 3 - Alpha',
+        'Development Status :: 4 - Beta',
         'Programming Language :: Python',
         'Programming Language :: Python',
         'Programming Language :: Python :: Implementation :: CPython',
