@@ -49,14 +49,15 @@ You can use `redis.StrictRedis` if you want too.
 It doesn't matter.
 Whatever you use normally in your application.
 The goal is to reuse your application's existing redis connection.
-RedPipe can be used to do everything in your application or you can just use it in certain spots.
+RedPipe can be used to build your entire in your application.
+Or you can use *RedPipe* along side your existing code.
 
 More on this later.
 
 
 Getting Started
 ---------------
-Using redpipe is really easy.
+Using *RedPipe* is really easy.
 We can pipeline multiple calls to redis and assign the results to variables.
 
 
@@ -105,14 +106,14 @@ When running 50 commands against *Redis*, instead of 50 network round trips in s
         # the one network round trip happens here.
         results = pipe.execute()
 
-That's a 50x improvement in application latency.
+That's a **BIG** improvement in application latency.
 And you don't need *RedPipe* to do this. It's built into *redis-py* and almost every other redis client.
-But the results aren't available until you execute the pipeline.
+But here's the catch ... *the results aren't available until after execute the pipeline*.
 
 In the example above, consuming the results on pipe execute is pretty easy.
 All of the results are uniform and predictable from a loop. but what if they aren't?
 
-Here's another example of how pipelining is usually done.
+Here's an example of pipelining heterogenous commands.
 
 .. code:: python
 
@@ -165,7 +166,7 @@ vs.
 
 Although the calls look almost the same, the way you fetch the result is very different.
 
-Bottom line, it's really inconvenient to use pipelines in *python*.
+Bottom line, it's inconvenient to use pipelines in *python*.
 And it is especially inconvenient when trying to create modular and reusable components.
 
 

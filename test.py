@@ -332,9 +332,9 @@ class ConnectTestCase(unittest.TestCase):
 
         self.assertEqual(ref.result, 1)
 
-    @unittest.skip('async disabled')
-    def test_async(self):
-        with mock.patch('redpipe.async.USE_THREADS', True):
+    def disabled_async_test(self):
+        with mock.patch('redpipe.async.Task',
+                        redpipe.tasks.AsynchronousTask):
             self.test_single_nested()
             self.tearDown()
             self.test_pipeline_nested_mismatched_name()
@@ -704,8 +704,7 @@ class HashTestCase(BaseTestCase):
 
 class AsyncTestCase(unittest.TestCase):
 
-    @unittest.skip('not doing async')
-    def test(self):
+    def disabled_test(self):
         def sleeper():
             time.sleep(0.3)
             return 1
