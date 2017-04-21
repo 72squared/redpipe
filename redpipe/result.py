@@ -29,5 +29,6 @@ class DeferredResult(object):
         try:
             return self._result
         except AttributeError:
-            raise ResultNotReady(
-                'Wait until after the pipeline executes.')
+            pass
+
+        raise ResultNotReady('Wait until after the pipeline executes.')

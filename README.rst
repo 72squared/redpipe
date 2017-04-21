@@ -45,7 +45,7 @@ You only need to do this setup once during application bootstrapping.
 
 This example just sets one connection up as a default, since that is the most common case.
 But you can connect multiple redis connections to *RedPipe*.
-You can use `redis.StrictRedis` if you want too.
+You can use `StrictRedis` if you want too.
 It doesn't matter.
 Whatever you use normally in your application.
 The goal is to reuse your application's existing redis connection.
@@ -108,7 +108,7 @@ When running 50 commands against *Redis*, instead of 50 network round trips in s
 
 That's a **BIG** improvement in application latency.
 And you don't need *RedPipe* to do this. It's built into *redis-py* and almost every other redis client.
-But here's the catch ... *the results aren't available until after execute the pipeline*.
+But here's the catch ... *the results aren't available until after you execute the pipeline*.
 
 In the example above, consuming the results on pipe execute is pretty easy.
 All of the results are uniform and predictable from a loop. but what if they aren't?
