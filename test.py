@@ -4,10 +4,12 @@ import unittest
 import redis
 import redislite
 import redpipe
+import mock
+import redpipe.tasks
+import time
 
 
 class BaseTestCase(unittest.TestCase):
-
     @classmethod
     def setUpClass(cls):
         cls.r = redislite.StrictRedis()
@@ -26,9 +28,8 @@ class BaseTestCase(unittest.TestCase):
 
 
 class PipelineTestCase(BaseTestCase):
-
     def test_string(self):
-        p = redpipe.Pipeline(self.r.pipeline())
+        p = redpipe.pipeline()
 
         p.set('foo', b'bar')
         g = p.get('foo')
@@ -40,7 +41,7 @@ class PipelineTestCase(BaseTestCase):
         self.assertEqual(g.result, b'bar')
 
     def test_zset(self):
-        p = redpipe.Pipeline(self.r.pipeline())
+        p = redpipe.pipeline()
 
         p.zadd('foo', 1, 'a')
         p.zadd('foo', 2, 'b')
@@ -54,7 +55,7 @@ class PipelineTestCase(BaseTestCase):
         self.assertEqual(z.result, [b'a', b'b', b'c'])
 
     def test_callback(self):
-        p = redpipe.Pipeline(self.r.pipeline())
+        p = redpipe.pipeline()
         results = {}
 
         def incr(k, v):
@@ -62,6 +63,7 @@ class PipelineTestCase(BaseTestCase):
 
             def cb():
                 results[k] = ref.result
+
             p.on_execute(cb)
 
         incr('foo', 1)
@@ -75,19 +77,15 @@ class PipelineTestCase(BaseTestCase):
             'bazz': 3
         })
 
-    def test_attributes(self):
-        self.assertIsInstance(
-            redpipe.Pipeline(self.r.pipeline()).RESPONSE_CALLBACKS, dict)
-
     def test_reset(self):
-        with redpipe.Pipeline(self.r.pipeline()) as p:
+        with redpipe.pipeline() as p:
             ref = p.zadd('foo', 1, 'a')
         self.assertEqual(p._callbacks, [])
         self.assertEqual(p._stack, [])
         self.assertRaises(redpipe.ResultNotReady, lambda: ref.result)
         self.assertEqual(self.r.zrange('foo', 0, -1), [])
 
-        with redpipe.Pipeline(self.r.pipeline()) as p:
+        with redpipe.pipeline() as p:
             ref = p.zadd('foo', 1, 'a')
             p.execute()
         self.assertEqual(p._callbacks, [])
@@ -95,55 +93,18 @@ class PipelineTestCase(BaseTestCase):
         self.assertEqual(ref.result, 1)
         self.assertEqual(self.r.zrange('foo', 0, -1), [b'a'])
 
-        p = redpipe.Pipeline(self.r.pipeline())
+        p = redpipe.pipeline()
         ref = p.zadd('foo', 1, 'a')
         p.reset()
         p.execute()
         self.assertRaises(redpipe.ResultNotReady, lambda: ref.result)
 
 
-class NestedPipelineTestCase(BaseTestCase):
-    def test(self):
-        pipe = redpipe.Pipeline(self.r.pipeline())
-        nested_pipe = redpipe.NestedPipeline(pipe)
-        ref = nested_pipe.zadd('foo', 1, 'a')
-        nested_pipe.execute()
-        self.assertRaises(redpipe.ResultNotReady, lambda: ref.result)
-        pipe.execute()
-        self.assertEqual(ref.result, 1)
-
-    def test_reset(self):
-        parent_pipe = redpipe.Pipeline(self.r.pipeline())
-        data = []
-        with redpipe.NestedPipeline(parent_pipe) as p:
-            ref = p.zadd('foo', 2, 'b')
-
-            def cb():
-                data.append(ref.result)
-
-            p.on_execute(cb)
-            p.execute()
-        self.assertEqual(data, [])
-        self.assertRaises(redpipe.ResultNotReady, lambda: ref.result)
-        self.assertEqual(self.r.zrange('foo', 0, -1), [])
-        parent_pipe.execute()
-
-        self.assertEqual(p._callbacks, [])
-        self.assertEqual(p._stack, [])
-        self.assertEqual(ref.result, 1)
-        self.assertEqual(data, [1])
-        self.assertEqual(self.r.zrange('foo', 0, -1), [b'b'])
-
-    def test_attributes(self):
-        self.assertIsInstance(
-            redpipe.NestedPipeline(
-                redpipe.Pipeline(self.r.pipeline())).RESPONSE_CALLBACKS, dict)
-
-
 class StringCollectionTestCase(BaseTestCase):
     def test(self):
         class Foo(redpipe.String):
             namespace = 'F'
+
         with redpipe.pipeline(autocommit=True) as pipe:
             f = Foo('1', pipe=pipe)
             set_ref = f.set('bar')
@@ -154,7 +115,6 @@ class StringCollectionTestCase(BaseTestCase):
 
 
 class FieldsTestCase(unittest.TestCase):
-
     def test_float(self):
         field = redpipe.FloatField
         self.assertTrue(field.validate(2.12))
@@ -204,7 +164,6 @@ class FieldsTestCase(unittest.TestCase):
 
 
 class ModelTestCase(BaseTestCase):
-
     class User(redpipe.Model):
         _keyspace = 'U'
         _fields = {
@@ -324,7 +283,6 @@ class ConnectTestCase(unittest.TestCase):
             return pipe.incr(key)
 
     def test(self):
-
         r = redislite.StrictRedis()
         redpipe.connect_redis(r)
         redpipe.connect_redis(r)
@@ -350,11 +308,56 @@ class ConnectTestCase(unittest.TestCase):
             lambda: redpipe.connect_redis(
                 redislite.StrictRedis()))
 
+    def test_with_decode_responses(self):
+        def connect():
+            redpipe.connect_redis(
+                redislite.StrictRedis(decode_responses=True))
+
+        self.assertRaises(redpipe.InvalidPipeline, connect)
+
+    def test_single_nested(self):
+        redpipe.connect_redis(redislite.StrictRedis(), 'a')
+
+        def mid_level(pipe=None):
+            with redpipe.pipeline(pipe, name='a', autocommit=1) as pipe:
+                return self.incr_a('foo', pipe=pipe)
+
+        def top_level(pipe=None):
+            with redpipe.pipeline(pipe, name='a', autocommit=1) as pipe:
+                return mid_level(pipe)
+
+        with redpipe.pipeline(name='a', autocommit=1) as pipe:
+            ref = top_level(pipe)
+            self.assertRaises(redpipe.ResultNotReady, lambda: ref.result)
+
+        self.assertEqual(ref.result, 1)
+
+    @unittest.skip('async disabled')
+    def test_async(self):
+        with mock.patch('redpipe.async.USE_THREADS', True):
+            self.test_single_nested()
+            self.tearDown()
+            self.test_pipeline_nested_mismatched_name()
+            self.tearDown()
+            self.test_multi_invalid_connection()
+            self.tearDown()
+            self.test_sleeping_cb()
+
+    def test_sleeping_cb(self):
+        redpipe.connect_redis(redislite.Redis(), 'a')
+        redpipe.connect_redis(redislite.Redis(), 'b')
+
+        with redpipe.pipeline(autocommit=True, name='a') as pipe:
+            pipe.set('foo', '1')
+            with redpipe.pipeline(pipe=pipe, name='b', autocommit=True) as p:
+                ref = p.blpop('1', timeout=1)
+
+        self.assertEqual(ref.result, None)
+
     def test_multi(self):
 
         a_conn = redislite.StrictRedis()
         b_conn = redislite.StrictRedis()
-        redpipe.connect_redis(a_conn)
         redpipe.connect_redis(a_conn, name='a')
         redpipe.connect_redis(b_conn, name='b')
 
@@ -410,15 +413,14 @@ class ConnectTestCase(unittest.TestCase):
     def test_multi_invalid_connection(self):
         a_conn = redislite.StrictRedis()
         b_conn = redislite.StrictRedis(port=987654321)
-        redpipe.connect_redis(a_conn)
         redpipe.connect_redis(a_conn, name='a')
         redpipe.connect_redis(b_conn, name='b')
 
         key = 'foo'
         verify_callback = []
-        with redpipe.pipeline() as pipe:
-            b = self.incr_b(key, pipe)
+        with redpipe.pipeline(name='a') as pipe:
             a = self.incr_a(key, pipe)
+            b = self.incr_b(key, pipe)
 
             def cb():
                 verify_callback.append(1)
@@ -429,22 +431,42 @@ class ConnectTestCase(unittest.TestCase):
         # you can see here that it's not a 2-phase commit.
         # the goal is not tranactional integrity.
         # it is parallel execution of network tasks.
-        self.assertEqual(a.result, 1)
+        self.assertRaises(redpipe.ResultNotReady, lambda: a.result)
         self.assertRaises(redpipe.ResultNotReady, lambda: b.result)
         self.assertEqual(verify_callback, [])
 
-    def test_pipeline_invalid_name(self):
+    def test_pipeline_mismatched_name(self):
         a_conn = redislite.StrictRedis()
         b_conn = redislite.StrictRedis()
-        redpipe.connect_redis(a_conn)
         redpipe.connect_redis(a_conn, name='a')
         redpipe.connect_redis(b_conn, name='b')
 
-        def do_invalid():
-            with redpipe.pipeline(name='b') as pipe:
-                self.incr_a(key='foo', pipe=pipe)
+        with redpipe.pipeline(name='b') as pipe:
+            ref = self.incr_a(key='foo', pipe=pipe)
+            self.assertRaises(redpipe.ResultNotReady, lambda: ref.result)
+            pipe.execute()
 
-        self.assertRaises(redpipe.InvalidPipeline, do_invalid)
+    def test_pipeline_nested_mismatched_name(self):
+        a_conn = redislite.StrictRedis()
+        b_conn = redislite.StrictRedis()
+        redpipe.connect_redis(a_conn, name='a')
+        redpipe.connect_redis(b_conn, name='b')
+
+        def my_function(pipe=None):
+            with redpipe.pipeline(pipe=pipe, name='b') as pipe:
+                ref = self.incr_a(key='foo', pipe=pipe)
+                self.assertRaises(redpipe.ResultNotReady, lambda: ref.result)
+                pipe.execute()
+                return ref
+
+        with redpipe.pipeline(name='a') as pipe:
+            ref1 = my_function(pipe=pipe)
+            ref2 = my_function(pipe=pipe)
+            self.assertRaises(redpipe.ResultNotReady, lambda: ref1.result)
+            self.assertRaises(redpipe.ResultNotReady, lambda: ref2.result)
+            pipe.execute()
+        self.assertEqual(ref1.result, 1)
+        self.assertEqual(ref2.result, 2)
 
     def test_pipeline_invalid_object(self):
         a_conn = redislite.StrictRedis()
@@ -460,22 +482,15 @@ class ConnectTestCase(unittest.TestCase):
 
     def test_unconfigured_pipeline(self):
 
-        def a_invalid():
+        def invalid():
             self.incr_a(key='foo')
 
-        callbacks = []
+        def nested_invalid():
+            with redpipe.pipeline(autocommit=1) as pipe:
+                self.incr_a(key='foo', pipe=pipe)
 
-        self.assertRaises(redpipe.InvalidPipeline, a_invalid)
-        with redpipe.pipeline(autocommit=1) as pipe:
-            def cb():
-                callbacks.append(1)
-
-            self.assertRaises(
-                redpipe.InvalidPipeline, lambda: pipe.incr('foo'))
-
-            pipe.on_execute(cb)
-
-        self.assertEqual(callbacks, [1])
+        self.assertRaises(redpipe.InvalidPipeline, invalid)
+        self.assertRaises(redpipe.InvalidPipeline, nested_invalid)
 
 
 class StringTestCase(BaseTestCase):
@@ -686,6 +701,18 @@ class HashTestCase(BaseTestCase):
         self.assertEqual(hmget.result, [b'3', b'6'])
         self.assertEqual(set(hvals.result), {b'3', b'6'})
 
+
+class AsyncTestCase(unittest.TestCase):
+
+    @unittest.skip('not doing async')
+    def test(self):
+        def sleeper():
+            time.sleep(0.3)
+            return 1
+
+        t = redpipe.tasks.AsynchronousTask(target=sleeper)
+        t.start()
+        self.assertEqual(t.result, 1)
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

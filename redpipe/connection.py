@@ -26,10 +26,6 @@ class ConnectionManager(object):
     def __init__(self):
         self.connections = {}
 
-    def has_single_default_connection(self):
-        return True if len(self.connections) == 1 and \
-            self.connections.get(CONNECTION_DEFAULT_NAME) else False
-
     def get(self, name=None):
         name = resolve_connection_name(name)
         try:

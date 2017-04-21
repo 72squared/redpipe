@@ -2,5 +2,6 @@ coverage >= 3.7.1
 pytest
 tox
 flake8
+mock
 python-coveralls
 redislite>=3.0.271

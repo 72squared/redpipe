@@ -1,13 +1,10 @@
-import functools
 from .result import DeferredResult
 from .connection import connector, resolve_connection_name
+from .tasks import promise, wait
 from .exceptions import InvalidPipeline
-from .async import promise, wait
+
 __all__ = [
     'pipeline',
-    'Pipeline',
-    'NestedPipeline',
-    'SuperPipeline'
 ]
 
 
@@ -20,53 +17,45 @@ class Pipeline(object):
     lots of calls within nested functions
     and not have to wait for the execute call.
     """
-    __slots__ = ['connection_name', '_pipe', '_stack', '_callbacks', 'auto']
+    __slots__ = ['connection_name', 'auto', '_stack', '_callbacks',
+                 '_pipelines']
 
-    def __init__(self, pipe, name=None, autocommit=False):
+    def __init__(self, name, autocommit=False):
         """
-        pass in the redispy client pipeline object.
-        :param pipe: redis.StrictRedis.pipeline() or redis.Redis.pipeline()
+
+        :param name:
+        :param autocommit:
         """
         self.connection_name = name
-        self._pipe = pipe
         self._stack = []
         self._callbacks = []
         self.auto = autocommit
+        self._pipelines = {}
 
     def __getattr__(self, item):
-        """
-        magic method to intercept all calls bound for the internal
-        client object and return a deferred result reference object.
-        :param item: function name
-        :return:
-        """
-        # get the original attribute from the client.
-        # this could be a class method, or an instance attribute.
-        if self._pipe is None:
-            raise InvalidPipeline('not configured')
-
-        f = getattr(self._pipe, item)
-
-        # if it is just an attribute, return it.
-        if not callable(f):
-            return f
-
-        # build a decorator for the internal method.
-        # when the function is called, we create a DeferredResult object
-        # and return it, and invoke the internal method against the
-        # redispy pipeline object.
-        # keep track of the ref object we return so we can put data into
-        # the result on execute.
-        @functools.wraps(f)
         def inner(*args, **kwargs):
-            f(*args, **kwargs)
             ref = DeferredResult()
-            self._stack.append(ref)
+            self._stack.append((item, args, kwargs, ref))
             return ref
 
         return inner
 
-    def execute(self, raise_on_error=True):
+    @staticmethod
+    def supports_redpipe_pipeline():
+        return True
+
+    def pipeline(self, name):
+        if name == self.connection_name:
+            return self
+
+        try:
+            return self._pipelines[name]
+        except KeyError:
+            pipe = Pipeline(name=name, autocommit=True)
+            self._pipelines[name] = pipe
+            return pipe
+
+    def execute(self):
         """
         Invoke the redispy pipeline.execute() method and take all the values
         returned in sequential order of commands and map them to the
@@ -78,12 +67,33 @@ class Pipeline(object):
         """
         stack = self._stack
         callbacks = self._callbacks
-        self._stack = []
-        self._callbacks = []
+
+        promises = []
         if stack:
-            res = self._pipe.execute(raise_on_error=raise_on_error)
-            for i, v in enumerate(res):
-                stack[i].set(v)
+            def process():
+                pipe = connector.get(self.connection_name)
+                call_stack = []
+                refs = []
+                for item, args, kwargs, ref in stack:
+                    f = getattr(pipe, item)
+                    if callable(f):
+                        refs.append(ref)
+                        call_stack.append((f, args, kwargs))
+
+                for f, args, kwargs in call_stack:
+                    f(*args, **kwargs)
+
+                for i, v in enumerate(pipe.execute()):
+                    refs[i].set(v)
+
+            promises.append(process)
+
+        promises += [p.execute for p in self._pipelines.values()]
+        if len(promises) == 1:
+            promises[0]()
+        else:
+            wait(*[promise(p) for p in promises])
+
         for cb in callbacks:
             cb()
 
@@ -112,8 +122,6 @@ class Pipeline(object):
             if exc_type is None and self.auto:
                 self.execute()
         finally:
-            if self._pipe is not None:
-                self._pipe.__exit__(exc_type, exc_val, exc_tb)
             self.reset()
 
     def reset(self):
@@ -121,10 +129,12 @@ class Pipeline(object):
         cleanup method. get rid of the stack and callbacks.
         :return:
         """
-        if self._pipe is not None:
-            self._pipe.reset()
         self._stack = []
         self._callbacks = []
+        pipes = self._pipelines
+        self._pipelines = {}
+        for pipe in pipes.values():
+            pipe.reset()
 
     def on_execute(self, callback):
         """
@@ -136,45 +146,50 @@ class Pipeline(object):
 
 
 class NestedPipeline(object):
-    __slots__ = ['connection_name', '_pipe', '_stack', '_callbacks', 'auto']
+    __slots__ = ['connection_name', 'parent', 'auto', '_stack', '_callbacks']
 
-    def __init__(self, pipe, name=None, autocommit=False):
+    def __init__(self, parent, name=None, autocommit=False):
         self.connection_name = name
-        self._pipe = pipe
+        self.parent = parent
         self._stack = []
         self._callbacks = []
         self.auto = autocommit
 
-    def __getattr__(self, item):
-        f = getattr(self._pipe, item)
-        if not callable(f):
-            return f
+    @staticmethod
+    def supports_redpipe_pipeline():
+        return True
 
-        @functools.wraps(f)
+    def __getattr__(self, item):
         def inner(*args, **kwargs):
             ref = DeferredResult()
-            self._stack.append((f, args, kwargs, ref))
+            self._stack.append((item, args, kwargs, ref))
             return ref
 
         return inner
 
-    def execute(self, raise_on_error=True):
+    def pipeline(self, name):
+        return self.parent.pipeline(name)
+
+    def execute(self):
         stack = self._stack
         callbacks = self._callbacks
         self._stack = []
         self._callbacks = []
 
-        def build(res, ref):
+        def build(r, ref):
+
             def cb():
-                ref.set(res.result)
+                ref.set(r.result)
 
-            self._pipe.on_execute(cb)
+            self.parent.on_execute(cb)
 
-        for f, args, kwargs, ref in stack:
+        pipe = self.parent.pipeline(self.connection_name)
+        for item, args, kwargs, ref in stack:
+            f = getattr(pipe, item)
             build(f(*args, **kwargs), ref)
 
         for cb in callbacks:
-            self._pipe.on_execute(cb)
+            pipe.on_execute(cb)
 
     def on_execute(self, callback):
         self._callbacks.append(callback)
@@ -194,52 +209,18 @@ class NestedPipeline(object):
             self.reset()
 
 
-class SuperPipeline(Pipeline):
-    __slots__ = ['pipelines', '_pipe']
-
-    def __init__(self, autocommit=False):
-        try:
-            pipe = connector.get()
-        except InvalidPipeline:
-            pipe = None
-        super(SuperPipeline, self).__init__(pipe=pipe, autocommit=autocommit)
-        self.pipelines = {n: Pipeline(c(), name=n)
-                          for n, c in connector.connections.items()}
-
-    def reset(self):
-        super(SuperPipeline, self).reset()
-        for c in self.pipelines.values():
-            c.reset()
-
-    def execute(self, raise_on_error=True):
-
-        promises = [promise(pipe.execute, raise_on_error=raise_on_error)
-                    for pipe in self.pipelines.values()]
-
-        wait(*promises)
-        super(SuperPipeline, self).execute(raise_on_error=raise_on_error)
-
-
 def pipeline(pipe=None, name=None, autocommit=False):
-    if pipe is None and name is None:
-        return SuperPipeline(autocommit=autocommit)
-
     name = resolve_connection_name(name)
     if pipe is None:
-        return Pipeline(connector.get(name), name, autocommit=autocommit)
+        return Pipeline(name=name, autocommit=autocommit)
+    else:
+        try:
+            if pipe.supports_redpipe_pipeline():
+                return NestedPipeline(
+                    parent=pipe,
+                    name=name,
+                    autocommit=autocommit)
+        except AttributeError:
+            pass
 
-    try:
-        # SuperPipeline object
-        pipe = pipe.pipelines[name]
-        return NestedPipeline(pipe, name, autocommit=autocommit)
-    except (AttributeError, KeyError):
-        pass
-
-    try:
-        if pipe.connection_name != name:
-            raise InvalidPipeline(
-                "%s and %s should match" % (pipe.connection_name, name))
-    except AttributeError:
-        raise InvalidPipeline('invalid pipeline object passed in')
-
-    return NestedPipeline(pipe, name, autocommit=autocommit)
+        raise InvalidPipeline('check your configuration')
