@@ -48,12 +48,7 @@ class Model(object):
                     return
 
                 for k, v in ref.result.items():
-                    v = v.decode('utf8')
-                    k = k.decode('utf8')
-                    try:
-                        v = self._from_persistence(k, v)
-                    except (KeyError, AttributeError):
-                        pass
+                    v = self._from_persistence(k, v)
                     self._data[k] = v
 
             pipe.on_execute(cb)
@@ -110,16 +105,25 @@ class Model(object):
             field_validator = self._fields[k]
             return field_validator.from_persistence(v)
         except KeyError:
-            return TextField().from_persistence(v)
+            return v
 
     def get(self, item, default=None):
         return self._data.get(item, default)
 
     def __getattr__(self, item):
+        if item == '_key':
+            return self.key
+
         try:
-            return self.key if item == '_key' else self._data[item]
+            return self._data[item]
         except KeyError:
-            raise AttributeError(item)
+            pass
+
+        if item in self._fields:
+            return None
+
+        raise AttributeError("%s not found in %s" %
+                             (item, self.__class__.__name__))
 
     def __getitem__(self, item):
         return self.key if item == '_key' else self._data[item]

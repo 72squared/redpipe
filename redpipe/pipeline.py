@@ -1,4 +1,4 @@
-from .result import DeferredResult
+from .result import Deferred
 from .connection import connector, resolve_connection_name
 from .tasks import promise, wait
 from .exceptions import InvalidPipeline
@@ -6,6 +6,13 @@ from .exceptions import InvalidPipeline
 __all__ = [
     'pipeline',
 ]
+
+
+def _nested_deferred(r, ref):
+    def cb():
+        ref.set(r.result)
+
+    return cb
 
 
 class Pipeline(object):
@@ -34,7 +41,7 @@ class Pipeline(object):
 
     def __getattr__(self, item):
         def inner(*args, **kwargs):
-            ref = DeferredResult()
+            ref = Deferred()
             self._stack.append((item, args, kwargs, ref))
             return ref
 
@@ -144,6 +151,9 @@ class Pipeline(object):
         """
         self._callbacks.append(callback)
 
+    def _inject_callbacks(self, callbacks):
+        self._callbacks[0:0] = callbacks
+
 
 class NestedPipeline(object):
     __slots__ = ['connection_name', 'parent', 'auto', '_stack', '_callbacks']
@@ -161,7 +171,7 @@ class NestedPipeline(object):
 
     def __getattr__(self, item):
         def inner(*args, **kwargs):
-            ref = DeferredResult()
+            ref = Deferred()
             self._stack.append((item, args, kwargs, ref))
             return ref
 
@@ -176,23 +186,23 @@ class NestedPipeline(object):
         self._stack = []
         self._callbacks = []
 
-        def build(r, ref):
+        deferred = []
 
-            def cb():
-                ref.set(r.result)
-
-            self.parent.on_execute(cb)
+        build = _nested_deferred
 
         pipe = self.parent.pipeline(self.connection_name)
         for item, args, kwargs, ref in stack:
             f = getattr(pipe, item)
-            build(f(*args, **kwargs), ref)
+            deferred.append(build(f(*args, **kwargs), ref))
 
-        for cb in callbacks:
-            pipe.on_execute(cb)
+        inject_callbacks = getattr(self.parent, '_inject_callbacks')
+        inject_callbacks(deferred + callbacks)
 
     def on_execute(self, callback):
         self._callbacks.append(callback)
+
+    def _inject_callbacks(self, callbacks):
+        self._callbacks[0:0] = callbacks
 
     def reset(self):
         self._stack = []

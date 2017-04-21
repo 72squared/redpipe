@@ -1,11 +1,11 @@
 from .exceptions import ResultNotReady
 
 __all__ = [
-    'DeferredResult',
+    'Deferred',
 ]
 
 
-class DeferredResult(object):
+class Deferred(object):
     """
     An object returned from all our Pipeline calls.
     """

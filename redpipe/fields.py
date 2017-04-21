@@ -88,7 +88,7 @@ class TextField(Field):
         :param value:
         :return: utf-8 encoded bytes
         """
-        return value.encode('utf-8')
+        return value
 
     @classmethod
     def from_persistence(cls, value):
@@ -98,4 +98,4 @@ class TextField(Field):
         :param value:
         :return: utf-8 decoded string
         """
-        return value.decode('utf-8')
+        return value

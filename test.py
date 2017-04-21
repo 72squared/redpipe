@@ -111,7 +111,7 @@ class StringCollectionTestCase(BaseTestCase):
             get_ref = f.get()
 
         self.assertEqual(set_ref.result, 1)
-        self.assertEqual(get_ref.result, b'bar')
+        self.assertEqual(get_ref.result, 'bar')
 
 
 class FieldsTestCase(unittest.TestCase):
@@ -153,9 +153,9 @@ class FieldsTestCase(unittest.TestCase):
         self.assertTrue(field.validate(''))
         self.assertTrue(field.validate('a'))
         self.assertTrue(field.validate('1'))
-        self.assertEqual(field.to_persistence('1'), b'1')
-        self.assertEqual(field.to_persistence('1.2'), b'1.2')
-        self.assertEqual(field.to_persistence('abc123$!'), b'abc123$!')
+        self.assertEqual(field.to_persistence('1'), '1')
+        self.assertEqual(field.to_persistence('1.2'), '1.2')
+        self.assertEqual(field.to_persistence('abc123$!'), 'abc123$!')
         sample = json.loads('"15\u00f8C"')
         self.assertEqual(
             field.from_persistence(field.to_persistence(sample)),
@@ -206,7 +206,7 @@ class ModelTestCase(BaseTestCase):
     def test_core(self):
         self.create_user('1')
         ref = self.User.core('1').hgetall()
-        self.assertEqual(ref.result[b'first_name'], b'first1')
+        self.assertEqual(ref.result['first_name'], 'first1')
 
     def test_pipeline(self):
         user_ids = ["%s" % i for i in range(1, 3)]
@@ -268,6 +268,23 @@ class ModelTestCase(BaseTestCase):
         self.assertRaises(
             redpipe.InvalidFieldValue,
             lambda: Multi('m3', boolean='abc'))
+
+    def test_extra_fields(self):
+        u = self.User('1', first_name='Bob', last_name='smith',
+                      nickname='BUBBA')
+        u = self.User('1')
+        self.assertEqual(u._key, '1')
+        self.assertEqual(u['_key'], '1')
+        self.assertEqual(u.nickname, 'BUBBA')
+        self.assertEqual(u.get('nickname'), 'BUBBA')
+        self.assertEqual(u.get('nonexistent', 'test'), 'test')
+        self.assertRaises(AttributeError, lambda: u.nonexistent)
+        self.assertRaises(KeyError, lambda: u['nonexistent'])
+
+    def test_missing_fields(self):
+        u = self.User('1', first_name='Bob')
+        u = self.User('1')
+        self.assertEqual(u.last_name, None)
 
 
 class ConnectTestCase(unittest.TestCase):
@@ -510,7 +527,7 @@ class StringTestCase(BaseTestCase):
             exists = f.exists()
             after = f.get()
             self.assertRaises(redpipe.ResultNotReady, lambda: before.result)
-        self.assertEqual(before.result, b'2')
+        self.assertEqual(before.result, '2')
         self.assertEqual(after.result, None)
         self.assertAlmostEqual(ttl.result, 3, delta=1)
         self.assertIsNotNone(serialize.result)
@@ -528,7 +545,7 @@ class StringTestCase(BaseTestCase):
             setnx = f.setnx('foo')
             getaftersetnx = f.get()
         self.assertEqual(restore.result, 1)
-        self.assertEqual(ref.result, b'2')
+        self.assertEqual(ref.result, '2')
         self.assertEqual(str(f), '<Flag:2>')
         self.assertEqual(idle.result, 0)
         self.assertEqual(persist.result, 0)
@@ -536,7 +553,7 @@ class StringTestCase(BaseTestCase):
         self.assertEqual(incrby.result, 5)
         self.assertEqual(incrbyfloat.result, 7.1)
         self.assertEqual(setnx.result, 0)
-        self.assertEqual(getaftersetnx.result, b'7.1')
+        self.assertEqual(getaftersetnx.result, '7.1')
 
 
 class SetTestCase(BaseTestCase):
@@ -560,8 +577,8 @@ class SetTestCase(BaseTestCase):
         self.assertEqual(sadd.result, 3)
         self.assertEqual(saddnx.result, 0)
         self.assertEqual(srem.result, 1)
-        self.assertEqual(smembers.result, {b'a', b'b'})
-        self.assertIn(spop.result, {b'a', b'b'})
+        self.assertEqual(smembers.result, {'a', 'b'})
+        self.assertIn(spop.result, {'a', 'b'})
         self.assertEqual(card.result, 2)
         self.assertTrue(ismember_a.result)
         self.assertFalse(ismember_b.result)
@@ -590,18 +607,18 @@ class ListTestCase(BaseTestCase):
             lpop = c.lpop()
 
         self.assertEqual(lpush.result, 4)
-        self.assertEqual(members.result, [b'd', b'c', b'b', b'a'])
+        self.assertEqual(members.result, ['d', 'c', 'b', 'a'])
         self.assertEqual(rpush.result, 5)
         self.assertEqual(llen.result, 5)
-        self.assertEqual(lrange.result, [b'd', b'c', b'b', b'a', b'e'])
-        self.assertEqual(rpop.result, b'e')
+        self.assertEqual(lrange.result, ['d', 'c', 'b', 'a', 'e'])
+        self.assertEqual(rpop.result, 'e')
         self.assertEqual(lrem.result, 1)
         self.assertEqual(ltrim.result, 1)
-        self.assertEqual(members_after_ltrim.result, [b'd', b'c'])
-        self.assertEqual(lindex.result, b'c')
+        self.assertEqual(members_after_ltrim.result, ['d', 'c'])
+        self.assertEqual(lindex.result, 'c')
         self.assertEqual(lset.result, 1)
-        self.assertEqual(lindex_after.result, b'a')
-        self.assertEqual(lpop.result, b'd')
+        self.assertEqual(lindex_after.result, 'a')
+        self.assertEqual(lpop.result, 'd')
 
 
 class SortedSetTestCase(BaseTestCase):
@@ -626,6 +643,9 @@ class SortedSetTestCase(BaseTestCase):
             zincrby = c.zincrby('5', 2)
             zrevrank = c.zrevrank('5')
             zrevrange = c.zrevrange(0, 1)
+            zrange_withscores = c.zrange(0, 1, withscores=True)
+            zrevrange_withscores = c.zrevrange(0, 1, withscores=True)
+
             self.assertRaises(
                 redpipe.InvalidOperation,
                 lambda: c.zadd('4', 4, xx=True, nx=True))
@@ -640,26 +660,34 @@ class SortedSetTestCase(BaseTestCase):
         self.assertEqual(zaddch.result, 1)
         self.assertEqual(zscore.result, 4.3)
         self.assertEqual(remove.result, 1)
-        self.assertEqual(members.result, [b'2', b'3'])
+        self.assertEqual(members.result, ['2', '3'])
         self.assertEqual(zaddmulti.result, 2)
         self.assertEqual(zrange.result, [])
         self.assertEqual(zincrby.result, 7.0)
         self.assertEqual(zrevrank.result, 0)
-        self.assertEqual(zrevrange.result, [b'5', b'4'])
+        self.assertEqual(zrevrange.result, ['5', '4'])
+        self.assertEqual(zrange_withscores.result, [['2', 2.0], ['3', 3.0]])
+        self.assertEqual(zrevrange_withscores.result, [['5', 7.0], ['4', 4.0]])
 
         with redpipe.pipeline(autocommit=True) as pipe:
             c = self.Collection('1', pipe=pipe)
             c.zadd('a', 1)
             c.zadd('b', 2)
             zrangebyscore = c.zrangebyscore(0, 10, start=0, num=1)
+            zrangebyscore_withscores = c.zrangebyscore(
+                0, 10, start=0, num=1, withscores=True)
             zrevrangebyscore = c.zrevrangebyscore(10, 0, start=0, num=1)
+            zrevrangebyscore_withscores = c.zrevrangebyscore(
+                10, 0, start=0, num=1, withscores=True)
             zcard = c.zcard()
             zrank = c.zrank('b')
             zremrangebyrank = c.zremrangebyrank(0, 0)
             zremrangebyscore = c.zremrangebyscore(2, 2)
 
-        self.assertEqual(zrangebyscore.result, [b'a'])
-        self.assertEqual(zrevrangebyscore.result, [b'b'])
+        self.assertEqual(zrangebyscore.result, ['a'])
+        self.assertEqual(zrangebyscore_withscores.result, [['a', 1.0]])
+        self.assertEqual(zrevrangebyscore.result, ['b'])
+        self.assertEqual(zrevrangebyscore_withscores.result, [['b', 2.0]])
         self.assertEqual(zcard.result, 2)
         self.assertEqual(zrank.result, 1)
         self.assertEqual(zremrangebyrank.result, 1)
@@ -689,17 +717,17 @@ class HashTestCase(BaseTestCase):
         self.assertEqual(hset.result, True)
         self.assertEqual(hmset.result, True)
         self.assertEqual(hsetnx.result, 0)
-        self.assertEqual(hget.result, b'1')
+        self.assertEqual(hget.result, '1')
         self.assertEqual(
             hgetall.result,
-            {b'a': b'1', b'd': b'4', b'b': b'2', b'c': b'3'})
+            {'a': '1', 'd': '4', 'b': '2', 'c': '3'})
         self.assertEqual(hlen.result, 4)
         self.assertEqual(hdel.result, 2)
-        self.assertEqual(set(hkeys.result), {b'c', b'd'})
+        self.assertEqual(set(hkeys.result), {'c', 'd'})
         self.assertTrue(hexists.result)
         self.assertEqual(hincrby.result, 6)
-        self.assertEqual(hmget.result, [b'3', b'6'])
-        self.assertEqual(set(hvals.result), {b'3', b'6'})
+        self.assertEqual(hmget.result, ['3', '6'])
+        self.assertEqual(set(hvals.result), {'3', '6'})
 
 
 class AsyncTestCase(unittest.TestCase):
