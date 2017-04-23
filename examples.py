@@ -1,7 +1,7 @@
 import redislite
 import time
 import redpipe
-from redpipe import Model, pipeline, \
+from redpipe import Struct, pipeline, \
     TextField, BooleanField, IntegerField, \
     connect_redis
 
@@ -20,7 +20,7 @@ class Followers(redpipe.SortedSet):
     def all(self):
         result = []
         with self.pipe as pipe:
-            ref = pipe.zrange(self._key, 0, -1)
+            ref = pipe.zrange(self.redis_key, 0, -1)
 
             def cb():
                 for v in ref.result:
@@ -31,7 +31,7 @@ class Followers(redpipe.SortedSet):
         return result
 
 
-class User(Model):
+class User(Struct):
     _fields = {
         'first_name': TextField,
         'last_name': TextField,
@@ -71,7 +71,7 @@ def test_user(k, pipe=None):
         last_name='last%s' % k,
         email='user%s@test.com' % k
     )
-    u.save(pipe=pipe)
+    u.change(pipe=pipe)
     return u
 
 
@@ -83,7 +83,7 @@ if __name__ == '__main__':
         email='72squared@gmail.com',
         beta_user=True)
 
-    user.save(admin=True)
+    user.change(admin=True)
 
     with pipeline(autocommit=True) as pipe:
         users = [User('1', pipe=pipe), User('2', pipe=pipe)]

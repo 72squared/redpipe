@@ -374,20 +374,24 @@ In a similar way, we support the other *Redis* primitives:
     * hashes
     * sorted sets
 
-Models
-------
+Data Types
+----------
+
+
+Structs
+-------
 It is convenient to store records of data in Hashes in redis.
 But hashes only represent string key-value pairs.
 We need a way to type-cast variables in Redis hash fields.
-That's where `redpipe.Model` comes in.
+That's where `redpipe.Struct` comes in.
 
 .. code:: python
 
     # assume we already set up our connection
     from time import time
 
-    # set up a model object.
-    class User(redpipe.Model):
+    # set up a struct object.
+    class User(redpipe.Struct):
         _keyspace = 'U'
         _fields = {
             'name': redpipe.TextField,
@@ -403,7 +407,7 @@ That's where `redpipe.Model` comes in.
 
 You can see we defined a few fields and gave them types that we can use in python.
 The fields will perform basic data validation on the input and correctly serialize and deserialize from a *Redis* hash key.
-Now, let's use the model.
+Now, let's use the struct.
 
 .. code:: python
 
@@ -414,23 +418,23 @@ Now, let's use the model.
 
     print("first batch: %s" % [dict(u1), dict(u2)])
 
-When we exit the context, all the models are saved to *Redis* in one pipeline operation.
+When we exit the context, all the structs are saved to *Redis* in one pipeline operation.
 Let's read those two users we created and modify them.
 
 .. code:: python
 
     with redpipe.pipeline(autocommit=True) as pipe:
         users = [User('1', pipe=pipe), User('2', pipe=pipe)]
-        users[0].save(name='Bobby', last_seen=int(time()), pipe=pipe)
+        users[0].change(name='Bobby', last_seen=int(time()), pipe=pipe)
 
     print("second batch: %s" % [dict(u1), dict(u2)])
 
 When you pass just the key into the object it knows to read from the database rather than write.
 
-Model Core
-----------
-Because the model is based on a `redpipe.Hash` object, you can access this if you need to extend the functionality of your model.
-From our earlier `User` model example:
+Struct Core
+-----------
+Because the struct is based on a `redpipe.Hash` object, you can access this if you need to extend the functionality of your struct.
+From our earlier `User` struct example:
 
 .. code:: python
 

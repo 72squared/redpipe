@@ -1,4 +1,4 @@
-Models
+Structs
 ======
 *RedPipe* does not provide you with an ORM solution.
 There are many other packages out there that do that much better.

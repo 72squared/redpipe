@@ -1,6 +1,6 @@
 from .pipeline import pipeline
-from .lua import lua_restorenx, lua_object_info
-from .exceptions import InvalidOperation
+from .luascripts import lua_restorenx, lua_object_info
+from .exceptions import InvalidOperation, InvalidFieldValue
 from .result import Deferred
 
 __all__ = """
@@ -12,17 +12,9 @@ Hash
 """.split()
 
 
-def _decode(v):
-    return None if v is None else v.decode()
-
-
-def _encode(v):
-    return v.encode('utf-8')
-
-
-class Collection(object):
+class DataType(object):
     """
-    Base class for all collections.
+    Base class for all datatypes.
     This class should not be used directly.
     """
     __slots__ = ['key', '_pipe']
@@ -46,15 +38,25 @@ class Collection(object):
         self.key = key
         self._pipe = pipe
 
+    @staticmethod
+    def _encode(v):
+        return None if v is None else v.encode('utf-8')
+
+    @staticmethod
+    def _decode(v):
+        return None if v is None else v.decode()
+
     @property
-    def _key(self):
+    def redis_key(self):
         """
         Get the key we pass to redis.
         If no namespace is declared, it will use the class name.
         :return: str
         """
-        namespace = self._keyspace or self.__class__.__name__
-        return u"%s{%s}" % (namespace, self.key)
+        if self._keyspace is None:
+            return self._encode("%s" % self.key)
+
+        return self._encode("%s{%s}" % (self._keyspace, self.key))
 
     @property
     def pipe(self):
@@ -70,7 +72,7 @@ class Collection(object):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            return pipe.delete(self._key)
+            return pipe.delete(self.redis_key)
 
     def expire(self, time):
         """
@@ -79,7 +81,7 @@ class Collection(object):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            return pipe.expire(self._key, time)
+            return pipe.expire(self.redis_key, time)
 
     def exists(self):
         """
@@ -87,7 +89,7 @@ class Collection(object):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            return pipe.exists(self._key)
+            return pipe.exists(self.redis_key)
 
     def eval(self, script, *args):
         """
@@ -97,7 +99,7 @@ class Collection(object):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            return pipe.eval(script, 1, self._key, *args)
+            return pipe.eval(script, 1, self.redis_key, *args)
 
     def dump(self):
         """
@@ -105,7 +107,7 @@ class Collection(object):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            return pipe.dump(self._key)
+            return pipe.dump(self.redis_key)
 
     def restore(self, data, pttl=0):
         """
@@ -122,7 +124,7 @@ class Collection(object):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            return pipe.ttl(self._key)
+            return pipe.ttl(self.redis_key)
 
     def persist(self):
         """
@@ -130,7 +132,7 @@ class Collection(object):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            return pipe.persist(self._key)
+            return pipe.persist(self.redis_key)
 
     def object(self, subcommand):
         """
@@ -148,7 +150,7 @@ class Collection(object):
         return "<%s:%s>" % (self.__class__.__name__, self.key)
 
 
-class String(Collection):
+class String(DataType):
     """
     Manipulate a String key in Redis.
     """
@@ -160,10 +162,10 @@ class String(Collection):
         """
         with self.pipe as pipe:
             d = Deferred()
-            res = pipe.get(self._key)
+            res = pipe.get(self.redis_key)
 
             def cb():
-                d.set(_decode(res.result))
+                d.set(self._decode(res.result))
 
             pipe.on_execute(cb)
             return d
@@ -175,7 +177,7 @@ class String(Collection):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            return pipe.set(self._key, _encode(value))
+            return pipe.set(self.redis_key, self._encode(value))
 
     def incr(self):
         """
@@ -183,7 +185,7 @@ class String(Collection):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            return pipe.incr(self._key)
+            return pipe.incr(self.redis_key)
 
     def incrby(self, value=1):
         """
@@ -192,7 +194,7 @@ class String(Collection):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            return pipe.incrby(self._key, value)
+            return pipe.incrby(self.redis_key, value)
 
     def incrbyfloat(self, value=1.0):
         """
@@ -201,7 +203,7 @@ class String(Collection):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            return pipe.incrbyfloat(self._key, value)
+            return pipe.incrbyfloat(self.redis_key, value)
 
     def setnx(self, value):
         """
@@ -210,7 +212,7 @@ class String(Collection):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            return pipe.setnx(self._key, _encode(value))
+            return pipe.setnx(self.redis_key, self._encode(value))
 
 
 def _parse_values(values):
@@ -220,7 +222,7 @@ def _parse_values(values):
     return values
 
 
-class Set(Collection):
+class Set(DataType):
     """
     Manipulate a Set key in redis.
     """
@@ -232,8 +234,8 @@ class Set(Collection):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            values = [_encode(v) for v in _parse_values(values)]
-            return pipe.sadd(self._key, *values)
+            values = [self._encode(v) for v in _parse_values(values)]
+            return pipe.sadd(self.redis_key, *values)
 
     def srem(self, *values):
         """
@@ -243,8 +245,8 @@ class Set(Collection):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            values = [_encode(v) for v in _parse_values(values)]
-            return pipe.srem(self._key, *values)
+            values = [self._encode(v) for v in _parse_values(values)]
+            return pipe.srem(self.redis_key, *values)
 
     def spop(self):
         """
@@ -254,10 +256,10 @@ class Set(Collection):
         """
         with self.pipe as pipe:
             d = Deferred()
-            res = pipe.spop(self._key)
+            res = pipe.spop(self.redis_key)
 
             def cb():
-                d.set(_decode(res.result))
+                d.set(self._decode(res.result))
 
             pipe.on_execute(cb)
             return d
@@ -265,10 +267,10 @@ class Set(Collection):
     def smembers(self):
         with self.pipe as pipe:
             d = Deferred()
-            res = pipe.smembers(self._key)
+            res = pipe.smembers(self.redis_key)
 
             def cb():
-                d.set({_decode(v) for v in res.result})
+                d.set({self._decode(v) for v in res.result})
 
             pipe.on_execute(cb)
             return d
@@ -283,7 +285,7 @@ class Set(Collection):
 
         """
         with self.pipe as pipe:
-            return pipe.scard(self._key)
+            return pipe.scard(self.redis_key)
 
     def sismember(self, value):
         """
@@ -292,7 +294,7 @@ class Set(Collection):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            return pipe.sismember(self._key, _encode(value))
+            return pipe.sismember(self.redis_key, self._encode(value))
 
     def srandmember(self):
         """
@@ -301,10 +303,10 @@ class Set(Collection):
         """
         with self.pipe as pipe:
             d = Deferred()
-            res = pipe.srandmember(self._key)
+            res = pipe.srandmember(self.redis_key)
 
             def cb():
-                d.set(_decode(res.result))
+                d.set(self._decode(res.result))
 
             pipe.on_execute(cb)
             return d
@@ -314,7 +316,7 @@ class Set(Collection):
     remove = srem
 
 
-class List(Collection):
+class List(DataType):
     """
     Manipulate a List key in redis
     """
@@ -332,7 +334,7 @@ class List(Collection):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            return pipe.llen(self._key)
+            return pipe.llen(self.redis_key)
 
     def lrange(self, start, stop):
         """
@@ -344,10 +346,10 @@ class List(Collection):
         """
         with self.pipe as pipe:
             d = Deferred()
-            res = pipe.lrange(self._key, start, stop)
+            res = pipe.lrange(self.redis_key, start, stop)
 
             def cb():
-                d.set([_decode(v) for v in res.result])
+                d.set([self._decode(v) for v in res.result])
 
             pipe.on_execute(cb)
             return d
@@ -360,8 +362,8 @@ class List(Collection):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            values = [_encode(v) for v in _parse_values(values)]
-            return pipe.lpush(self._key, *values)
+            values = [self._encode(v) for v in _parse_values(values)]
+            return pipe.lpush(self.redis_key, *values)
 
     def rpush(self, *values):
         """
@@ -371,8 +373,8 @@ class List(Collection):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            values = [_encode(v) for v in _parse_values(values)]
-            return pipe.rpush(self._key, *values)
+            values = [self._encode(v) for v in _parse_values(values)]
+            return pipe.rpush(self.redis_key, *values)
 
     def lpop(self):
         """
@@ -383,10 +385,10 @@ class List(Collection):
         """
         with self.pipe as pipe:
             d = Deferred()
-            res = pipe.lpop(self._key)
+            res = pipe.lpop(self.redis_key)
 
             def cb():
-                d.set(_decode(res.result))
+                d.set(self._decode(res.result))
 
             pipe.on_execute(cb)
             return d
@@ -399,10 +401,10 @@ class List(Collection):
         """
         with self.pipe as pipe:
             d = Deferred()
-            res = pipe.rpop(self._key)
+            res = pipe.rpop(self.redis_key)
 
             def cb():
-                d.set(_decode(res.result))
+                d.set(self._decode(res.result))
 
             pipe.on_execute(cb)
             return d
@@ -415,8 +417,8 @@ class List(Collection):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            value = _encode(value)
-            return pipe.lrem(self._key, num, value)
+            value = self._encode(value)
+            return pipe.lrem(self.redis_key, num, value)
 
     def ltrim(self, start, end):
         """
@@ -427,7 +429,7 @@ class List(Collection):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            return pipe.ltrim(self._key, start, end)
+            return pipe.ltrim(self.redis_key, start, end)
 
     def lindex(self, idx):
         """
@@ -438,10 +440,10 @@ class List(Collection):
         """
         with self.pipe as pipe:
             d = Deferred()
-            res = pipe.lindex(self._key, idx)
+            res = pipe.lindex(self.redis_key, idx)
 
             def cb():
-                d.set(_decode(res.result))
+                d.set(self._decode(res.result))
 
             pipe.on_execute(cb)
             return d
@@ -455,8 +457,8 @@ class List(Collection):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            value = _encode(value)
-            return pipe.lset(self._key, idx, value)
+            value = self._encode(value)
+            return pipe.lset(self.redis_key, idx, value)
 
     # noinspection PyRedeclaration
     remove = lrem
@@ -468,7 +470,7 @@ class List(Collection):
     append = rpush
 
 
-class SortedSet(Collection):
+class SortedSet(DataType):
     """
     Manipulate a SortedSet key in redis.
     """
@@ -507,14 +509,14 @@ class SortedSet(Collection):
 
         if isinstance(members, dict):
             for member, score in members.items():
-                _args += [score, _encode(member)]
+                _args += [score, self._encode(member)]
         else:
-            _args += [score, _encode(members)]
+            _args += [score, self._encode(members)]
 
         if nx and xx:
             raise InvalidOperation('cannot specify nx and xx at the same time')
         with self.pipe as pipe:
-            return pipe.execute_command('ZADD', self._key, *_args)
+            return pipe.execute_command('ZADD', self.redis_key, *_args)
 
     def zrem(self, *values):
         """
@@ -524,8 +526,8 @@ class SortedSet(Collection):
                  removed, False otherwise
         """
         with self.pipe as pipe:
-            values = [_encode(v) for v in _parse_values(values)]
-            return pipe.zrem(self._key, *values)
+            values = [self._encode(v) for v in _parse_values(values)]
+            return pipe.zrem(self.redis_key, *values)
 
     def zincrby(self, member, increment):
         """
@@ -535,7 +537,8 @@ class SortedSet(Collection):
         :return:
         """
         with self.pipe as pipe:
-            return pipe.zincrby(self._key, _encode(member), increment)
+            return pipe.zincrby(self.redis_key,
+                                self._encode(member), increment)
 
     def zrevrank(self, member):
         """
@@ -543,13 +546,13 @@ class SortedSet(Collection):
         :param member: str
         """
         with self.pipe as pipe:
-            return pipe.zrevrank(self._key, _encode(member))
+            return pipe.zrevrank(self.redis_key, self._encode(member))
 
     def zrange(self, start, end, desc=False, withscores=False,
                score_cast_func=float):
         """
-        Returns all the elements including between ``start`` (non included) and
-        ``stop`` (included).
+        Returns all the elements including between ``start`` (non included)
+        and ``stop`` (included).
         :param start:
         :param end:
         :param desc:
@@ -560,14 +563,14 @@ class SortedSet(Collection):
         with self.pipe as pipe:
             d = Deferred()
             res = pipe.zrange(
-                self._key, start, end, desc=desc,
+                self.redis_key, start, end, desc=desc,
                 withscores=withscores, score_cast_func=score_cast_func)
 
             def cb():
                 if withscores:
-                    d.set([[_decode(v), s] for v, s in res.result])
+                    d.set([[self._decode(v), s] for v, s in res.result])
                 else:
-                    d.set([_decode(v) for v in res.result])
+                    d.set([self._decode(v) for v in res.result])
 
             pipe.on_execute(cb)
             return d
@@ -585,15 +588,15 @@ class SortedSet(Collection):
         """
         with self.pipe as pipe:
             d = Deferred()
-            res = pipe.zrevrange(self._key, start, end,
+            res = pipe.zrevrange(self.redis_key, start, end,
                                  withscores=withscores,
                                  score_cast_func=score_cast_func)
 
             def cb():
                 if withscores:
-                    d.set([[_decode(v), s] for v, s in res.result])
+                    d.set([[self._decode(v), s] for v, s in res.result])
                 else:
-                    d.set([_decode(v) for v in res.result])
+                    d.set([self._decode(v) for v in res.result])
 
             pipe.on_execute(cb)
             return d
@@ -613,16 +616,16 @@ class SortedSet(Collection):
         """
         with self.pipe as pipe:
             d = Deferred()
-            res = pipe.zrangebyscore(self._key, min, max,
+            res = pipe.zrangebyscore(self.redis_key, min, max,
                                      start=start, num=num,
                                      withscores=withscores,
                                      score_cast_func=score_cast_func)
 
             def cb():
                 if withscores:
-                    d.set([[_decode(v), s] for v, s in res.result])
+                    d.set([[self._decode(v), s] for v, s in res.result])
                 else:
-                    d.set([_decode(v) for v in res.result])
+                    d.set([self._decode(v) for v in res.result])
 
             pipe.on_execute(cb)
             return d
@@ -650,15 +653,15 @@ class SortedSet(Collection):
         """
         with self.pipe as pipe:
             d = Deferred()
-            res = pipe.zrevrangebyscore(self._key, max, min, start=start,
+            res = pipe.zrevrangebyscore(self.redis_key, max, min, start=start,
                                         num=num, withscores=withscores,
                                         score_cast_func=score_cast_func)
 
             def cb():
                 if withscores:
-                    d.set([[_decode(v), s] for v, s in res.result])
+                    d.set([[self._decode(v), s] for v, s in res.result])
                 else:
-                    d.set([_decode(v) for v in res.result])
+                    d.set([self._decode(v) for v in res.result])
 
             pipe.on_execute(cb)
             return d
@@ -669,7 +672,7 @@ class SortedSet(Collection):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            return pipe.zcard(self._key)
+            return pipe.zcard(self.redis_key)
 
     def zscore(self, elem):
         """
@@ -678,7 +681,7 @@ class SortedSet(Collection):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            return pipe.zscore(self._key, _encode(elem))
+            return pipe.zscore(self.redis_key, self._encode(elem))
 
     def zremrangebyrank(self, start, stop):
         """
@@ -689,7 +692,7 @@ class SortedSet(Collection):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            return pipe.zremrangebyrank(self._key, start, stop)
+            return pipe.zremrangebyrank(self.redis_key, start, stop)
 
     def zremrangebyscore(self, min_value, max_value):
         """
@@ -700,7 +703,7 @@ class SortedSet(Collection):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            return pipe.zremrangebyscore(self._key, min_value, max_value)
+            return pipe.zremrangebyscore(self.redis_key, min_value, max_value)
 
     def zrank(self, elem):
         """
@@ -708,7 +711,7 @@ class SortedSet(Collection):
         :param elem:
         """
         with self.pipe as pipe:
-            return pipe.zrank(self._key, elem)
+            return pipe.zrank(self.redis_key, elem)
 
     revrank = zrevrank
     score = zscore
@@ -718,10 +721,28 @@ class SortedSet(Collection):
     remove = zrem
 
 
-class Hash(Collection):
+class Hash(DataType):
     """
     Manipulate a Hash key in Redis.
     """
+
+    _fields = {}
+
+    def to_redis(self, k, v):
+        try:
+            field_validator = self._fields[k]
+            if not field_validator.validate(v):
+                raise InvalidFieldValue('invalid value for field %s' % k)
+            return self._encode(field_validator.to_persistence(v))
+        except KeyError:
+            return self._encode(v)
+
+    def from_redis(self, k, v):
+        try:
+            field_validator = self._fields[k]
+            return field_validator.from_persistence(self._decode(v))
+        except KeyError:
+            return self._decode(v)
 
     def hlen(self):
         """
@@ -729,7 +750,7 @@ class Hash(Collection):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            return pipe.hlen(self._key)
+            return pipe.hlen(self.redis_key)
 
     def hset(self, member, value):
         """
@@ -740,7 +761,8 @@ class Hash(Collection):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            return pipe.hset(self._key, member, value)
+            value = self.to_redis(member, value)
+            return pipe.hset(self.redis_key, self._encode(member), value)
 
     def hsetnx(self, member, value):
         """
@@ -751,7 +773,8 @@ class Hash(Collection):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            return pipe.hsetnx(self._key, member, value)
+            value = self.to_redis(member, value)
+            return pipe.hsetnx(self.redis_key, self._encode(member), value)
 
     def hdel(self, *members):
         """
@@ -761,7 +784,8 @@ class Hash(Collection):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            return pipe.hdel(self._key, *_parse_values(members))
+            members = [self._encode(m) for m in _parse_values(members)]
+            return pipe.hdel(self.redis_key, *members)
 
     def hkeys(self):
         """
@@ -770,10 +794,10 @@ class Hash(Collection):
         """
         with self.pipe as pipe:
             d = Deferred()
-            res = pipe.hkeys(self._key)
+            res = pipe.hkeys(self.redis_key)
 
             def cb():
-                d.set([None if v is None else v.decode() for v in res.result])
+                d.set([self._decode(v) for v in res.result])
 
             pipe.on_execute(cb)
             return d
@@ -785,11 +809,15 @@ class Hash(Collection):
         """
         with self.pipe as pipe:
             d = Deferred()
-            res = pipe.hgetall(self._key)
+            res = pipe.hgetall(self.redis_key)
 
             def cb():
-                d.set({k.decode(): None if v is None else v.decode()
-                       for k, v in res.result.items()})
+                data = {}
+                for k, v in res.result.items():
+                    k = self._decode(k)
+                    v = self.from_redis(k, v)
+                    data[k] = v
+                d.set(data)
 
             pipe.on_execute(cb)
             return d
@@ -797,14 +825,16 @@ class Hash(Collection):
     def hvals(self):
         """
         Returns all the values in the Hash
+        Unfortunately we can't type cast these fields.
+        it is a useless call anyway imho.
         :return: DeferredResult()
         """
         with self.pipe as pipe:
             d = Deferred()
-            res = pipe.hvals(self._key)
+            res = pipe.hvals(self.redis_key)
 
             def cb():
-                d.set([None if v is None else v.decode() for v in res.result])
+                d.set([self._decode(v) for v in res.result])
 
             pipe.on_execute(cb)
             return d
@@ -817,11 +847,10 @@ class Hash(Collection):
         """
         with self.pipe as pipe:
             d = Deferred()
-            res = pipe.hget(self._key, field)
+            res = pipe.hget(self.redis_key, self._encode(field))
 
             def cb():
-                v = res.result
-                d.set(None if v is None else v.decode())
+                d.set(self.from_redis(field, res.result))
 
             pipe.on_execute(cb)
             return d
@@ -833,7 +862,7 @@ class Hash(Collection):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            return pipe.hexists(self._key, field)
+            return pipe.hexists(self.redis_key, self._encode(field))
 
     def hincrby(self, field, increment=1):
         """
@@ -843,7 +872,18 @@ class Hash(Collection):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            return pipe.hincrby(self._key, field, increment)
+            return pipe.hincrby(self.redis_key, self._encode(field), increment)
+
+    def hincrbyfloat(self, field, increment=1):
+        """
+        Increment the value of the field.
+        :param increment:
+        :param field:
+        :return: DeferredResult()
+        """
+        with self.pipe as pipe:
+            return pipe.hincrbyfloat(self.redis_key, self._encode(field),
+                                     increment)
 
     def hmget(self, fields):
         """
@@ -853,10 +893,11 @@ class Hash(Collection):
         """
         with self.pipe as pipe:
             d = Deferred()
-            res = pipe.hmget(self._key, fields)
+            res = pipe.hmget(self.redis_key, [self._encode(f) for f in fields])
 
             def cb():
-                d.set([None if v is None else v.decode() for v in res.result])
+                d.set([self.from_redis(fields[i], v)
+                       for i, v in enumerate(res.result)])
 
             pipe.on_execute(cb)
             return d
@@ -868,6 +909,6 @@ class Hash(Collection):
         :return: DeferredResult()
         """
         with self.pipe as pipe:
-            mapping = {k.encode('utf-8'): v.encode('utf-8')
+            mapping = {self._encode(k): self.to_redis(k, v)
                        for k, v in mapping.items()}
-            return pipe.hmset(self._key, mapping)
+            return pipe.hmset(self.redis_key, mapping)

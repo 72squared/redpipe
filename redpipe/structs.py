@@ -1,30 +1,27 @@
 from six import add_metaclass
 from .pipeline import pipeline
-from .fields import TextField
-from .exceptions import InvalidFieldValue
-from .collections import Hash
+from .datatypes import Hash
 
-__all__ = ['Model']
+__all__ = ['Struct']
 
 
-class ModelMeta(type):
+class StructMeta(type):
     def __new__(mcs, name, bases, d):
-        if name in ['Model']:
+        if name in ['Struct']:
             return type.__new__(mcs, name, bases, d)
 
-        class ModelHash(Hash):
+        class StructHash(Hash):
             _keyspace = d.get('_keyspace', name)
             _connection = d.get('_connection', None)
+            _fields = d.get('_fields', {})
 
-        d['core'] = ModelHash
+        d['core'] = StructHash
 
-        model = type.__new__(mcs, name, bases, d)
-        return model
+        return type.__new__(mcs, name, bases, d)
 
 
-@add_metaclass(ModelMeta)
-class Model(object):
-    __metaclass__ = ModelMeta
+@add_metaclass(StructMeta)
+class Struct(object):
     __slots__ = ['key', '_data']
     _keyspace = None
     _connection = None
@@ -35,7 +32,7 @@ class Model(object):
         self._data = {}
         with pipeline(pipe, name=self._connection, autocommit=True) as pipe:
             if kwargs:
-                self.save(pipe=pipe, **kwargs)
+                self.change(pipe=pipe, **kwargs)
 
             self.load(pipe=pipe)
 
@@ -48,21 +45,20 @@ class Model(object):
                     return
 
                 for k, v in ref.result.items():
-                    v = self._from_persistence(k, v)
                     self._data[k] = v
 
             pipe.on_execute(cb)
 
-    def save(self, pipe=None, **changes):
+    def change(self, pipe=None, **changes):
         with pipeline(pipe, name=self._connection, autocommit=True) as pipe:
             core = self.core(self.key, pipe=pipe)
 
             def build(k, v):
-                pv = self._to_persistence(k, v) if v is not None else None
+                pv = None if v is None else core.to_redis(k, v)
                 if pv is None:
                     core.hdel(k)
                 else:
-                    core.hset(k, pv)
+                    core.hset(k, v)
 
                 def cb():
                     if pv is None:
@@ -78,6 +74,20 @@ class Model(object):
             for k, v in changes.items():
                 build(k, v)
 
+    def remove(self, fields, pipe=None):
+        with pipeline(pipe, name=self._connection, autocommit=True) as pipe:
+            core = self.core(self.key, pipe=pipe)
+            core.hdel(*fields)
+
+            def cb():
+                for k in fields:
+                    try:
+                        del self._data[k]
+                    except KeyError:
+                        pass
+
+            pipe.on_execute(cb)
+
     @property
     def persisted(self):
         return True if self._data else False
@@ -90,22 +100,6 @@ class Model(object):
                 self._data = {}
 
             pipe.on_execute(cb)
-
-    def _to_persistence(self, k, v):
-        try:
-            field_validator = self._fields[k]
-            if not field_validator.validate(v):
-                raise InvalidFieldValue('invalid value for field %s' % k)
-            return field_validator.to_persistence(v)
-        except KeyError:
-            return TextField().to_persistence(v)
-
-    def _from_persistence(self, k, v):
-        try:
-            field_validator = self._fields[k]
-            return field_validator.from_persistence(v)
-        except KeyError:
-            return v
 
     def get(self, item, default=None):
         return self._data.get(item, default)
