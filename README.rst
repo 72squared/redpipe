@@ -374,15 +374,51 @@ In a similar way, we support the other *Redis* primitives:
     * hashes
     * sorted sets
 
-Data Types
-----------
+Fields in Hashes
+----------------
+Often you want to store data in Hashes that maps to a particular data type.
+For example, a boolean flag, an integer, or a float.
+Redis stores all the values as byte strings and doesn't interpret.
+We can set up explicit mappings for these data types in `redpipe.Hash`.
+This is not required but it makes life easier.
+
+.. code:: python
+
+    class User(redpipe.Hash):
+        _keyspace = 'U'
+        _fields = {
+            'first_name': redpipe.StringField,
+            'last_name': redpipe.StringField,
+            'admin': redpipe.BooleanField,
+            'last_seen': redpipe.FloatField,
+        }
+
+
+You can see we defined a few fields and gave them types that we can use in python.
+The fields will perform basic data validation on the input and correctly serialize and deserialize from a *Redis* hash key.
+
+.. code:: python
+
+    with redpipe.pipeline(autocommit=True) as pipe:
+        u = User('1', pipe=pipe)
+        data = {
+            'first_name': 'Fred',
+            'last_name': 'Flitstone',
+            'admin': True,
+            'last_seen': time.time(),
+        }
+        u.hmset(data)
+        ref = u.hgetall()
+
+    assert(ref.result == data)
+
+You can see this allows us to set booleans, ints and other data types into the hash and get the same values back.
 
 
 Structs
 -------
-It is convenient to store records of data in Hashes in redis.
-But hashes only represent string key-value pairs.
-We need a way to type-cast variables in Redis hash fields.
+We gave `redpipe.Hash` the ability to type-cast variables stored in redis.
+But we could make it more convenient to fetch and save data as objects.
 That's where `redpipe.Struct` comes in.
 
 .. code:: python
@@ -405,9 +441,10 @@ That's where `redpipe.Struct` comes in.
             return self.key
 
 
-You can see we defined a few fields and gave them types that we can use in python.
-The fields will perform basic data validation on the input and correctly serialize and deserialize from a *Redis* hash key.
-Now, let's use the struct.
+A lot of this looks very similar to what we did with `redpipe.Hash`.
+That's because struct is built on top of the Hash object.
+The struct object is all about syntactic sugar to easily access variables and
+be able to manipulate them in a more object oriented manner.
 
 .. code:: python
 
@@ -416,9 +453,16 @@ Now, let's use the struct.
         u1 = User('1', name='Bob', last_seen=int(time()), pipe=pipe)
         u2 = User('2', name='Jill', last_seen=int(time()), pipe=pipe)
 
+
     print("first batch: %s" % [dict(u1), dict(u2)])
+    assert(u1.name == 'Bob')
+    assert(u2['name'] == 'Jill')
+    assert(isinstance(u1.last_seen, int))
+
 
 When we exit the context, all the structs are saved to *Redis* in one pipeline operation.
+We can access the fields of the user objects we created as properties or treat the objects like dictionaries.
+
 Let's read those two users we created and modify them.
 
 .. code:: python
@@ -426,14 +470,18 @@ Let's read those two users we created and modify them.
     with redpipe.pipeline(autocommit=True) as pipe:
         users = [User('1', pipe=pipe), User('2', pipe=pipe)]
         users[0].change(name='Bobby', last_seen=int(time()), pipe=pipe)
+        users[1].remove(['last_seen'])
 
     print("second batch: %s" % [dict(u1), dict(u2)])
 
-When you pass just the key into the object it knows to read from the database rather than write.
+When you pass just the key into the object it reads from the database.
+Then we can change the fields we want at any point.
+Or we can remove fields we no longer want.
 
-Struct Core
------------
-Because the struct is based on a `redpipe.Hash` object, you can access this if you need to extend the functionality of your struct.
+Fields that are undefined can still be accessed as basic strings.
+
+
+Because the struct is based on a `redpipe.Hash` object, you can access the underlying Hash if you need to extend the functionality of your struct.
 From our earlier `User` struct example:
 
 .. code:: python
@@ -441,6 +489,7 @@ From our earlier `User` struct example:
     username = User.core('1').hget('name').result
 
 More on this later.
+
 
 .. |BuildStatus| image:: https://travis-ci.org/72squared/redpipe.svg?branch=master
     :target: https://travis-ci.org/72squared/redpipe
