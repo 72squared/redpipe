@@ -813,6 +813,14 @@ class AsyncTestCase(unittest.TestCase):
         self.assertEqual(t.result, 1)
 
 
+class DeferredTestCase(unittest.TestCase):
+    def test(self):
+        d = redpipe.Deferred()
+        self.assertEqual(repr(d), repr(None))
+        self.assertRaises(redpipe.ResultNotReady, lambda: str(d))
+        self.assertRaises(redpipe.ResultNotReady, lambda: d[:])
+
+
 class DeferredStringTestCase(unittest.TestCase):
     def setUp(self):
         self.result = 'abc'
@@ -872,7 +880,7 @@ class DeferredIntTestCase(unittest.TestCase):
         self.assertEqual(self.deferred ** 1, self.result ** 1)
         self.assertEqual(1 ** self.deferred, 1 ** self.result)
         self.assertEqual(self.deferred / 1, self.result / 1)
-        self.assertEqual(1 / self.deferred,  1 / self.result)
+        self.assertEqual(1 / self.deferred, 1 / self.result)
         self.assertEqual(self.deferred // 1, self.result // 1)
         self.assertEqual(1 // self.deferred, 1 // self.result)
         self.assertEqual(self.deferred % 1, self.result % 1)
@@ -935,9 +943,9 @@ class DeferredListTestCase(unittest.TestCase):
 
 class DeferredCallableTestCase(unittest.TestCase):
     def setUp(self):
-
         def cb():
             return 1
+
         self.result = cb
         self.deferred = redpipe.Deferred()
         self.deferred.set(self.result)
