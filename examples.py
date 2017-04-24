@@ -23,7 +23,7 @@ class Followers(redpipe.SortedSet):
             ref = pipe.zrange(self.redis_key, 0, -1)
 
             def cb():
-                for v in ref.result:
+                for v in ref:
                     result.append(v)
 
             pipe.on_execute(cb)
@@ -138,5 +138,5 @@ if __name__ == '__main__':
             first = primary.incr(key)
             second = alt.incr(key)
 
-    print(first.result)
-    print(second.result)
+    print(first)
+    print(second)

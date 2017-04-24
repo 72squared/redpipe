@@ -1,4 +1,5 @@
 from .exceptions import ResultNotReady
+import json
 
 __all__ = [
     'Deferred',
@@ -25,6 +26,10 @@ class Deferred(object):
         self._result = data
 
     @property
+    def json(self):
+        return json.dumps(self._result)
+
+    @property
     def result(self):
         try:
             return self._result
@@ -32,3 +37,160 @@ class Deferred(object):
             pass
 
         raise ResultNotReady('Wait until after the pipeline executes.')
+
+    def IS(self, other):
+        return self._result is other
+
+    def isinstance(self, other):
+        return isinstance(self._result, other)
+
+    def id(self):
+        return id(self._result)
+
+    def __repr__(self):
+        return repr(self._result)
+
+    def __str__(self):
+        return str(self._result)
+
+    def __lt__(self, other):
+        return self._result < other
+
+    def __le__(self, other):
+        return self._result <= other
+
+    def __gt__(self, other):
+        return self._result > other
+
+    def __ge__(self, other):
+        return self._result >= other
+
+    def __hash__(self):
+        return hash(self._result)
+
+    def __eq__(self, other):
+        return self._result == other
+
+    def __ne__(self, other):
+        return self._result != other
+
+    def __nonzero__(self):
+        return bool(self._result)
+
+    def __bytes__(self):
+        return bytes(self._result)
+
+    def __bool__(self):
+        return bool(self._result)
+
+    def __call__(self, *args, **kwargs):
+        return self._result(*args, **kwargs)
+
+    def __len__(self):
+        return len(self._result)
+
+    def __iter__(self):
+        for item in self._result:
+            yield item
+
+    def __contains__(self, item):
+        return item in self._result
+
+    def __reversed__(self):
+        return reversed(self._result)
+
+    def __getitem__(self, item):
+        return self._result[item]
+
+    def __int__(self):
+        return int(self._result)
+
+    def __float__(self):
+        return float(self._result)
+
+    def __round__(self, ndigits=0):
+        return round(self._result, ndigits=ndigits)
+
+    def __add__(self, other):
+        return self._result + other
+
+    def __sub__(self, other):
+        return self._result - other
+
+    def __mul__(self, other):
+        return self._result * other
+
+    def __mod__(self, other):
+        return self._result % other
+
+    def __div__(self, other):
+        return self._result / other
+
+    def __truediv__(self, other):
+        return self._result / other
+
+    def __floordiv__(self, other):
+        return self._result // other
+
+    def __pow__(self, power, modulo=None):
+        return pow(self._result, power, modulo)
+
+    def __lshift__(self, other):
+        return self._result << other
+
+    def __rshift__(self, other):
+        return self._result >> other
+
+    def __and__(self, other):
+        return self._result & other
+
+    def __xor__(self, other):
+        return self._result ^ other
+
+    def __or__(self, other):
+        return self._result | other
+
+    def __radd__(self, other):
+        return other + self._result
+
+    def __rsub__(self, other):
+        return other - self._result
+
+    def __rmul__(self, other):
+        return self._result * other
+
+    def __rmod__(self, other):
+        return other % self._result
+
+    def __rdiv__(self, other):
+        return other / self._result
+
+    def __rtruediv__(self, other):
+        return other / self._result
+
+    def __rfloordiv__(self, other):
+        return other // self._result
+
+    def __rpow__(self, other):
+        return other ** self._result
+
+    def __rlshift__(self, other):
+        return other << self._result
+
+    def __rrshift__(self, other):
+        return other >> self._result
+
+    def __rand__(self, other):
+        return other & self._result
+
+    def __rxor__(self, other):
+        return other ^ self._result
+
+    def __ror__(self, other):
+        return other | self._result
+
+    def __getattr__(self, name, default=None):
+        if name[0] == '_':
+            raise AttributeError(name)
+
+        return getattr(self._result, name, default)

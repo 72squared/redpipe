@@ -67,7 +67,7 @@ We can pipeline multiple calls to redis and assign the results to variables.
         foo = pipe.incr('foo')
         bar = pipe.incr('bar)
         pipe.execute()
-    print([foo.result, bar.result])
+    print([foo, bar])
 
 
 *RedPipe* allocates a pipeline object.
@@ -78,6 +78,8 @@ But, notice that each `incr` call immediately gets a reference object back in re
 
 The references (in this case `foo` and `bar`) are empty until the pipeline executes.
 Once we complete the `execute()` call we can consume the pipeline results.
+The reference object behaves just like the underlying result once the pipeline executes.
+You can iterate of it, add it, multiply it, etc.
 
 This has far reaching implications.
 
@@ -202,14 +204,14 @@ Let's invoke our function!
         key2 = increment_and_expire('key2', pipe=pipe)
         pipe.execute()
 
-    print(key1.result)
-    print(key2.result)
+    print(key1)
+    print(key2)
 
 Or I can call the function all by itself without passing in a pipe.
 
 .. code:: python
 
-    print(increment_and_expire('key3').result)
+    print(increment_and_expire('key3'))
 
 The function will always pipeline the *incrby* and *expire* commands together.
 
@@ -263,12 +265,12 @@ Let me show you what I mean:
         with redpipe.pipeline(pipe, autocommit=True) as pipe:
             results = [pipe.incr(key) for key in keys]
             def cb():
-                ref.set(sum([r.result for r in results]))
+                ref.set(sum(results))
             pipe.on_execute(cb)
         return ref
 
     # now get the value on 100 keys
-    print(increment_keys(["key%d" % i for i in range(0, 100)]).result)
+    print(increment_keys(["key%d" % i for i in range(0, 100)]))
 
 We didn't pass in a pipeline to the function.
 It pipelines internally.
@@ -281,8 +283,8 @@ But if we need to call it multiple times or in a loop, we can pass a pipeline in
         first = increment_keys(["key%d" % i for i in range(0, 100)], pipe=pipe)
         second = increment_keys(["key%d" % i for i in range(100, 200)], pipe=pipe)
 
-    print(first.result)
-    print(second.result)
+    print(first)
+    print(second)
 
 
 
@@ -359,8 +361,8 @@ Here's an example of a sorted set:
         f2_members = f2.zrange(0, -1)
         pipe.execute()
 
-    print(f1_members.result)
-    print(f2_members.result)
+    print(f1_members)
+    print(f2_members)
 
 We can specify what named connection we want to use with the `_connection` variable.
 Or you can omit it if you are using just one default connection to redis.
@@ -410,7 +412,7 @@ The fields will perform basic data validation on the input and correctly seriali
         u.hmset(data)
         ref = u.hgetall()
 
-    assert(ref.result == data)
+    assert(ref == data)
 
 You can see this allows us to set booleans, ints and other data types into the hash and get the same values back.
 
@@ -486,7 +488,7 @@ From our earlier `User` struct example:
 
 .. code:: python
 
-    username = User.core('1').hget('name').result
+    username = User.core('1').hget('name')
 
 More on this later.
 
