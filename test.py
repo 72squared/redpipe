@@ -100,20 +100,6 @@ class PipelineTestCase(BaseTestCase):
         self.assertRaises(redpipe.ResultNotReady, lambda: ref.result)
 
 
-class StringCollectionTestCase(BaseTestCase):
-    def test(self):
-        class Foo(redpipe.String):
-            namespace = 'F'
-
-        with redpipe.pipeline(autocommit=True) as pipe:
-            f = Foo('1', pipe=pipe)
-            set_ref = f.set('bar')
-            get_ref = f.get()
-
-        self.assertEqual(set_ref.result, 1)
-        self.assertEqual(get_ref.result, 'bar')
-
-
 class FieldsTestCase(unittest.TestCase):
     def test_float(self):
         field = redpipe.FloatField
@@ -518,38 +504,41 @@ class StringTestCase(BaseTestCase):
 
     def test(self):
         with redpipe.pipeline(autocommit=True) as pipe:
-            f = self.Data('1', pipe=pipe)
-            self.assertEqual(f.redis_key, b'STRING{1}')
-            f.set('2')
-            before = f.get()
-            serialize = f.dump()
-            f.expire(3)
-            ttl = f.ttl()
-
-            f.delete()
-            exists = f.exists()
-            after = f.get()
+            s = self.Data('1', pipe=pipe)
+            self.assertEqual(s.redis_key, b'STRING{1}')
+            s.set('2')
+            before = s.get()
+            serialize = s.dump()
+            s.expire(3)
+            ttl = s.ttl()
+            s.delete()
+            exists = s.exists()
+            after = s.get()
             self.assertRaises(redpipe.ResultNotReady, lambda: before.result)
+
         self.assertEqual(before.result, '2')
         self.assertEqual(after.result, None)
-        self.assertAlmostEqual(ttl.result, 3, delta=1)
+        self.assertAlmostEqual(ttl, 3, delta=1)
         self.assertIsNotNone(serialize.result)
         self.assertFalse(exists.result)
 
         with redpipe.pipeline(autocommit=True) as pipe:
-            f = self.Data('2', pipe=pipe)
-            restore = f.restore(serialize.result)
-            ref = f.get()
-            idle = f.object('IDLETIME')
-            persist = f.persist()
-            incr = f.incr()
-            incrby = f.incrby(2)
-            incrbyfloat = f.incrbyfloat(2.1)
-            setnx = f.setnx('foo')
-            getaftersetnx = f.get()
+            s = self.Data('2', pipe=pipe)
+            restore = s.restore(serialize.result)
+            ref = s.get()
+            idle = s.object('IDLETIME')
+            persist = s.persist()
+            incr = s.incr()
+            incrby = s.incrby(2)
+            incrbyfloat = s.incrbyfloat(2.1)
+            setnx = s.setnx('foo')
+            getaftersetnx = s.get()
+            setex = s.setex('bar', 60)
+            getaftersetex = s.get()
+            ttl = s.ttl()
         self.assertEqual(restore.result, 1)
         self.assertEqual(ref.result, '2')
-        self.assertEqual(str(f), '<Data:2>')
+        self.assertEqual(str(s), '<Data:2>')
         self.assertEqual(idle.result, 0)
         self.assertEqual(persist.result, 0)
         self.assertEqual(incr.result, 3)
@@ -557,6 +546,35 @@ class StringTestCase(BaseTestCase):
         self.assertEqual(incrbyfloat.result, 7.1)
         self.assertEqual(setnx.result, 0)
         self.assertEqual(getaftersetnx.result, '7.1')
+        self.assertEqual(setex, 1)
+        self.assertEqual(getaftersetex, 'bar')
+        self.assertAlmostEqual(ttl, 60, delta=1)
+
+        with redpipe.pipeline(autocommit=True) as pipe:
+            s = self.Data('3', pipe=pipe)
+            s.set('bar')
+            append = s.append('r')
+            substr = s.substr(1, 3)
+            strlen = s.strlen()
+            setrange = s.setrange(1, 'azz')
+            get = s.get()
+
+        self.assertEqual(append, 4)
+        self.assertEqual(strlen, 4)
+        self.assertEqual(substr, 'arr')
+        self.assertEqual(setrange, 4)
+        self.assertEqual(get, 'bazz')
+
+    def test_bitwise(self):
+        with redpipe.pipeline(autocommit=True) as pipe:
+            s = self.Data('1', pipe=pipe)
+            setbit = s.setbit(2, 1)
+            getbit = s.getbit(2)
+            bitcount = s.bitcount()
+
+        self.assertEqual(setbit, 0)
+        self.assertEqual(getbit, 1)
+        self.assertEqual(bitcount, 1)
 
     def test_bare(self):
         with redpipe.pipeline(autocommit=True) as pipe:

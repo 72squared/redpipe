@@ -15,7 +15,7 @@ class Error(Exception):
 
 class ResultNotReady(Error):
     """
-    Raised when you access a data from a DeferredResult before it is assigned.
+    Raised when you access a data from a Deferred before it is assigned.
     """
 
 

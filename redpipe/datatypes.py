@@ -69,7 +69,7 @@ class DataType(object):
     def delete(self):
         """
         Remove the key from redis
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             return pipe.delete(self.redis_key)
@@ -78,7 +78,7 @@ class DataType(object):
         """
         Allow the key to expire after ``time`` seconds.
         :param time: time expressed in seconds.
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             return pipe.expire(self.redis_key, time)
@@ -86,7 +86,7 @@ class DataType(object):
     def exists(self):
         """
         does the key exist in redis?
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             return pipe.exists(self.redis_key)
@@ -96,7 +96,7 @@ class DataType(object):
         Run a lua script against the key.
         :param script: str  A lua script targeting the current key.
         :param args: arguments to be passed to redis for the lua script
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             return pipe.eval(script, 1, self.redis_key, *args)
@@ -104,7 +104,7 @@ class DataType(object):
     def dump(self):
         """
         get a redis RDB-like serialization of the object.
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             return pipe.dump(self.redis_key)
@@ -114,14 +114,14 @@ class DataType(object):
         Restore serialized dump of a key back into redis
         :param data: redis RDB-like serialization
         :param pttl: how many milliseconds till expiration of the key.
-        :return: DeferredResult()
+        :return: Deferred()
         """
         return self.eval(lua_restorenx, pttl, data)
 
     def ttl(self):
         """
         get the number of seconds until the key's expiration
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             return pipe.ttl(self.redis_key)
@@ -129,7 +129,7 @@ class DataType(object):
     def persist(self):
         """
         clear any expiration TTL set on the object
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             return pipe.persist(self.redis_key)
@@ -138,7 +138,7 @@ class DataType(object):
         """
         get the key's info stats
         :param subcommand: REFCOUNT | ENCODING | IDLETIME
-        :return: DeferredResult()
+        :return: Deferred()
         """
         return self.eval(lua_object_info, subcommand)
 
@@ -157,8 +157,8 @@ class String(DataType):
 
     def get(self):
         """
-        set the value as a string in the key
-        :return: DeferredResult()
+        Return the value of the key or None if the key doesn't exist
+        :return: Deferred()
         """
         with self.pipe as pipe:
             d = Deferred()
@@ -170,49 +170,150 @@ class String(DataType):
             pipe.on_execute(cb)
             return d
 
-    def set(self, value):
+    def set(self, value, ex=None, px=None, nx=False, xx=False):
         """
-        set the value as a string in the key
-        :param value:
-        :return: DeferredResult()
-        """
-        with self.pipe as pipe:
-            return pipe.set(self.redis_key, self._encode(value))
+        Set the value at key ``name`` to ``value``
 
-    def incr(self):
-        """
-        increment the value for key by 1
-        :return: DeferredResult()
-        """
-        with self.pipe as pipe:
-            return pipe.incr(self.redis_key)
+        ``ex`` sets an expire flag on key ``name`` for ``ex`` seconds.
 
-    def incrby(self, value=1):
-        """
-        increment the value for key by value: int
-        :param value: int
-        :return: DeferredResult()
-        """
-        with self.pipe as pipe:
-            return pipe.incrby(self.redis_key, value)
+        ``px`` sets an expire flag on key ``name`` for ``px`` milliseconds.
 
-    def incrbyfloat(self, value=1.0):
-        """
-        increment the value for key by value: float
-        :param value: int
-        :return: DeferredResult()
+        ``nx`` if set to True, set the value at key ``name`` to ``value`` if it
+            does not already exist.
+
+        ``xx`` if set to True, set the value at key ``name`` to ``value`` if it
+            already exists.
+
+        :return: Deferred()
         """
         with self.pipe as pipe:
-            return pipe.incrbyfloat(self.redis_key, value)
+            return pipe.set(self.redis_key, self._encode(value),
+                            ex=ex, px=px, nx=nx, xx=xx)
 
     def setnx(self, value):
         """
         Set the value as a string in the key only if the key doesn't exist.
         :param value:
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             return pipe.setnx(self.redis_key, self._encode(value))
+
+    def setex(self, value, time):
+        """
+        Set the value of key to ``value`` that expires in ``time``
+        seconds. ``time`` can be represented by an integer or a Python
+        timedelta object.
+        """
+        with self.pipe as pipe:
+            return pipe.setex(self.redis_key, time, self._encode(value))
+
+    def append(self, value):
+        """
+        Appends the string ``value`` to the value at ``key``. If ``key``
+        doesn't already exist, create it with a value of ``value``.
+        Returns the new length of the value at ``key``.
+        :return: Deferred()
+        """
+        with self.pipe as pipe:
+            return pipe.append(self.redis_key, self._encode(value))
+
+    def strlen(self):
+        """
+        Return the number of bytes stored in the value of the key
+        :param name:
+        :return: Deferred()
+        """
+        with self.pipe as pipe:
+            return pipe.strlen(self.redis_key)
+
+    def substr(self, start, end=-1):
+        """
+        Return a substring of the string at key ``name``. ``start`` and ``end``
+        are 0-based integers specifying the portion of the string to return.
+        :param start: int
+        :param end: int
+        :return: Deferred()
+        """
+        with self.pipe as pipe:
+            d = Deferred()
+            res = pipe.substr(self.redis_key, start=start, end=end)
+
+            def cb():
+                d.set(self._decode(res.result))
+
+            pipe.on_execute(cb)
+            return d
+
+    def setrange(self, offset, value):
+        """
+        Overwrite bytes in the value of ``name`` starting at ``offset`` with
+        ``value``. If ``offset`` plus the length of ``value`` exceeds the
+        length of the original value, the new value will be larger
+        than before.
+        If ``offset`` exceeds the length of the original value, null bytes
+        will be used to pad between the end of the previous value and the start
+        of what's being injected.
+
+        Returns the length of the new string.
+        """
+        with self.pipe as pipe:
+            return pipe.setrange(self.redis_key, offset, value)
+
+    def setbit(self, offset, value):
+        """
+        Flag the ``offset`` in the key as ``value``. Returns a boolean
+        indicating the previous value of ``offset``.
+        :param  offset: int
+        :param value:
+        :return: Deferred()
+        """
+        with self.pipe as pipe:
+            return pipe.setbit(self.redis_key, offset, value)
+
+    def getbit(self, offset):
+        """
+        Returns a boolean indicating the value of ``offset`` in key
+        """
+        with self.pipe as pipe:
+            return pipe.getbit(self.redis_key, offset)
+
+    def bitcount(self, start=None, end=None):
+        """
+        Returns the count of set bits in the value of ``key``.  Optional
+        ``start`` and ``end`` paramaters indicate which bytes to consider
+        :param start: int
+        :param end: int
+        :return: Deferred()
+        """
+        with self.pipe as pipe:
+            return pipe.bitcount(self.redis_key, start=start, end=end)
+
+    def incr(self, amount=1):
+        """
+        increment the value for key by 1
+        :return: Deferred()
+        """
+        with self.pipe as pipe:
+            return pipe.incr(self.redis_key, amount=amount)
+
+    def incrby(self, amount=1):
+        """
+        increment the value for key by value: int
+        :param value: int
+        :return: Deferred()
+        """
+        with self.pipe as pipe:
+            return pipe.incrby(self.redis_key, amount=amount)
+
+    def incrbyfloat(self, amount=1.0):
+        """
+        increment the value for key by value: float
+        :param value: int
+        :return: Deferred()
+        """
+        with self.pipe as pipe:
+            return pipe.incrbyfloat(self.redis_key, amount=amount)
 
 
 def _parse_values(values):
@@ -231,7 +332,7 @@ class Set(DataType):
         """
         Add the specified members to the Set.
         :param values: a list of values or a simple value.
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             values = [self._encode(v) for v in _parse_values(values)]
@@ -242,7 +343,7 @@ class Set(DataType):
         Remove the values from the Set if they are present.
 
         :param values: a list of values or a simple value.
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             values = [self._encode(v) for v in _parse_values(values)]
@@ -252,7 +353,7 @@ class Set(DataType):
         """
         Remove and return (pop) a random element from the Set.
 
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             d = Deferred()
@@ -281,7 +382,7 @@ class Set(DataType):
         """
         How many items in the set?
 
-        :return: DeferredResult()
+        :return: Deferred()
 
         """
         with self.pipe as pipe:
@@ -291,7 +392,7 @@ class Set(DataType):
         """
         Is the provided value is in the ``Set`?
         :param value:
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             return pipe.sismember(self.redis_key, self._encode(value))
@@ -299,7 +400,7 @@ class Set(DataType):
     def srandmember(self):
         """
         Return a random member of the set.
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             d = Deferred()
@@ -324,14 +425,14 @@ class List(DataType):
     def members(self):
         """
         Returns all items in the list.
-        :return: DeferredResult()
+        :return: Deferred()
         """
         return self.lrange(0, -1)
 
     def llen(self):
         """
         Returns the length of the list.
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             return pipe.llen(self.redis_key)
@@ -342,7 +443,7 @@ class List(DataType):
 
         :param start: integer representing the start index of the range
         :param stop: integer representing the size of the list.
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             d = Deferred()
@@ -359,7 +460,7 @@ class List(DataType):
         Push the value into the list from the *left* side
 
         :param values: a list of values or single value to push
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             values = [self._encode(v) for v in _parse_values(values)]
@@ -370,7 +471,7 @@ class List(DataType):
         Push the value into the list from the *right* side
 
         :param values: a list of values or single value to push
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             values = [self._encode(v) for v in _parse_values(values)]
@@ -380,7 +481,7 @@ class List(DataType):
         """
         Pop the first object from the left.
 
-        :return: DeferredResult()
+        :return: Deferred()
 
         """
         with self.pipe as pipe:
@@ -414,7 +515,7 @@ class List(DataType):
         Remove first occurrence of value.
         :param num:
         :param value:
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             value = self._encode(value)
@@ -426,7 +527,7 @@ class List(DataType):
 
         :param start:
         :param end:
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             return pipe.ltrim(self.redis_key, start, end)
@@ -436,7 +537,7 @@ class List(DataType):
         Return the value at the index *idx*
 
         :param idx: the index to fetch the value.
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             d = Deferred()
@@ -454,7 +555,7 @@ class List(DataType):
 
         :param value:
         :param idx:
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             value = self._encode(value)
@@ -478,7 +579,7 @@ class SortedSet(DataType):
     def members(self):
         """
         Returns the members of the set.
-        :return: DeferredResult()
+        :return: Deferred()
         """
         return self.zrange(0, -1)
 
@@ -491,7 +592,7 @@ class SortedSet(DataType):
         :param xx:
         :param ch:
         :param incr:
-        :return: DeferredResult()
+        :return: Deferred()
         """
 
         if nx:
@@ -612,7 +713,7 @@ class SortedSet(DataType):
         :param num:
         :param withscores:
         :param score_cast_func:
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             d = Deferred()
@@ -649,7 +750,7 @@ class SortedSet(DataType):
         :param num: int
         :param withscores: bool
         :param score_cast_func:
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             d = Deferred()
@@ -669,7 +770,7 @@ class SortedSet(DataType):
     def zcard(self):
         """
         Returns the cardinality of the SortedSet.
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             return pipe.zcard(self.redis_key)
@@ -678,7 +779,7 @@ class SortedSet(DataType):
         """
         Return the score of an element
         :param elem:
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             return pipe.zscore(self.redis_key, self._encode(elem))
@@ -689,7 +790,7 @@ class SortedSet(DataType):
         ``stop`` both included.
         :param stop:
         :param start:
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             return pipe.zremrangebyrank(self.redis_key, start, stop)
@@ -700,7 +801,7 @@ class SortedSet(DataType):
         ``max_value`` both included.
         :param max_value:
         :param min_value:
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             return pipe.zremrangebyscore(self.redis_key, min_value, max_value)
@@ -747,7 +848,7 @@ class Hash(DataType):
     def hlen(self):
         """
         Returns the number of elements in the Hash.
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             return pipe.hlen(self.redis_key)
@@ -758,7 +859,7 @@ class Hash(DataType):
 
         :param value:
         :param member:
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             value = self.to_redis(member, value)
@@ -770,7 +871,7 @@ class Hash(DataType):
 
         :param value:
         :param member:
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             value = self.to_redis(member, value)
@@ -781,7 +882,7 @@ class Hash(DataType):
         Delete one or more hash field.
 
         :param members: on or more fields to remove.
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             members = [self._encode(m) for m in _parse_values(members)]
@@ -790,7 +891,7 @@ class Hash(DataType):
     def hkeys(self):
         """
         Returns all fields name in the Hash
-        return: DeferredResult()
+        return: Deferred()
         """
         with self.pipe as pipe:
             d = Deferred()
@@ -805,7 +906,7 @@ class Hash(DataType):
     def hgetall(self):
         """
         Returns all the fields and values in the Hash.
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             d = Deferred()
@@ -827,7 +928,7 @@ class Hash(DataType):
         Returns all the values in the Hash
         Unfortunately we can't type cast these fields.
         it is a useless call anyway imho.
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             d = Deferred()
@@ -843,7 +944,7 @@ class Hash(DataType):
         """
         Returns the value stored in the field, None if the field doesn't exist.
         :param field:
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             d = Deferred()
@@ -859,7 +960,7 @@ class Hash(DataType):
         """
         Returns ``True`` if the field exists, ``False`` otherwise.
         :param field:
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             return pipe.hexists(self.redis_key, self._encode(field))
@@ -869,7 +970,7 @@ class Hash(DataType):
         Increment the value of the field.
         :param increment:
         :param field:
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             return pipe.hincrby(self.redis_key, self._encode(field), increment)
@@ -879,7 +980,7 @@ class Hash(DataType):
         Increment the value of the field.
         :param increment:
         :param field:
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             return pipe.hincrbyfloat(self.redis_key, self._encode(field),
@@ -889,7 +990,7 @@ class Hash(DataType):
         """
         Returns the values stored in the fields.
         :param fields:
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             d = Deferred()
@@ -906,7 +1007,7 @@ class Hash(DataType):
         """
         Sets or updates the fields with their corresponding values.
         :param mapping: a dict with keys and values
-        :return: DeferredResult()
+        :return: Deferred()
         """
         with self.pipe as pipe:
             mapping = {self._encode(k): self.to_redis(k, v)

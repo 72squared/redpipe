@@ -66,7 +66,7 @@ class Pipeline(object):
         """
         Invoke the redispy pipeline.execute() method and take all the values
         returned in sequential order of commands and map them to the
-        DeferredResult objects we returned when each command was queued inside
+        Deferred objects we returned when each command was queued inside
         the pipeline.
         Also invoke all the callback functions queued up.
         :param raise_on_error: boolean

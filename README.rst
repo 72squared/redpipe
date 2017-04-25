@@ -177,7 +177,7 @@ Solution
 *RedPipe* gives you the tools to break up pipelined calls into modular reusable components.
 
 The first step is to make the commands return a reference to the data before execute happens.
-The `DeferredResult` object gets populated with data once the pipeline executes.
+The `Deferred` object gets populated with data once the pipeline executes.
 This gives us the ability to create reusable building blocks.
 
 
@@ -261,7 +261,7 @@ Let me show you what I mean:
 .. code:: python
 
     def increment_keys(keys, pipe=None):
-        ref = redpipe.DeferredResult()
+        ref = redpipe.Deferred()
         with redpipe.pipeline(pipe, autocommit=True) as pipe:
             results = [pipe.incr(key) for key in keys]
             def cb():
