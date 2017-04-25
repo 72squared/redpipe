@@ -412,6 +412,26 @@ class Set(DataType):
             pipe.on_execute(cb)
             return d
 
+    def sscan(self, cursor=0, match=None, count=None):
+        """
+        Incrementally return lists of elements in a set. Also return a cursor
+        indicating the scan position.
+
+        ``match`` allows for filtering the keys by pattern
+
+        ``count`` allows for hint the minimum number of returns
+        """
+        with self.pipe as pipe:
+            d = Deferred()
+            res = pipe.sscan(self.redis_key, cursor=cursor,
+                             match=match, count=count)
+
+            def cb():
+                d.set((res[0], [self._decode(v) for v in res[1]]))
+
+            pipe.on_execute(cb)
+            return d
+
     add = sadd
     pop = spop
     remove = srem

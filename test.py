@@ -625,6 +625,15 @@ class SetTestCase(BaseTestCase):
         self.assertFalse(ismember_b.result)
         self.assertTrue(srandmember.result, b'a')
 
+    def test_scan(self):
+        with redpipe.pipeline(autocommit=True) as pipe:
+            s = self.Data('1', pipe=pipe)
+            s.sadd('a1', 'a2', 'b1', 'b2')
+            sscan = s.sscan(0, match='a*')
+
+        self.assertEqual(sscan[0], 0)
+        self.assertEqual(set(sscan[1]), {'a1', 'a2'})
+
 
 class ListTestCase(BaseTestCase):
     class Data(redpipe.List):
