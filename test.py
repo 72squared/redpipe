@@ -670,6 +670,30 @@ class ListTestCase(BaseTestCase):
         self.assertEqual(lindex_after.result, 'a')
         self.assertEqual(lpop.result, 'd')
 
+    def test_scan(self):
+        with redpipe.pipeline(autocommit=True) as pipe:
+            self.Data('1a', pipe=pipe).lpush('1')
+            self.Data('1b', pipe=pipe).lpush('1')
+            self.Data('2a', pipe=pipe).lpush('1')
+            self.Data('2b', pipe=pipe).lpush('1')
+            sscan = self.Data.scan(0, match='1*', pipe=pipe)
+            sscan_all = self.Data.scan(pipe=pipe)
+
+        self.assertEqual(sscan[0], 0)
+        self.assertEqual(set(sscan[1]), {'1a', '1b'})
+        self.assertEqual(set(sscan_all[1]), {'1a', '1b', '2a', '2b'})
+
+    def test_scan_with_no_keyspace(self):
+        with redpipe.pipeline(autocommit=True) as pipe:
+            redpipe.List('1a', pipe=pipe).lpush('1')
+            redpipe.List('1b', pipe=pipe).lpush('1')
+            redpipe.List('2a', pipe=pipe).lpush('1')
+            redpipe.List('2b', pipe=pipe).lpush('1')
+            sscan = redpipe.List.scan(0, match='1*', pipe=pipe)
+
+        self.assertEqual(sscan[0], 0)
+        self.assertEqual(set(sscan[1]), {'1a', '1b'})
+
 
 class SortedSetTestCase(BaseTestCase):
     class Data(redpipe.SortedSet):
@@ -743,6 +767,18 @@ class SortedSetTestCase(BaseTestCase):
         self.assertEqual(zremrangebyrank.result, 1)
         self.assertEqual(zremrangebyscore.result, 1)
 
+    def test_scan(self):
+        with redpipe.pipeline(autocommit=True) as pipe:
+            s = self.Data('1', pipe=pipe)
+            s.zadd('a1', 1)
+            s.zadd('a2', 2)
+            s.zadd('b1', 1)
+            s.zadd('b2', 2)
+            sscan = s.zscan(0, match='a*')
+
+        self.assertEqual(sscan[0], 0)
+        self.assertEqual(set(sscan[1]), {('a1', 1.0), ('a2', 2.0)})
+
 
 class HashTestCase(BaseTestCase):
     class Data(redpipe.Hash):
@@ -778,6 +814,15 @@ class HashTestCase(BaseTestCase):
         self.assertEqual(hincrby.result, 6)
         self.assertEqual(hmget.result, ['3', '6'])
         self.assertEqual(set(hvals.result), {'3', '6'})
+
+    def test_scan(self):
+        with redpipe.pipeline(autocommit=True) as pipe:
+            s = self.Data('1', pipe=pipe)
+            s.hmset({'a1': '1', 'a2': '2', 'b1': '1', 'b2': '2'})
+            hscan = s.hscan(0, match='a*')
+
+        self.assertEqual(hscan[0], 0)
+        self.assertEqual(hscan[1], {'a1': '1', 'a2': '2'})
 
 
 class HashFieldsTestCase(BaseTestCase):

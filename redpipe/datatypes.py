@@ -2,6 +2,7 @@ from .pipeline import pipeline
 from .luascripts import lua_restorenx, lua_object_info
 from .exceptions import InvalidOperation, InvalidFieldValue
 from .result import Deferred
+import re
 
 __all__ = """
 String
@@ -148,6 +149,49 @@ class DataType(object):
         :return: str
         """
         return "<%s:%s>" % (self.__class__.__name__, self.key)
+
+    @classmethod
+    def scan(cls, cursor=0, match=None, count=None, pipe=None):
+        """
+        Incrementally return lists of key names. Also return a cursor
+        indicating the scan position.
+
+        ``match`` allows for filtering the keys by pattern
+
+        ``count`` allows for hint the minimum number of returns
+        """
+        d = Deferred()
+        if cls._keyspace is None:
+            with pipeline(pipe, name=cls._connection, autocommit=True) as pipe:
+                res = pipe.scan(cursor=cursor, match=match, count=count)
+
+                def cb():
+                    d.set((res[0], [cls._decode(v) for v in res[1]]))
+
+                pipe.on_execute(cb)
+                return d
+
+        if match is None:
+            match = '*'
+        match = "%s{%s}" % (cls._keyspace, match)
+        pattern = re.compile(r'^%s\{(.*)\}$' % cls._keyspace)
+
+        with pipeline(pipe, name=cls._connection, autocommit=True) as pipe:
+
+            res = pipe.scan(cursor=cursor, match=match, count=count)
+
+            def cb():
+                keys = []
+                for k in res[1]:
+                    k = cls._decode(k)
+                    m = pattern.match(k)
+                    if m:
+                        keys.append(m.group(1))
+
+                d.set((res[0], keys))
+
+            pipe.on_execute(cb)
+            return d
 
 
 class String(DataType):
@@ -834,6 +878,29 @@ class SortedSet(DataType):
         with self.pipe as pipe:
             return pipe.zrank(self.redis_key, elem)
 
+    def zscan(self, cursor=0, match=None, count=None,
+              score_cast_func=float):
+        """
+        Incrementally return lists of elements in a sorted set. Also return a
+        cursor indicating the scan position.
+
+        ``match`` allows for filtering the members by pattern
+
+        ``count`` allows for hint the minimum number of returns
+
+        ``score_cast_func`` a callable used to cast the score return value
+        """
+        with self.pipe as pipe:
+            d = Deferred()
+            res = pipe.zscan(self.redis_key, cursor=cursor,
+                             match=match, count=count, score_cast_func=float)
+
+            def cb():
+                d.set((res[0], [(self._decode(k), v) for k, v in res[1]]))
+
+            pipe.on_execute(cb)
+            return d
+
     revrank = zrevrank
     score = zscore
     rank = zrank
@@ -1033,3 +1100,24 @@ class Hash(DataType):
             mapping = {self._encode(k): self.to_redis(k, v)
                        for k, v in mapping.items()}
             return pipe.hmset(self.redis_key, mapping)
+
+    def hscan(self, cursor=0, match=None, count=None):
+        """
+        Incrementally return key/value slices in a hash. Also return a cursor
+        indicating the scan position.
+
+        ``match`` allows for filtering the keys by pattern
+
+        ``count`` allows for hint the minimum number of returns
+        """
+        with self.pipe as pipe:
+            d = Deferred()
+            res = pipe.hscan(self.redis_key, cursor=cursor,
+                             match=match, count=count)
+
+            def cb():
+                d.set((res[0], {self._decode(k): self._decode(v)
+                                for k, v in res[1].items()}))
+
+            pipe.on_execute(cb)
+            return d
