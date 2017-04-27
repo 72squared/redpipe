@@ -913,6 +913,62 @@ class SortedSet(DataType):
         with self.pipe as pipe:
             return pipe.zrank(self.redis_key, elem)
 
+    def zlexcount(self, min, max):
+        """
+        Return the number of items in the sorted set between the
+        lexicographical range ``min`` and ``max``.
+        """
+        with self.pipe as pipe:
+            return pipe.zlexcount(self.redis_key, min, max)
+
+    def zrangebylex(self, min, max, start=None, num=None):
+        """
+        Return the lexicographical range of values from sorted set ``name``
+        between ``min`` and ``max``.
+
+        If ``start`` and ``num`` are specified, then return a slice of the
+        range.
+        """
+        with self.pipe as pipe:
+            d = Deferred()
+            res = pipe.zrangebylex(self.redis_key, min, max,
+                                   start=start, num=num)
+
+            def cb():
+                d.set([self._decode(v) for v in res])
+
+            pipe.on_execute(cb)
+            return d
+
+    def zrevrangebylex(self, max, min, start=None, num=None):
+        """
+        Return the reversed lexicographical range of values from the sorted set
+         between ``max`` and ``min``.
+
+        If ``start`` and ``num`` are specified, then return a slice of the
+        range.
+        """
+        with self.pipe as pipe:
+            d = Deferred()
+            res = pipe.zrevrangebylex(self.redis_key, max, min,
+                                      start=start, num=num)
+
+            def cb():
+                d.set([self._decode(v) for v in res])
+
+            pipe.on_execute(cb)
+            return d
+
+    def zremrangebylex(self, min, max):
+        """
+        Remove all elements in the sorted set between the
+        lexicographical range specified by ``min`` and ``max``.
+
+        Returns the number of elements removed.
+        """
+        with self.pipe as pipe:
+            return pipe.zremrangebylex(self, min, max)
+
     def zscan(self, cursor=0, match=None, count=None,
               score_cast_func=float):
         """
