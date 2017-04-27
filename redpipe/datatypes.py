@@ -10,6 +10,7 @@ Set
 List
 SortedSet
 Hash
+HyperLogLog
 """.split()
 
 
@@ -1254,3 +1255,24 @@ class Hash(DataType):
                                       match=match, count=count)
             for item in data.items():
                 yield item
+
+
+class HyperLogLog(DataType):
+    """
+    Manipulate a HyperLogLog key in redis.
+    """
+
+    def pfadd(self, *values):
+        """
+        Adds the specified elements to the specified HyperLogLog.
+        """
+        with self.pipe as pipe:
+            return pipe.pfadd(self.redis_key, *values)
+
+    def pfcount(self):
+        """
+        Return the approximated cardinality of
+        the set observed by the HyperLogLog at key(s).
+        """
+        with self.pipe as pipe:
+            return pipe.pfcount(self.redis_key)

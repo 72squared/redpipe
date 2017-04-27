@@ -1051,6 +1051,20 @@ class HashFieldsTestCase(BaseTestCase):
         self.assertEqual(hgetall, {'sl': data})
 
 
+class HyperloglogTestCase(BaseTestCase):
+    class Data(redpipe.HyperLogLog):
+        _keyspace = 'HYPERLOGLOG'
+
+    def test(self):
+        with redpipe.pipeline(autocommit=True) as pipe:
+            c = self.Data('1', pipe=pipe)
+            pfadd = c.pfadd('a', 'b', 'c')
+            pfcount = c.pfcount()
+
+        self.assertEqual(pfadd, 1)
+        self.assertEqual(pfcount, 3)
+
+
 class AsyncTestCase(unittest.TestCase):
     def disabled_test(self):
         def sleeper():
