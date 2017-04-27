@@ -4,7 +4,7 @@ repo="$1"
 
 if [ -z "$repo" ]
 then
-    repo="pypitest"
+    repo="pypi"
 fi
 
 python setup.py register -r "$repo" && \
