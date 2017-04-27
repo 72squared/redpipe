@@ -1,2 +1,3 @@
 redis>=2.10.2
 six
+redis-py-cluster

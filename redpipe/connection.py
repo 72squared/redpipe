@@ -5,6 +5,7 @@ __all__ = [
     'ConnectionManager',
     'connector',
     'connect_redis',
+    'connect_rediscluster',
     'connect',
     'disconnect',
     'reset'
@@ -86,6 +87,26 @@ class ConnectionManager(object):
         # set up the connection.
         self.connect(pipeline_method=pipeline_method, name=name)
 
+    def connect_rediscluster(self, redis_cluster_client, name=None):
+        """
+        redis-py-cluster internals are messy and have changed a lot
+        so I can't be quite as elegant here as I was with redis.
+        You really need to pass me the StrictRedisCluster object.
+
+        :param redis_cluster_client: rediscluster.StrictRedisCluster()
+        :param name: identifier for the connection, optional
+        :return: None
+        """
+        def pipeline_method():
+            """
+            A closure wrapping the pipeline.
+            :return:
+            """
+            return redis_cluster_client.pipeline()
+
+        # set up the connection.
+        self.connect(pipeline_method=pipeline_method, name=name)
+
     def disconnect(self, name=None):
         """
         remove a connection by name.
@@ -105,6 +126,7 @@ class ConnectionManager(object):
 
 connector = ConnectionManager()
 connect_redis = connector.connect_redis
+connect_rediscluster = connector.connect_rediscluster
 connect = connector.connect
 disconnect = connector.disconnect
 reset = connector.reset

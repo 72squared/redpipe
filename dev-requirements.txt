@@ -5,3 +5,4 @@ flake8
 mock
 python-coveralls
 redislite>=3.0.271
+redis-py-cluster>=1.3.0

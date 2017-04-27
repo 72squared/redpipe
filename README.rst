@@ -4,9 +4,9 @@ RedPipe
 
 |BuildStatus| |CoverageStatus| |Version| |Python|
 
-This project is in an *alpha* state so the interface may change.
+This project is beta software so the interface may change.
 
-The code is well tested and rapidly stabilizing.
+However, the code is well tested and rapidly stabilizing.
 Check back soon.
 
 Requirements
@@ -332,10 +332,21 @@ RedPipe supports Redis Cluster.
 
     import rediscluster
     import redpipe
-    redpipe.connect(rediscluster.StrictRedisCluster().pipeline)
 
-This interface is still a little rough.
-I hope to get better patterns around this soon.
+    r = rediscluster.StrictRedisCluster(
+        startup_nodes=[{'host': '0', 'port': 7000}],
+    )
+
+    redpipe.connect_rediscluster(r, name='my-cluster')
+
+
+This api isn't quite as clean as the one for `connect_redis`.
+I'm not able to easily instantiate the StrictRedisPipeline with only a connection pool.
+It's possible in the 1.3.0 or greater version, but older versions present a challenge.
+I am relying on you to always pass StrictRedisCluster.
+In future versions, I may be able to correctly detect the version of `redis-py-cluster` you are using.
+We'll see.
+For now, this should work well enough.
 
 
 Working with Keyspaces
