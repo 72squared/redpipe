@@ -634,6 +634,14 @@ class SetTestCase(BaseTestCase):
         self.assertEqual(sscan[0], 0)
         self.assertEqual(set(sscan[1]), {'a1', 'a2'})
 
+        with redpipe.pipeline(autocommit=True) as pipe:
+            self.assertRaises(
+                redpipe.InvalidOperation,
+                lambda: {k for k in self.Data('1', pipe=pipe).sscan_iter()})
+
+        data = {k for k in self.Data('1').sscan_iter()}
+        self.assertEqual(data, {'a1', 'a2', 'b1', 'b2'})
+
 
 class ListTestCase(BaseTestCase):
     class Data(redpipe.List):
@@ -682,6 +690,8 @@ class ListTestCase(BaseTestCase):
         self.assertEqual(sscan[0], 0)
         self.assertEqual(set(sscan[1]), {'1a', '1b'})
         self.assertEqual(set(sscan_all[1]), {'1a', '1b', '2a', '2b'})
+        self.assertEqual({k for k in self.Data.scan_iter()},
+                         {'1a', '1b', '2a', '2b'})
 
     def test_scan_with_no_keyspace(self):
         with redpipe.pipeline(autocommit=True) as pipe:
@@ -779,6 +789,15 @@ class SortedSetTestCase(BaseTestCase):
         self.assertEqual(sscan[0], 0)
         self.assertEqual(set(sscan[1]), {('a1', 1.0), ('a2', 2.0)})
 
+        with redpipe.pipeline(autocommit=True) as pipe:
+            self.assertRaises(
+                redpipe.InvalidOperation,
+                lambda: {k for k in self.Data('1', pipe=pipe).zscan_iter()})
+
+        data = {k for k in self.Data('1').zscan_iter()}
+        expected = {('a1', 1.0), ('a2', 2.0), ('b1', 1.0), ('b2', 2.0)}
+        self.assertEqual(data, expected)
+
 
 class HashTestCase(BaseTestCase):
     class Data(redpipe.Hash):
@@ -823,6 +842,14 @@ class HashTestCase(BaseTestCase):
 
         self.assertEqual(hscan[0], 0)
         self.assertEqual(hscan[1], {'a1': '1', 'a2': '2'})
+
+        with redpipe.pipeline(autocommit=True) as pipe:
+            s = self.Data('1', pipe=pipe)
+            self.assertRaises(redpipe.InvalidOperation,
+                              lambda: [v for v in s.hscan_iter()])
+
+        data = {k: v for k, v in self.Data('1').hscan_iter()}
+        self.assertEqual(data, {'b2': '2', 'b1': '1', 'a1': '1', 'a2': '2'})
 
 
 class HashFieldsTestCase(BaseTestCase):

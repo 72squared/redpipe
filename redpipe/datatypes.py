@@ -193,6 +193,22 @@ class DataType(object):
             pipe.on_execute(cb)
             return d
 
+    @classmethod
+    def scan_iter(cls, match=None, count=None):
+        """
+        Make an iterator using the SCAN command so that the client doesn't
+        need to remember the cursor position.
+
+        ``match`` allows for filtering the keys by pattern
+
+        ``count`` allows for hint the minimum number of returns
+        """
+        cursor = '0'
+        while cursor != 0:
+            cursor, data = cls.scan(cursor=cursor, match=match, count=count)
+            for item in data:
+                yield item
+
 
 class String(DataType):
     """
@@ -475,6 +491,25 @@ class Set(DataType):
 
             pipe.on_execute(cb)
             return d
+
+    def sscan_iter(self, match=None, count=None):
+        """
+        Make an iterator using the SSCAN command so that the client doesn't
+        need to remember the cursor position.
+
+        ``match`` allows for filtering the keys by pattern
+
+        ``count`` allows for hint the minimum number of returns
+        """
+        if self._pipe is not None:
+            raise InvalidOperation('cannot pipeline scan operations')
+
+        cursor = '0'
+        while cursor != 0:
+            cursor, data = self.sscan(cursor=cursor,
+                                      match=match, count=count)
+            for item in data:
+                yield item
 
     add = sadd
     pop = spop
@@ -901,6 +936,28 @@ class SortedSet(DataType):
             pipe.on_execute(cb)
             return d
 
+    def zscan_iter(self, match=None, count=None,
+                   score_cast_func=float):
+        """
+        Make an iterator using the ZSCAN command so that the client doesn't
+        need to remember the cursor position.
+
+        ``match`` allows for filtering the keys by pattern
+
+        ``count`` allows for hint the minimum number of returns
+
+        ``score_cast_func`` a callable used to cast the score return value
+        """
+        if self._pipe is not None:
+            raise InvalidOperation('cannot pipeline scan operations')
+        cursor = '0'
+        while cursor != 0:
+            cursor, data = self.zscan(cursor=cursor, match=match,
+                                      count=count,
+                                      score_cast_func=score_cast_func)
+            for item in data:
+                yield item
+
     revrank = zrevrank
     score = zscore
     rank = zrank
@@ -1121,3 +1178,21 @@ class Hash(DataType):
 
             pipe.on_execute(cb)
             return d
+
+    def hscan_iter(self, match=None, count=None):
+        """
+        Make an iterator using the HSCAN command so that the client doesn't
+        need to remember the cursor position.
+
+        ``match`` allows for filtering the keys by pattern
+
+        ``count`` allows for hint the minimum number of returns
+        """
+        if self._pipe is not None:
+            raise InvalidOperation('cannot pipeline scan operations')
+        cursor = '0'
+        while cursor != 0:
+            cursor, data = self.hscan(cursor=cursor,
+                                      match=match, count=count)
+            for item in data.items():
+                yield item
