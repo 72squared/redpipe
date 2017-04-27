@@ -1,4 +1,5 @@
 import json
+import re
 from .compat import long, unicode, basestring
 
 __all__ = [
@@ -6,6 +7,7 @@ __all__ = [
     'IntegerField',
     'FloatField',
     'TextField',
+    'AsciiField',
     'BooleanField',
     'JsonField',
     'ListField',
@@ -104,6 +106,17 @@ class TextField(Field):
         :return: utf-8 decoded string
         """
         return value
+
+
+class AsciiField(TextField):
+    PATTERN = re.compile('^([ -~]+)?$')
+
+    @classmethod
+    def validate(cls, value):
+        if not super(AsciiField, cls).validate(value):
+            return False
+
+        return True if cls.PATTERN.match(value) else False
 
 
 class JsonField(Field):

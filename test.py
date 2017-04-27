@@ -150,6 +150,25 @@ class FieldsTestCase(unittest.TestCase):
             sample
         )
 
+    def test_ascii(self):
+        field = redpipe.AsciiField
+        self.assertFalse(field.validate(1))
+        self.assertFalse(field.validate(False))
+        self.assertFalse(field.validate(0.12456))
+        self.assertTrue(field.validate('dddd'))
+        self.assertFalse(field.validate(json.loads('"15\u00f8C"')))
+        self.assertTrue(field.validate(''))
+        self.assertTrue(field.validate('a'))
+        self.assertTrue(field.validate('1'))
+        self.assertEqual(field.to_persistence('1'), '1')
+        self.assertEqual(field.to_persistence('1.2'), '1.2')
+        self.assertEqual(field.to_persistence('abc123$!'), 'abc123$!')
+        sample = '#$%^&*()!@#aABc'
+        self.assertEqual(
+            field.from_persistence(field.to_persistence(sample)),
+            sample
+        )
+
     def test_json(self):
         field = redpipe.JsonField
         self.assertFalse(field.validate(1))
