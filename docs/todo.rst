@@ -1,2 +1,3 @@
   * PubSub?
-  * HyperLogLog
+  * Geo support?
+

@@ -1095,149 +1095,149 @@ class AsyncTestCase(unittest.TestCase):
         self.assertEqual(t.result, 1)
 
 
-class DeferredTestCase(unittest.TestCase):
+class FutureTestCase(unittest.TestCase):
     def test(self):
-        d = redpipe.Deferred()
-        self.assertEqual(repr(d), repr(None))
-        self.assertRaises(redpipe.ResultNotReady, lambda: str(d))
-        self.assertRaises(redpipe.ResultNotReady, lambda: d[:])
+        f = redpipe.Future()
+        self.assertEqual(repr(f), repr(None))
+        self.assertRaises(redpipe.ResultNotReady, lambda: str(f))
+        self.assertRaises(redpipe.ResultNotReady, lambda: f[:])
 
 
-class DeferredStringTestCase(unittest.TestCase):
+class FutureStringTestCase(unittest.TestCase):
     def setUp(self):
         self.result = 'abc'
-        self.deferred = redpipe.Deferred()
-        self.deferred.set(self.result)
+        self.future = redpipe.Future()
+        self.future.set(self.result)
 
     def test(self):
-        self.assertEqual(self.deferred[0:1], self.result[0:1])
-        self.assertEqual(len(self.deferred), len(self.result))
-        self.assertEqual(self.deferred + 'b', self.result + 'b')
-        self.assertEqual(self.deferred.split(), self.result.split())
-        self.assertEqual(repr(self.deferred), repr(self.result))
-        self.assertEqual(str(self.deferred), str(self.result))
-        self.assertEqual(self.deferred, self.result)
-        self.assertEqual(bool(self.deferred), bool(self.result))
+        self.assertEqual(self.future[0:1], self.result[0:1])
+        self.assertEqual(len(self.future), len(self.result))
+        self.assertEqual(self.future + 'b', self.result + 'b')
+        self.assertEqual(self.future.split(), self.result.split())
+        self.assertEqual(repr(self.future), repr(self.result))
+        self.assertEqual(str(self.future), str(self.result))
+        self.assertEqual(self.future, self.result)
+        self.assertEqual(bool(self.future), bool(self.result))
 
 
-class DeferredNoneTestCase(unittest.TestCase):
+class FutureNoneTestCase(unittest.TestCase):
     def setUp(self):
         self.result = None
-        self.deferred = redpipe.Deferred()
-        self.deferred.set(self.result)
+        self.future = redpipe.Future()
+        self.future.set(self.result)
 
     def test(self):
-        self.assertEqual(repr(self.deferred), repr(self.result))
-        self.assertEqual(str(self.deferred), str(self.result))
-        self.assertEqual(self.deferred, self.result)
-        self.assertEqual(bool(self.deferred), bool(self.result))
-        self.assertTrue(self.deferred.IS(None))
-        self.assertTrue(self.deferred.isinstance(None.__class__))
+        self.assertEqual(repr(self.future), repr(self.result))
+        self.assertEqual(str(self.future), str(self.result))
+        self.assertEqual(self.future, self.result)
+        self.assertEqual(bool(self.future), bool(self.result))
+        self.assertTrue(self.future.IS(None))
+        self.assertTrue(self.future.isinstance(None.__class__))
 
 
-class DeferredIntTestCase(unittest.TestCase):
+class FutureIntTestCase(unittest.TestCase):
     def setUp(self):
         self.result = 1
-        self.deferred = redpipe.Deferred()
-        self.deferred.set(self.result)
+        self.future = redpipe.Future()
+        self.future.set(self.result)
 
     def test(self):
-        self.assertEqual(repr(self.deferred), repr(self.result))
-        self.assertEqual(str(self.deferred), str(self.result))
-        self.assertEqual(self.deferred, self.result)
-        self.assertEqual(bool(self.deferred), bool(self.result))
-        self.assertTrue(self.deferred.IS(self.result))
-        self.assertEqual(hash(self.deferred), hash(self.result))
-        self.assertEqual(self.deferred + 1, self.result + 1)
-        self.assertEqual(1 + self.deferred, 1 + self.result)
-        self.assertEqual(self.deferred - 1, self.result - 1)
-        self.assertEqual(1 - self.deferred, 1 - self.result)
-        self.assertTrue(self.deferred < 2)
-        self.assertTrue(self.deferred <= 2)
-        self.assertTrue(self.deferred > 0)
-        self.assertTrue(self.deferred >= 1)
-        self.assertTrue(self.deferred != 2)
-        self.assertEqual(self.deferred * 1, self.result * 1)
-        self.assertEqual(1 * self.deferred, 1 * self.result)
-        self.assertEqual(self.deferred ** 1, self.result ** 1)
-        self.assertEqual(1 ** self.deferred, 1 ** self.result)
-        self.assertEqual(self.deferred / 1, self.result / 1)
-        self.assertEqual(1 / self.deferred, 1 / self.result)
-        self.assertEqual(self.deferred // 1, self.result // 1)
-        self.assertEqual(1 // self.deferred, 1 // self.result)
-        self.assertEqual(self.deferred % 1, self.result % 1)
-        self.assertEqual(1 % self.deferred, 1 % self.result)
-        self.assertEqual(self.deferred << 1, self.result << 1)
-        self.assertEqual(1 << self.deferred, 1 << self.result)
-        self.assertEqual(self.deferred >> 1, self.result >> 1)
-        self.assertEqual(1 >> self.deferred, 1 >> self.result)
-        self.assertEqual(self.deferred & 1, self.result & 1)
-        self.assertEqual(1 & self.deferred, 1 & self.result)
-        self.assertEqual(self.deferred | 1, self.result | 1)
-        self.assertEqual(1 | self.deferred, 1 | self.result)
-        self.assertEqual(self.deferred ^ 1, self.result ^ 1)
-        self.assertEqual(1 ^ self.deferred, 1 ^ self.result)
-        self.assertEqual(bytes(self.deferred), bytes(self.result))
-        self.assertEqual(int(self.deferred), int(self.result))
-        self.assertEqual(float(self.deferred), float(self.result))
-        self.assertEqual(round(self.deferred), round(self.result))
-        self.assertEqual(sum([self.deferred]), sum([self.result]))
+        self.assertEqual(repr(self.future), repr(self.result))
+        self.assertEqual(str(self.future), str(self.result))
+        self.assertEqual(self.future, self.result)
+        self.assertEqual(bool(self.future), bool(self.result))
+        self.assertTrue(self.future.IS(self.result))
+        self.assertEqual(hash(self.future), hash(self.result))
+        self.assertEqual(self.future + 1, self.result + 1)
+        self.assertEqual(1 + self.future, 1 + self.result)
+        self.assertEqual(self.future - 1, self.result - 1)
+        self.assertEqual(1 - self.future, 1 - self.result)
+        self.assertTrue(self.future < 2)
+        self.assertTrue(self.future <= 2)
+        self.assertTrue(self.future > 0)
+        self.assertTrue(self.future >= 1)
+        self.assertTrue(self.future != 2)
+        self.assertEqual(self.future * 1, self.result * 1)
+        self.assertEqual(1 * self.future, 1 * self.result)
+        self.assertEqual(self.future ** 1, self.result ** 1)
+        self.assertEqual(1 ** self.future, 1 ** self.result)
+        self.assertEqual(self.future / 1, self.result / 1)
+        self.assertEqual(1 / self.future, 1 / self.result)
+        self.assertEqual(self.future // 1, self.result // 1)
+        self.assertEqual(1 // self.future, 1 // self.result)
+        self.assertEqual(self.future % 1, self.result % 1)
+        self.assertEqual(1 % self.future, 1 % self.result)
+        self.assertEqual(self.future << 1, self.result << 1)
+        self.assertEqual(1 << self.future, 1 << self.result)
+        self.assertEqual(self.future >> 1, self.result >> 1)
+        self.assertEqual(1 >> self.future, 1 >> self.result)
+        self.assertEqual(self.future & 1, self.result & 1)
+        self.assertEqual(1 & self.future, 1 & self.result)
+        self.assertEqual(self.future | 1, self.result | 1)
+        self.assertEqual(1 | self.future, 1 | self.result)
+        self.assertEqual(self.future ^ 1, self.result ^ 1)
+        self.assertEqual(1 ^ self.future, 1 ^ self.result)
+        self.assertEqual(bytes(self.future), bytes(self.result))
+        self.assertEqual(int(self.future), int(self.result))
+        self.assertEqual(float(self.future), float(self.result))
+        self.assertEqual(round(self.future), round(self.result))
+        self.assertEqual(sum([self.future]), sum([self.result]))
 
 
-class DeferredDictTestCase(unittest.TestCase):
+class FutureDictTestCase(unittest.TestCase):
     def setUp(self):
         self.result = {'a': 1, 'b': 2}
-        self.deferred = redpipe.Deferred()
-        self.deferred.set(self.result)
+        self.future = redpipe.Future()
+        self.future.set(self.result)
 
     def test(self):
-        self.assertEqual(self.deferred.keys(), self.result.keys())
-        self.assertEqual(self.deferred.items(), self.result.items())
-        self.assertEqual(self.deferred, self.result)
-        self.assertEqual(dict(self.deferred), dict(self.result))
-        self.assertEqual([k for k in self.deferred], [k for k in self.result])
-        self.assertTrue('a' in self.deferred)
-        self.assertEqual(self.deferred.json, json.dumps(self.result))
-        self.assertEqual(self.deferred.id(), id(self.result))
-        self.assertEqual(self.deferred['a'], self.result['a'])
-        self.assertRaises(KeyError, lambda: self.deferred['xyz'])
+        self.assertEqual(self.future.keys(), self.result.keys())
+        self.assertEqual(self.future.items(), self.result.items())
+        self.assertEqual(self.future, self.result)
+        self.assertEqual(dict(self.future), dict(self.result))
+        self.assertEqual([k for k in self.future], [k for k in self.result])
+        self.assertTrue('a' in self.future)
+        self.assertEqual(self.future.json, json.dumps(self.result))
+        self.assertEqual(self.future.id(), id(self.result))
+        self.assertEqual(self.future['a'], self.result['a'])
+        self.assertRaises(KeyError, lambda: self.future['xyz'])
 
 
-class DeferredListTestCase(unittest.TestCase):
+class FutureListTestCase(unittest.TestCase):
     def setUp(self):
         self.result = ['a', 'b', 'c']
-        self.deferred = redpipe.Deferred()
-        self.deferred.set(self.result)
+        self.future = redpipe.Future()
+        self.future.set(self.result)
 
     def test(self):
-        self.assertEqual(self.deferred, self.result)
-        self.assertEqual(list(self.deferred), list(self.result))
-        self.assertEqual([k for k in self.deferred], [k for k in self.result])
-        self.assertTrue('a' in self.deferred)
-        self.assertEqual(self.deferred.json, json.dumps(self.result))
-        self.assertEqual(self.deferred.id(), id(self.result))
-        self.assertEqual(self.deferred[1:-1], self.result[1:-1])
-        self.assertTrue(self.deferred.isinstance(self.result.__class__))
-        self.assertTrue(self.deferred.IS(self.result))
-        self.assertEqual([i for i in reversed(self.deferred)],
+        self.assertEqual(self.future, self.result)
+        self.assertEqual(list(self.future), list(self.result))
+        self.assertEqual([k for k in self.future], [k for k in self.result])
+        self.assertTrue('a' in self.future)
+        self.assertEqual(self.future.json, json.dumps(self.result))
+        self.assertEqual(self.future.id(), id(self.result))
+        self.assertEqual(self.future[1:-1], self.result[1:-1])
+        self.assertTrue(self.future.isinstance(self.result.__class__))
+        self.assertTrue(self.future.IS(self.result))
+        self.assertEqual([i for i in reversed(self.future)],
                          [i for i in reversed(self.result)])
 
 
-class DeferredCallableTestCase(unittest.TestCase):
+class FutureCallableTestCase(unittest.TestCase):
     def setUp(self):
         def cb():
             return 1
 
         self.result = cb
-        self.deferred = redpipe.Deferred()
-        self.deferred.set(self.result)
+        self.future = redpipe.Future()
+        self.future.set(self.result)
 
     def test(self):
-        self.assertEqual(self.deferred, self.result)
-        self.assertEqual(self.deferred(), self.result())
-        self.assertEqual(self.deferred.id(), id(self.result))
-        self.assertTrue(self.deferred.isinstance(self.result.__class__))
-        self.assertTrue(self.deferred.IS(self.result))
+        self.assertEqual(self.future, self.result)
+        self.assertEqual(self.future(), self.result())
+        self.assertEqual(self.future.id(), id(self.result))
+        self.assertTrue(self.future.isinstance(self.result.__class__))
+        self.assertTrue(self.future.IS(self.result))
 
 
 if __name__ == '__main__':

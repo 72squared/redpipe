@@ -1,4 +1,4 @@
-from .result import Deferred
+from .result import Future
 from .connection import connector, resolve_connection_name
 from .tasks import promise, wait
 from .exceptions import InvalidPipeline
@@ -41,7 +41,7 @@ class Pipeline(object):
 
     def __getattr__(self, item):
         def inner(*args, **kwargs):
-            ref = Deferred()
+            ref = Future()
             self._stack.append((item, args, kwargs, ref))
             return ref
 
@@ -66,7 +66,7 @@ class Pipeline(object):
         """
         Invoke the redispy pipeline.execute() method and take all the values
         returned in sequential order of commands and map them to the
-        Deferred objects we returned when each command was queued inside
+        Future objects we returned when each command was queued inside
         the pipeline.
         Also invoke all the callback functions queued up.
         :param raise_on_error: boolean
@@ -171,7 +171,7 @@ class NestedPipeline(object):
 
     def __getattr__(self, item):
         def inner(*args, **kwargs):
-            ref = Deferred()
+            ref = Future()
             self._stack.append((item, args, kwargs, ref))
             return ref
 

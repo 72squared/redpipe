@@ -2,11 +2,11 @@ from .exceptions import ResultNotReady
 import json
 
 __all__ = [
-    'Deferred',
+    'Future',
 ]
 
 
-class Deferred(object):
+class Future(object):
     """
     An object returned from all our Pipeline calls.
     """

@@ -57,7 +57,7 @@ More on this later.
 
 Getting Started
 ---------------
-Using *RedPipe* is really easy.
+Using *RedPipe* is easy.
 We can pipeline multiple calls to redis and assign the results to variables.
 
 
@@ -75,10 +75,12 @@ Then we increment a few keys on the pipeline object.
 The code looks mostly like the code you might write with redis-py pipelines.
 The methods you call on the pipeline object are the same.
 But, notice that each `incr` call immediately gets a reference object back in return from each call.
+That part looks similar to how `redis-py` works without a pipeline.
 
-The references (in this case `foo` and `bar`) are empty until the pipeline executes.
+The variables (in this case `foo` and `bar`) are empty until the pipeline executes.
+if you try to do any operations on them beforehand, it will raise an exception.
 Once we complete the `execute()` call we can consume the pipeline results.
-The reference object behaves just like the underlying result once the pipeline executes.
+These variables, `foo` and `bar`, behave just like the underlying result once the pipeline executes.
 You can iterate of it, add it, multiply it, etc.
 
 This has far reaching implications.
@@ -91,7 +93,7 @@ Why do I need this? Redis is really fast.
 
 Despite this, if you have to make many calls to redis, application latency can be terrible.
 This is because each command needs to make another trip across the network.
-If that round trip time is one millisecond, that doesn't seem too terrible.
+If your network round trip time is one millisecond, that doesn't seem too terrible.
 But if you have dozens or hundreds of redis commands, this adds up quickly.
 `Redis pipelining <https://redis.io/topics/pipelining>`_ can dramatically reduce the number of network round trips.
 It boxcars a bunch of commands together over the wire.
@@ -110,6 +112,7 @@ When running 50 commands against *Redis*, instead of 50 network round trips in s
 
 That's a **BIG** improvement in application latency.
 And you don't need *RedPipe* to do this. It's built into *redis-py* and almost every other redis client.
+
 But here's the catch ... *the results aren't available until after you execute the pipeline*.
 
 In the example above, consuming the results on pipe execute is pretty easy.
@@ -177,7 +180,14 @@ Solution
 *RedPipe* gives you the tools to break up pipelined calls into modular reusable components.
 
 The first step is to make the commands return a reference to the data before execute happens.
-The `Deferred` object gets populated with data once the pipeline executes.
+We'll call this reference object a `Future`.
+The `redpipe.Future` object gets populated with data once the pipeline executes.
+It also behaves just like the underlying result.
+You can iterate on it if the result is a list.
+Add or subtract from it if it is an int.
+Print it out like a string.
+In short, you should be able to use it interchangeably with the underlying `future.result` field.
+
 This gives us the ability to create reusable building blocks.
 
 
@@ -261,7 +271,7 @@ Let me show you what I mean:
 .. code:: python
 
     def increment_keys(keys, pipe=None):
-        ref = redpipe.Deferred()
+        ref = redpipe.Future()
         with redpipe.pipeline(pipe, autocommit=True) as pipe:
             results = [pipe.incr(key) for key in keys]
             def cb():
@@ -292,8 +302,9 @@ The pipeline context knows how to nest these operations.
 As each child context completes it passes its commands and callbacks up a level.
 The top pipeline context executes the functions and callbacks, creating the final result.
 
+
 Named Connections
---------------------
+-----------------
 So far the examples I've shown have assumed only one connection to `Redis`.
 But what if you need to talk to multiple backends?
 *RedPipe* allows you to set up different connections and then refer to them:
@@ -347,6 +358,10 @@ I am relying on you to always pass StrictRedisCluster.
 In future versions, I may be able to correctly detect the version of `redis-py-cluster` you are using.
 We'll see.
 For now, this should work well enough.
+
+If it doesn't work for your use case, you can build your own connector by passing a callable function to `redpipe.connect`.
+It expects something that creates a pipeline object with a similar interface as that offered by the `redis-py` pipeline.
+Use at your own risk.
 
 
 Working with Keyspaces
@@ -502,6 +517,25 @@ From our earlier `User` struct example:
     username = User.core('1').hget('name')
 
 More on this later.
+
+
+Why no ORM?
+-----------
+Have an Object relational mapping can make life much simpler.
+Automatic indexes, foreign keys, unique constraints, etc.
+It hides all that pesky complexity from you.
+If you want a good ORM for redis, check out `ROM <http://pythonhosted.org/rom/rom.html#documentation>`_.
+It's pretty cool.
+
+
+`RedPipe` has a different philosophy.
+It emphasizes exposing the full power of redis as much as possible.
+That means keeping the commands in redis close to the surface so you can use them as you see fit.
+An ORM has the tendency to reduce things to the lowest common denominator.
+It also bundles lots of multi-step operations together, where one operation feeds another.
+`RedPipe` encourages you to take an input and produce an output with at most one network round-trip.
+This allows you to pipeline many operations together efficiently and create reusable building-blocks.
+
 
 
 .. |BuildStatus| image:: https://travis-ci.org/72squared/redpipe.svg?branch=master
