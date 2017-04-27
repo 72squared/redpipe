@@ -1039,6 +1039,8 @@ class Hash(DataType):
             return self._encode(v)
 
     def from_redis(self, k, v):
+        if v is None:
+            return None
         try:
             field_validator = self._fields[k]
             return field_validator.from_persistence(self._decode(v))

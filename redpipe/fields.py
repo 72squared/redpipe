@@ -1,3 +1,4 @@
+import json
 from .compat import long, unicode, basestring
 
 __all__ = [
@@ -6,6 +7,10 @@ __all__ = [
     'FloatField',
     'TextField',
     'BooleanField',
+    'JsonField',
+    'ListField',
+    'DictField',
+    'StringListField',
 ]
 
 
@@ -99,3 +104,59 @@ class TextField(Field):
         :return: utf-8 decoded string
         """
         return value
+
+
+class JsonField(Field):
+    """
+    Allows for more complicated nested structures as attributes.
+    """
+    allowed = (dict, list)
+
+    @classmethod
+    def to_persistence(cls, value):
+        return json.dumps(value)
+
+    @classmethod
+    def from_persistence(cls, value):
+        if isinstance(value, cls.allowed):
+            return value
+        return json.loads(value)
+
+
+class ListField(JsonField):
+    allowed = list
+
+
+class DictField(JsonField):
+    allowed = dict
+
+
+class StringListField(Field):
+    allowed = list
+
+    @classmethod
+    def from_persistence(cls, value):
+        if isinstance(value, cls.allowed):
+            return value
+
+        if len(value) > 0:
+            return value.split(',')
+        else:
+            return None
+
+    @classmethod
+    def to_persistence(cls, value):
+        return ",".join(value) if len(value) > 0 else None
+
+    @classmethod
+    def validate(cls, value):
+        if value is None:
+            return True
+
+        if not isinstance(value, cls.allowed):
+            return False
+
+        for v in value:
+            if not isinstance(v, (unicode, str, basestring)):
+                return False
+        return True
