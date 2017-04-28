@@ -8,6 +8,12 @@ We make no guarantees about backward compatibility.
 Once the api reaches **1.0.0**, all major and minor release notes will be well documented.
 Upgrade notes and any breaking changes will be described here and how to handle them.
 
+0.2.3 (April 27, 2017)
+----------------------
+* renaming datatypes to keyspaces. easier to explain.
+* moving documentation from readme into docs/ for readthedocs.
+* support for ascii field
+
 
 0.2.2 (April 26, 2017)
 ----------------------
