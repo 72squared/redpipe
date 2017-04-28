@@ -424,9 +424,9 @@ class ConnectTestCase(unittest.TestCase):
 
         self.assertEqual(ref.result, 1)
 
-    def disabled_async_test(self):
-        with mock.patch('redpipe.async.Task',
-                        redpipe.tasks.AsynchronousTask):
+    def test_async(self):
+        try:
+            redpipe.use_asyncronous_tasks()
             self.test_single_nested()
             self.tearDown()
             self.test_pipeline_nested_mismatched_name()
@@ -434,6 +434,8 @@ class ConnectTestCase(unittest.TestCase):
             self.test_multi_invalid_connection()
             self.tearDown()
             self.test_sleeping_cb()
+        finally:
+            redpipe.use_syncronous_tasks()
 
     def test_sleeping_cb(self):
         redpipe.connect_redis(redislite.Redis(), 'a')
@@ -1104,7 +1106,7 @@ class HyperloglogTestCase(BaseTestCase):
 
 
 class AsyncTestCase(unittest.TestCase):
-    def disabled_test(self):
+    def test(self):
         def sleeper():
             time.sleep(0.3)
             return 1

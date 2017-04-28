@@ -6,3 +6,4 @@ from .structs import *  # noqa
 from .keyspaces import *  # noqa
 from .exceptions import *  # noqa
 from .result import *  # noqa
+from .tasks import *  # noqa
