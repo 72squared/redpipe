@@ -86,7 +86,7 @@ vs.
     # redis-py pipelined example
     pipe = client.pipeline()
     pipe.incr('key1')
-    result pipe.execute()[0]
+    result = pipe.execute()[0]
 
 Although the calls look almost the same, the way you fetch the result is very different.
 

@@ -1,9 +1,18 @@
 Working with Keyspaces
-----------------------
-Usually when working with *Redis*, developers group a collection of keys that are similar under a keyspace.
+======================
+Usually when working with *Redis*, developers often group a collection of keys that are similar under a keyspace.
 Use a key pattern with a prefix and curly braces around the unique identifier for that record.
 For example, for a list of followers for user ids `1` and `2`, I might have keys `F{1}` and `F{2}`.
+
+This keyspace functions as a virtual table, like what you might have in a typical RDBMS.
+Except that each key is really independent.
+We just use a naming convention to group them together.
+
+
+Example of a Sorted Set Keyspace
+--------------------------------
 *RedPipe* gives you a way to easily manipulate these keyspaces.
+
 Here's an example of a sorted set:
 
 .. code:: python
@@ -27,7 +36,10 @@ Here's an example of a sorted set:
 We can specify what named connection we want to use with the `_connection` variable.
 Or you can omit it if you are using just one default connection to redis.
 
-All of the `redis-py` sorted set functions are exposed on the `Followers` class.
+Supported Keyspace Types
+------------------------
+All of the `redis-py` sorted set functions are exposed on the in the example above.
+
 In a similar way, we support the other *Redis* primitives:
 
     * strings
@@ -35,6 +47,9 @@ In a similar way, we support the other *Redis* primitives:
     * lists
     * hashes
     * sorted sets
+
+The supported commands are limited to single key operations.
+
 
 Fields in Hashes
 ----------------

@@ -3,6 +3,9 @@ Named Connections
 
 So far the examples I've shown have assumed only one connection to `Redis`.
 But what if you need to talk to multiple backends?
+
+How to Configure multiple Connections
+-------------------------------------
 *RedPipe* allows you to set up different connections and then refer to them:
 
 .. code:: python
@@ -29,3 +32,26 @@ If you don't specify a name, it assumes a default connection set up like this:
 
 You can actually map the same redis connection to multiple names if you want.
 This is good for aliasing names when preparing to split up data, or for testing.
+
+Why Named Connections are Needed
+--------------------------------
+*RedPipe* allows you to pass in a pipeline to a function, or optionally pass in nothing.
+The function doesn't have to think about it.
+Just pass the pipe (or None) into `redpipe.pipeline` and everything looks the same under the covers.
+But if you have multiple connections, the named pipe passed into the function may not be the same connection.
+In this case, we need to always specify what connection we want to use.
+
+If the connection is different than the one passed into the function, redpipe will still batch the two calls together in pipe execute from a logical perspective.
+But it needs to send commands to different instances of redis server.
+By specifying the connection you want to use with a named connection, you can make sure your command gets sent to the right server.
+
+Talking to Multiple Servers in Parallel
+---------------------------------------
+When it's time to send those commands to the servers, redpipe currently batches all commands for each server and sends them out.
+By default, the batches sent to each redis server are performed in serial order.
+I have prototyped a threaded async handler.
+It is functional, but I'm still thinking about how to best test it.
+So for now it is commented out.
+
+I expect to have this ready before the final release.
+
