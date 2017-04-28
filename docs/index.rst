@@ -20,13 +20,37 @@ Requirements
 
 The *redpipe* module requires Python 2.7 or higher.
 
+What is RedPipe?
+----------------
+*RedPipe* is a python package designed to help reduce network round trips when talking to redis.
+It is a wrapper around *redis-py* or *redis-py-cluster*.
+
+For more general information about redis pipelining, see the `official redis documentation <https://redis.io/topics/pipelining>`_.
+
+Use *redpipe* to build pipelined redis calls in a modular reusable way.
+Rewrite your existing application calls via redis-py into efficient batches with only minimal changes.
+
+
+How Does it Work?
+-----------------
+*RedPipe* allows you to nest pipelines, attach callbacks, and get references to data before the pipeline executes.
+All of these things together allow you to be able to build modular functions that can be combined with other pipelined functions.
+
+Pass a pipeline into multiple functions, collect the results from each function, and then execute the pipeline to hydrate those result objects with data.
+
+What Else Can it Do?
+--------------------
+You can use just the core of the *redpipe* module but there's a lot of other cool things included.
+Be sure to check out the wrappers around keyspaced data-types. And the Struct objects are cool too.
+
+
+--------
 
 
 ..  toctree::
     :maxdepth: 2
     :caption: Table of Contents:
 
-    about
     getting_started
     rationale
     autocommit
