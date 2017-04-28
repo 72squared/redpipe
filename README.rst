@@ -12,7 +12,7 @@ Check back soon.
 Requirements
 ------------
 
-The redislite module requires Python 2.7 or higher.
+The *redpipe* module requires Python 2.7 or higher.
 
 
 Installation

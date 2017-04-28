@@ -1,3 +1,6 @@
-  * PubSub?
-  * Geo support?
+TODO
+====
+
+* PubSub
+* Geo support
 
