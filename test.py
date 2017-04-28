@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import json
 import unittest
-import mock
 import time
 import redis
 import redislite
@@ -426,7 +425,7 @@ class ConnectTestCase(unittest.TestCase):
 
     def test_async(self):
         try:
-            redpipe.use_asyncronous_tasks()
+            redpipe.enable_threads()
             self.test_single_nested()
             self.tearDown()
             self.test_pipeline_nested_mismatched_name()
@@ -435,7 +434,7 @@ class ConnectTestCase(unittest.TestCase):
             self.tearDown()
             self.test_sleeping_cb()
         finally:
-            redpipe.use_syncronous_tasks()
+            redpipe.disable_threads()
 
     def test_sleeping_cb(self):
         redpipe.connect_redis(redislite.Redis(), 'a')

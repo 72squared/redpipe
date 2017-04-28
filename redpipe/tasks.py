@@ -2,7 +2,7 @@ import sys
 from six import reraise
 import threading
 
-__all__ = ['use_asyncronous_tasks', 'use_syncronous_tasks']
+__all__ = ['enable_threads', 'disable_threads']
 
 
 class SynchronousTask(object):
@@ -86,11 +86,11 @@ class TaskManager(object):
         return [f.result for f in futures]
 
 
-def use_asyncronous_tasks():
+def enable_threads():
     TaskManager.set_task_type(SynchronousTask)
 
 
-def use_syncronous_tasks():
+def disable_threads():
     TaskManager.set_task_type(AsynchronousTask)
 
 
