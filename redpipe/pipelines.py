@@ -1,5 +1,5 @@
-from .result import Future
-from .connection import connector, resolve_connection_name
+from .futures import Future
+from .connections import connector, resolve_connection_name
 from .tasks import promise, wait
 from .exceptions import InvalidPipeline
 

@@ -1,9 +1,9 @@
 from .version import __version__  # noqa
-from .pipeline import *  # noqa
+from .pipelines import *  # noqa
 from .fields import *  # noqa
-from .connection import *  # noqa
+from .connections import *  # noqa
 from .structs import *  # noqa
 from .keyspaces import *  # noqa
 from .exceptions import *  # noqa
-from .result import *  # noqa
+from .futures import *  # noqa
 from .tasks import *  # noqa

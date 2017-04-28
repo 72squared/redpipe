@@ -1,5 +1,5 @@
 from six import add_metaclass
-from .pipeline import pipeline
+from .pipelines import pipeline
 from .keyspaces import Hash
 
 __all__ = ['Struct']

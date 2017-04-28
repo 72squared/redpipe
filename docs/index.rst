@@ -43,6 +43,7 @@ What Else Can it Do?
 You can use just the core of the *redpipe* module but there's a lot of other cool things included.
 Be sure to check out the wrappers around keyspaced data-types. And the Struct objects are cool too.
 
+More on this later.
 
 --------
 

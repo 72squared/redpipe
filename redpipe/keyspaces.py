@@ -1,7 +1,7 @@
-from .pipeline import pipeline
+from .pipelines import pipeline
 from .luascripts import lua_restorenx, lua_object_info
 from .exceptions import InvalidOperation, InvalidFieldValue
-from .result import Future
+from .futures import Future
 import re
 
 __all__ = """
