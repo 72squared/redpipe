@@ -16,3 +16,20 @@ If you find issues, `let me know <https://github.com/72squared/redpipe/issues>`_
 I'll fix it and write a regression test.
 
 
+Road Map
+--------
+*RedPipe* is close to feature complete.
+Here's what I still have on my list:
+
+* improve struct
+* distributed hash
+* better source-code documentation
+* tutorials and examples
+* simplify autocommit
+* standardize transactions
+* pubsub
+
+
+How Long until a Stable Release?
+--------------------------------
+Target for a stable release is late May, 2017.

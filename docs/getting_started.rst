@@ -6,15 +6,15 @@ Installation
 
 To install, use pip:
 
-.. code-block::
+.. code-block:: bash
 
-    $ pip install redpipe
+    pip install redpipe
 
 or from source:
 
-.. code-block::
+.. code-block:: bash
 
-    $ python setup.py install
+    python setup.py install
 
 
 Setup

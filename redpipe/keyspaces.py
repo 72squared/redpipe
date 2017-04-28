@@ -14,9 +14,9 @@ HyperLogLog
 """.split()
 
 
-class DataType(object):
+class KeySpace(object):
     """
-    Base class for all datatypes.
+    Base class for all keyspace.
     This class should not be used directly.
     """
     __slots__ = ['key', '_pipe']
@@ -211,7 +211,7 @@ class DataType(object):
                 yield item
 
 
-class String(DataType):
+class String(KeySpace):
     """
     Manipulate a String key in Redis.
     """
@@ -384,7 +384,7 @@ def _parse_values(values):
     return values
 
 
-class Set(DataType):
+class Set(KeySpace):
     """
     Manipulate a Set key in redis.
     """
@@ -517,7 +517,7 @@ class Set(DataType):
     remove = srem
 
 
-class List(DataType):
+class List(KeySpace):
     """
     Manipulate a List key in redis
     """
@@ -671,7 +671,7 @@ class List(DataType):
     append = rpush
 
 
-class SortedSet(DataType):
+class SortedSet(KeySpace):
     """
     Manipulate a SortedSet key in redis.
     """
@@ -1023,7 +1023,7 @@ class SortedSet(DataType):
     remove = zrem
 
 
-class Hash(DataType):
+class Hash(KeySpace):
     """
     Manipulate a Hash key in Redis.
     """
@@ -1257,7 +1257,7 @@ class Hash(DataType):
                 yield item
 
 
-class HyperLogLog(DataType):
+class HyperLogLog(KeySpace):
     """
     Manipulate a HyperLogLog key in redis.
     """

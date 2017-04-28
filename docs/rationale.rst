@@ -10,8 +10,8 @@ This is because each command needs to make another trip across the network.
 If your network round trip time is one millisecond, that doesn't seem too terrible.
 But if you have dozens or hundreds of redis commands, this adds up quickly.
 
-Pipelining is Cool
-------------------
+Pipelining is Cool, But ...
+---------------------------
 `Redis pipelining <https://redis.io/topics/pipelining>`_ can dramatically reduce the number of network round trips.
 It boxcars a bunch of commands together over the wire.
 When running 50 commands against *Redis*, instead of 50 network round trips in serial order, boxcar them all together in one..
