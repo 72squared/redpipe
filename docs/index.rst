@@ -7,7 +7,7 @@ Welcome to RedPipe's documentation!
 ===================================
 *Making Redis pipelines easier to use in python.*
 
-|BuildStatus| |CoverageStatus| |Version| |Python|
+|BuildStatus| |CoverageStatus| |Version| |Python| |Docs|
 
 This project is beta software so the interface may change.
 
@@ -33,6 +33,8 @@ The *redpipe* module requires Python 2.7 or higher.
     named_connections
     nested_pipelines
     transactions
+    keyspaces
+    structs
     latency
     tutorial
     project_status
@@ -48,6 +50,8 @@ The *redpipe* module requires Python 2.7 or higher.
     license
     authors
     faq
+    todo
+
 
 
 
@@ -71,3 +75,8 @@ Indices and tables
 
 .. |Python| image:: https://img.shields.io/badge/python-2.7,3.4,pypy-blue.svg
     :target:  https://pypi.python.org/pypi/redpipe/
+
+.. |Docs| image:: https://readthedocs.org/projects/redpipe/badge/?version=latest
+    :target: http://redpipe.readthedocs.org/en/latest/
+    :alt: Documentation Status
+
