@@ -8,6 +8,12 @@ We make no guarantees about backward compatibility.
 Once the api reaches **1.0.0**, all major and minor release notes will be well documented.
 Upgrade notes and any breaking changes will be described here and how to handle them.
 
+0.2.4 (April 28, 2017)
+----------------------
+* better interface for async enable/disable.
+* add ability to talk to multiple redis servers in parallel via threads
+
+
 0.2.3 (April 27, 2017)
 ----------------------
 * renaming datatypes to keyspaces. easier to explain.
