@@ -3,3 +3,6 @@ include CHANGES
 include setup.py
 include README.rst
 include LICENSE
+include redpipe/VERSION
+include docs/authors.rst
+include docs/release_notes.rst

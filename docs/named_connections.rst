@@ -59,7 +59,7 @@ To enable this behavior, do:
 
 .. code-block:: python
 
-    `redpipe.enable_threads()`
+    redpipe.enable_threads()
 
 You can turn it off at any time via:
 

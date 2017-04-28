@@ -9,9 +9,10 @@ Welcome to RedPipe's documentation!
 
 |BuildStatus| |CoverageStatus| |Version| |Python| |Docs|
 
-This project is beta software so the interface may change.
+This project is beta software.
+The interface may change.
 
-However, the code is well tested and rapidly stabilizing.
+The code is well tested and rapidly stabilizing.
 Check back soon.
 
 Requirements

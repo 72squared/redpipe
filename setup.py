@@ -2,15 +2,19 @@
 import os
 from os import path
 from setuptools import setup
-import imp
 
 NAME = 'redpipe'
 
-MYDIR = path.abspath(os.path.dirname(__file__))
-long_description = open(os.path.join(MYDIR, 'README.rst')).read()
-version = imp.load_source(
-    'version',
-    path.join('.', 'redpipe', 'version.py')).__version__
+ROOTDIR = path.abspath(os.path.dirname(__file__))
+
+with open(os.path.join(ROOTDIR, 'README.rst')) as f:
+    readme = f.read()
+
+with open(os.path.join(ROOTDIR, 'docs', 'release_notes.rst')) as f:
+    history = f.read()
+
+with open(os.path.join(ROOTDIR, 'redpipe', 'VERSION')) as f:
+    version = str(f.read().strip())
 
 cmdclass = {}
 ext_modules = []
@@ -43,7 +47,7 @@ setup(
     license='MIT',
     install_requires=['redis>=2.10.2', 'six'],
     include_package_data=True,
-    long_description=long_description,
+    long_description=readme + '\n\n' + history,
     cmdclass=cmdclass,
     ext_modules=ext_modules
 )
