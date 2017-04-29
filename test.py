@@ -109,13 +109,13 @@ class FieldsTestCase(unittest.TestCase):
         self.assertFalse(field.validate(''))
         self.assertFalse(field.validate('a'))
         self.assertFalse(field.validate('1'))
-        self.assertEqual(field.to_persistence(1), '1')
-        self.assertEqual(field.to_persistence(1.2), '1.2')
-        self.assertEqual(field.to_persistence(1.2345), '1.2345')
-        self.assertEqual(field.from_persistence('1'), 1)
-        self.assertEqual(field.from_persistence('1.2'), 1.2)
-        self.assertEqual(field.from_persistence('1.2345'), 1.2345)
-        self.assertRaises(ValueError, lambda: field.from_persistence('x'))
+        self.assertEqual(field.to_redis(1), '1')
+        self.assertEqual(field.to_redis(1.2), '1.2')
+        self.assertEqual(field.to_redis(1.2345), '1.2345')
+        self.assertEqual(field.from_redis('1'), 1)
+        self.assertEqual(field.from_redis('1.2'), 1.2)
+        self.assertEqual(field.from_redis('1.2345'), 1.2345)
+        self.assertRaises(ValueError, lambda: field.from_redis('x'))
 
     def test_int(self):
         field = redpipe.IntegerField
@@ -126,9 +126,9 @@ class FieldsTestCase(unittest.TestCase):
         self.assertFalse(field.validate('1'))
         self.assertTrue(field.validate(0))
         self.assertFalse(field.validate(0.1))
-        self.assertEqual(field.to_persistence(1), '1')
-        self.assertEqual(field.from_persistence('1234'), 1234)
-        self.assertRaises(ValueError, lambda: field.from_persistence('x'))
+        self.assertEqual(field.to_redis(1), '1')
+        self.assertEqual(field.from_redis('1234'), 1234)
+        self.assertRaises(ValueError, lambda: field.from_redis('x'))
 
     def test_text(self):
         field = redpipe.TextField
@@ -136,16 +136,17 @@ class FieldsTestCase(unittest.TestCase):
         self.assertFalse(field.validate(False))
         self.assertFalse(field.validate(0.12456))
         self.assertTrue(field.validate('dddd'))
+        self.assertFalse(field.validate([]))
         self.assertTrue(field.validate(json.loads('"15\u00f8C"')))
         self.assertTrue(field.validate(''))
         self.assertTrue(field.validate('a'))
         self.assertTrue(field.validate('1'))
-        self.assertEqual(field.to_persistence('1'), '1')
-        self.assertEqual(field.to_persistence('1.2'), '1.2')
-        self.assertEqual(field.to_persistence('abc123$!'), 'abc123$!')
+        self.assertEqual(field.to_redis('1'), '1')
+        self.assertEqual(field.to_redis('1.2'), '1.2')
+        self.assertEqual(field.to_redis('abc123$!'), 'abc123$!')
         sample = json.loads('"15\u00f8C"')
         self.assertEqual(
-            field.from_persistence(field.to_persistence(sample)),
+            field.from_redis(field.to_redis(sample)),
             sample
         )
 
@@ -159,34 +160,14 @@ class FieldsTestCase(unittest.TestCase):
         self.assertTrue(field.validate(''))
         self.assertTrue(field.validate('a'))
         self.assertTrue(field.validate('1'))
-        self.assertEqual(field.to_persistence('1'), '1')
-        self.assertEqual(field.to_persistence('1.2'), '1.2')
-        self.assertEqual(field.to_persistence('abc123$!'), 'abc123$!')
+        self.assertEqual(field.to_redis('1'), '1')
+        self.assertEqual(field.to_redis('1.2'), '1.2')
+        self.assertEqual(field.to_redis('abc123$!'), 'abc123$!')
         sample = '#$%^&*()!@#aABc'
         self.assertEqual(
-            field.from_persistence(field.to_persistence(sample)),
+            field.from_redis(field.to_redis(sample)),
             sample
         )
-
-    def test_json(self):
-        field = redpipe.JsonField
-        self.assertFalse(field.validate(1))
-        self.assertFalse(field.validate(False))
-        self.assertFalse(field.validate(0.12456))
-        self.assertFalse(field.validate('dddd'))
-        self.assertTrue(field.validate([1]))
-        self.assertTrue(field.validate({'a': 1}))
-        data = {'a': 1}
-        self.assertEqual(
-            field.from_persistence(field.to_persistence(data)),
-            data)
-
-        data = ['a', 1]
-        self.assertEqual(
-            field.from_persistence(field.to_persistence(data)),
-            data)
-
-        self.assertEqual(field.from_persistence(data), data)
 
     def test_list(self):
         field = redpipe.ListField
@@ -198,10 +179,10 @@ class FieldsTestCase(unittest.TestCase):
         self.assertFalse(field.validate({'a': 1}))
         data = ['a', 1]
         self.assertEqual(
-            field.from_persistence(field.to_persistence(data)),
+            field.from_redis(field.to_redis(data)),
             data)
 
-        self.assertEqual(field.from_persistence(data), data)
+        self.assertEqual(field.from_redis(data), data)
 
     def test_dict(self):
         field = redpipe.DictField
@@ -213,8 +194,10 @@ class FieldsTestCase(unittest.TestCase):
         self.assertTrue(field.validate({'a': 1}))
         data = {'a': 1}
         self.assertEqual(
-            field.from_persistence(field.to_persistence(data)),
+            field.from_redis(field.to_redis(data)),
             data)
+
+        self.assertEqual(field.from_redis(data), data)
 
     def test_string_list(self):
         field = redpipe.StringListField
@@ -223,16 +206,15 @@ class FieldsTestCase(unittest.TestCase):
         self.assertFalse(field.validate(0.12456))
         self.assertFalse(field.validate('dddd'))
         self.assertTrue(field.validate(['1']))
-        self.assertTrue(field.validate(None))
         self.assertFalse(field.validate([1]))
         self.assertFalse(field.validate({'a': 1}))
         data = ['a', 'b', 'c']
         self.assertEqual(
-            field.from_persistence(field.to_persistence(data)),
+            field.from_redis(field.to_redis(data)),
             data)
 
-        self.assertEqual(field.from_persistence(data), data)
-        self.assertIsNone(field.from_persistence(''))
+        self.assertEqual(field.from_redis(data), data)
+        self.assertIsNone(field.from_redis(''))
 
 
 class StructTestCase(BaseTestCase):
@@ -973,7 +955,6 @@ class HashFieldsTestCase(BaseTestCase):
             'i': redpipe.IntegerField,
             'f': redpipe.FloatField,
             't': redpipe.TextField,
-            'j': redpipe.JsonField,
             'l': redpipe.ListField,
             'd': redpipe.DictField,
             'sl': redpipe.StringListField,
@@ -1016,34 +997,6 @@ class HashFieldsTestCase(BaseTestCase):
 
             self.assertRaises(
                 redpipe.InvalidFieldValue, lambda: c.hset('f', '1'))
-
-    def test_json_list(self):
-        with redpipe.pipeline(autocommit=True) as pipe:
-            data = [1, 'a']
-            c = self.Data('1', pipe=pipe)
-            hset = c.hset('j', data)
-            hget = c.hget('j')
-            hmget = c.hmget(['j'])
-            hgetall = c.hgetall()
-
-        self.assertEqual(hset, 1)
-        self.assertEqual(hget, data)
-        self.assertEqual(hmget, [data])
-        self.assertEqual(hgetall, {'j': data})
-
-    def test_json_dict(self):
-        with redpipe.pipeline(autocommit=True) as pipe:
-            data = {'a': 1, 'b': 'test'}
-            c = self.Data('1', pipe=pipe)
-            hset = c.hset('j', data)
-            hget = c.hget('j')
-            hmget = c.hmget(['j'])
-            hgetall = c.hgetall()
-
-        self.assertEqual(hset, 1)
-        self.assertEqual(hget, data)
-        self.assertEqual(hmget, [data])
-        self.assertEqual(hgetall, {'j': data})
 
     def test_dict(self):
         with redpipe.pipeline(autocommit=True) as pipe:

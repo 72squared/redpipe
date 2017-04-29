@@ -159,3 +159,5 @@ texinfo_documents = [
      author, project, 'making redis pipelines easy in python',
      'Miscellaneous'),
 ]
+
+suppress_warnings = ['image.nonlocal_uri']

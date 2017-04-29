@@ -1,52 +1,26 @@
 import json
 import re
-from .compat import long, unicode, basestring
+from .compat import long, unicode
 
 __all__ = [
-    'Field',
     'IntegerField',
     'FloatField',
     'TextField',
     'AsciiField',
     'BooleanField',
-    'JsonField',
     'ListField',
     'DictField',
     'StringListField',
 ]
 
 
-class Field(object):
-    """
-    Field objects handle data conversion to/from strings in redis
-    """
-    allowed = ()
-
-    __slots__ = []
-
-    @classmethod
-    def from_persistence(cls, value):
-        convert = cls.allowed[0] if \
-            isinstance(cls.allowed, (tuple, list)) else cls.allowed
-        return convert(value)
-
-    @classmethod
-    def to_persistence(cls, value):
-        return repr(value)
-
-    @classmethod
-    def validate(cls, value):
-        return value is None or isinstance(value, cls.allowed)
-
-
-class BooleanField(Field):
+class BooleanField(object):
     """
     Used for boolean fields.
     """
-    allowed = bool
 
     @classmethod
-    def to_persistence(cls, obj):
+    def to_redis(cls, obj):
         """
         convert a boolean value into something we can persist to redis.
         An empty string is the representation for False.
@@ -56,7 +30,7 @@ class BooleanField(Field):
         return '1' if obj else ''
 
     @classmethod
-    def from_persistence(cls, obj):
+    def from_redis(cls, obj):
         """
         convert from redis bytes into a boolean value
         :param obj:
@@ -64,48 +38,73 @@ class BooleanField(Field):
         """
         return bool(obj)
 
+    @classmethod
+    def validate(cls, value):
+        return True if value in [None, True, False] else False
 
-class FloatField(Field):
+
+class FloatField(object):
     """
     Numeric field that supports integers and floats (values are turned into
     floats on load from persistence).
     """
     allowed = (float, int, long)
 
+    @classmethod
+    def from_redis(cls, value):
+        return float(value)
 
-class IntegerField(Field):
+    @classmethod
+    def to_redis(cls, value):
+        return repr(value)
+
+    @classmethod
+    def validate(cls, value):
+        try:
+            return True if float(value) + 0 == value else False
+        except (TypeError, ValueError):
+            return False
+
+
+class IntegerField(object):
     """
     Used for integer numeric fields.
     """
-    allowed = (int, long)
+
+    @classmethod
+    def validate(cls, value):
+        try:
+            return True if int(value) + 0 == value else False
+        except (TypeError, ValueError):
+            return False
+
+    @classmethod
+    def from_redis(cls, value):
+        return int(value)
+
+    @classmethod
+    def to_redis(cls, value):
+        return repr(value)
 
 
-class TextField(Field):
+class TextField(object):
     """
     A unicode string field.
 
     Encoded via utf-8 before writing to persistence.
     """
-    allowed = (unicode, str, basestring)
 
     @classmethod
-    def to_persistence(cls, value):
-        """
-        serialize utf-8 character string into bytes for redis to write.
-        :param value:
-        :return: utf-8 encoded bytes
-        """
+    def to_redis(cls, value):
         return value
 
     @classmethod
-    def from_persistence(cls, value):
-        """
-        take bytes returned from redis and convert them into
-        unicode safe string.
-        :param value:
-        :return: utf-8 decoded string
-        """
+    def from_redis(cls, value):
         return value
+
+    @classmethod
+    def validate(cls, value):
+        return unicode(value) == value
 
 
 class AsciiField(TextField):
@@ -113,63 +112,68 @@ class AsciiField(TextField):
 
     @classmethod
     def validate(cls, value):
-        if not super(AsciiField, cls).validate(value):
+        try:
+            return True if cls.PATTERN.match(value) else False
+        except TypeError:
             return False
 
-        return True if cls.PATTERN.match(value) else False
 
-
-class JsonField(Field):
-    """
-    Allows for more complicated nested structures as attributes.
-    """
-    allowed = (dict, list)
-
+class ListField(object):
     @classmethod
-    def to_persistence(cls, value):
+    def to_redis(cls, value):
         return json.dumps(value)
 
     @classmethod
-    def from_persistence(cls, value):
-        if isinstance(value, cls.allowed):
-            return value
-        return json.loads(value)
-
-
-class ListField(JsonField):
-    allowed = list
-
-
-class DictField(JsonField):
-    allowed = dict
-
-
-class StringListField(Field):
-    allowed = list
+    def from_redis(cls, value):
+        try:
+            return list(json.loads(value))
+        except TypeError:
+            return list(value)
 
     @classmethod
-    def from_persistence(cls, value):
-        if isinstance(value, cls.allowed):
-            return value
+    def validate(cls, value):
+        try:
+            return list(value) == value
+        except TypeError:
+            return False
 
-        if len(value) > 0:
-            return value.split(',')
-        else:
-            return None
+
+class DictField(object):
+    @classmethod
+    def to_redis(cls, value):
+        return json.dumps(value)
 
     @classmethod
-    def to_persistence(cls, value):
+    def from_redis(cls, value):
+        try:
+            return dict(json.loads(value))
+        except TypeError:
+            return dict(value)
+
+    @classmethod
+    def validate(cls, value):
+        try:
+            return dict(value) == value
+        except (TypeError, ValueError):
+            return False
+
+
+class StringListField(object):
+    @classmethod
+    def from_redis(cls, value):
+        try:
+            data = [v for v in value.split(',') if v != '']
+            return data if data else None
+        except AttributeError:
+            return value
+
+    @classmethod
+    def to_redis(cls, value):
         return ",".join(value) if len(value) > 0 else None
 
     @classmethod
     def validate(cls, value):
-        if value is None:
-            return True
-
-        if not isinstance(value, cls.allowed):
+        try:
+            return [str(v) for v in value] == value
+        except TypeError:
             return False
-
-        for v in value:
-            if not isinstance(v, (unicode, str, basestring)):
-                return False
-        return True

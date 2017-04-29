@@ -102,7 +102,10 @@ The first step is to make the commands return a reference to the data before exe
 We'll call this reference object a `Future`.
 The `redpipe.Future` object gets populated with data once the pipeline executes.
 It also behaves just like the underlying result.
-You can iterate on it if the result is a list.
+
+*RedPipe* embraces the spirit of `duck-typing <https://en.wikipedia.org/wiki/Duck_typing#In_Python>`_.
+
+You can iterate on a Future if the result is a list.
 Add or subtract from it if it is an int.
 Print it out like a string.
 In short, you should be able to use it interchangeably with the underlying `future.result` field.

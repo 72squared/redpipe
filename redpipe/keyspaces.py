@@ -1035,7 +1035,7 @@ class Hash(KeySpace):
             field_validator = self._fields[k]
             if not field_validator.validate(v):
                 raise InvalidFieldValue('invalid value for field %s' % k)
-            return self._encode(field_validator.to_persistence(v))
+            return self._encode(field_validator.to_redis(v))
         except KeyError:
             return self._encode(v)
 
@@ -1044,7 +1044,7 @@ class Hash(KeySpace):
             return None
         try:
             field_validator = self._fields[k]
-            return field_validator.from_persistence(self._decode(v))
+            return field_validator.from_redis(self._decode(v))
         except KeyError:
             return self._decode(v)
 

@@ -45,12 +45,15 @@ Be sure to check out the wrappers around keyspaced data-types. And the Struct ob
 
 More on this later.
 
---------
 
+-------------------------------------
+
+
+Documentation
+=============
 
 ..  toctree::
     :maxdepth: 2
-    :caption: Table of Contents:
 
     getting_started
     rationale
@@ -77,17 +80,6 @@ More on this later.
     authors
     faq
     todo
-
-
-
-
-
-Indices and tables
-==================
-
-* :ref:`genindex`
-* :ref:`modindex`
-* :ref:`search`
 
 
 .. |BuildStatus| image:: https://travis-ci.org/72squared/redpipe.svg?branch=master
