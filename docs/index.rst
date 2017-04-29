@@ -23,7 +23,7 @@ The *redpipe* module requires Python 2.7 or higher.
 What is RedPipe?
 ----------------
 *RedPipe* is a python package designed to help reduce network round trips when talking to redis.
-It is a wrapper around *redis-py* or *redis-py-cluster*.
+It is a wrapper around `redis-py <https://redis-py.readthedocs.io>`_ or `redis-py-cluster <http://redis-py-cluster.readthedocs.io>`_.
 
 For more general information about redis pipelining, see the `official redis documentation <https://redis.io/topics/pipelining>`_.
 
@@ -40,8 +40,10 @@ Pass a pipeline into multiple functions, collect the results from each function,
 
 What Else Can it Do?
 --------------------
-You can use just the core of the *redpipe* module but there's a lot of other cool things included.
-Be sure to check out the wrappers around keyspaced data-types. And the Struct objects are cool too.
+You can use just the core of the *redpipe* module.
+But there's a lot of other cool things included.
+Be sure to check out the wrappers around keyspaced data-types.
+And the Struct objects are cool too.
 
 More on this later.
 

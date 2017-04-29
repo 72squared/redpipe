@@ -34,10 +34,6 @@ class Struct(object):
             if kwargs:
                 self.change(pipe=pipe, **kwargs)
 
-            self.load(pipe=pipe)
-
-    def load(self, pipe=None):
-        with pipeline(pipe, name=self._connection, autocommit=True) as pipe:
             ref = self.core(self.key, pipe=pipe).hgetall()
 
             def cb():
@@ -130,6 +126,8 @@ class Struct(object):
         yield '_key', self.key
         for k, v in self._data.items():
             yield k, v
+
+    iteritems = items
 
     def __str__(self):
         return "<%s:%s>" % (self.__class__.__name__, self.key)
