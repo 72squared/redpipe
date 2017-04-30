@@ -47,6 +47,8 @@ The top pipeline context executes the functions and callbacks, creating the fina
 Use Cases
 ---------
 Callbacks can be used for all kinds of purposes.
+In fact, the internals of *RedPipe* take advantage of the callback hook for many different purposes.
+
 Here are some examples:
 
 * Formatting the results of a redis command before returning it

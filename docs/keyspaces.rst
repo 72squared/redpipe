@@ -36,6 +36,10 @@ Here's an example of a sorted set:
 We can specify what named connection we want to use with the `_connection` variable.
 Or you can omit it if you are using just one default connection to redis.
 
+You will notice the interface provided by the keyspace object `redpipe.SortedSet` looks just like `redis-py` functions.
+Except it omits the name of the key. That's because the key name is already specified in the constructor.
+
+
 Supported Keyspace Types
 ------------------------
 All of the `redis-py` sorted set functions are exposed on the in the example above.
