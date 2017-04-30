@@ -1,6 +1,6 @@
 import json
 import re
-from .compat import long, unicode
+from .compat import bytes, unicode
 from .exceptions import InvalidFieldValue
 
 __all__ = [
@@ -8,6 +8,7 @@ __all__ = [
     'FloatField',
     'TextField',
     'AsciiField',
+    'BinaryField',
     'BooleanField',
     'ListField',
     'DictField',
@@ -48,8 +49,6 @@ class FloatField(object):
     Numeric field that supports integers and floats (values are turned into
     floats on load from persistence).
     """
-    allowed = (float, int, long)
-
     @classmethod
     def decode(cls, value):
         return float(value)
@@ -69,7 +68,6 @@ class IntegerField(object):
     """
     Used for integer numeric fields.
     """
-
     @classmethod
     def decode(cls, value):
         return int(value)
@@ -118,6 +116,28 @@ class AsciiField(TextField):
             pass
 
         raise InvalidFieldValue('not text')
+
+
+class BinaryField(object):
+    """
+    A bytes field.
+
+    Not encoded.
+    """
+
+    @classmethod
+    def encode(cls, value):
+        try:
+            if bytes(value) == value:
+                return value
+        except (TypeError, UnicodeError):
+            pass
+
+        raise InvalidFieldValue('not binary')
+
+    @classmethod
+    def decode(cls, value):
+        return bytes(value)
 
 
 class ListField(object):

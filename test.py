@@ -1,6 +1,8 @@
 #!/usr/bin/env python
+# -*- encoding: utf-8 -*-
 import json
 import unittest
+import uuid
 import time
 import redis
 import redislite
@@ -8,6 +10,10 @@ import rediscluster
 import rediscluster.exceptions
 import redpipe
 import redpipe.tasks
+import six
+
+# Tegalu: I can eat glass ...
+utf8_sample = u'నేను గాజు తినగలను మరియు అలా చేసినా నాకు ఏమి ఇబ్బంది లేదు'
 
 
 class BaseTestCase(unittest.TestCase):
@@ -157,6 +163,11 @@ class FieldsTestCase(unittest.TestCase):
             sample
         )
 
+        self.assertEqual(
+            field.decode(field.encode(utf8_sample)),
+            utf8_sample
+        )
+
     def test_ascii(self):
         field = redpipe.AsciiField
         self.assertRaises(redpipe.InvalidFieldValue,
@@ -176,6 +187,45 @@ class FieldsTestCase(unittest.TestCase):
         self.assertEqual(field.encode('1.2'), b'1.2')
         self.assertEqual(field.encode('abc123$!'), b'abc123$!')
         sample = '#$%^&*()!@#aABc'
+        self.assertEqual(
+            field.decode(field.encode(sample)),
+            sample
+        )
+
+    def test_binary(self):
+        field = redpipe.BinaryField
+        self.assertRaises(redpipe.InvalidFieldValue,
+                          lambda: field.encode(1))
+        self.assertRaises(redpipe.InvalidFieldValue,
+                          lambda: field.encode(False))
+        self.assertRaises(redpipe.InvalidFieldValue,
+                          lambda: field.encode(0.1))
+
+        if six.PY3:
+            self.assertRaises(redpipe.InvalidFieldValue,
+                              lambda: field.encode(''))
+
+            self.assertRaises(redpipe.InvalidFieldValue,
+                              lambda: field.encode('dddd'))
+
+        sample = json.loads('"15\u00f8C"')
+        self.assertRaises(redpipe.InvalidFieldValue,
+                          lambda: field.encode(sample))
+
+        self.assertEqual(field.encode(b'1'), b'1')
+        self.assertEqual(field.encode(b'1.2'), b'1.2')
+        self.assertEqual(field.encode(b'abc123$!'), b'abc123$!')
+        sample = b'#$%^&*()!@#aABc'
+        self.assertEqual(
+            field.decode(field.encode(sample)),
+            sample
+        )
+        self.assertEqual(
+            field.decode(field.encode(sample)),
+            sample
+        )
+
+        sample = uuid.uuid4().bytes
         self.assertEqual(
             field.decode(field.encode(sample)),
             sample
@@ -1003,7 +1053,7 @@ class HashFieldsTestCase(BaseTestCase):
         with redpipe.pipeline(autocommit=True) as pipe:
             c = self.Data('1', pipe=pipe)
             hset = c.hset('i', 1)
-            hmset = c.hmset({'b': True, 'f': 3.1, 't': 'a'})
+            hmset = c.hmset({'b': True, 'f': 3.1, 't': utf8_sample})
             hsetnx = c.hsetnx('b', False)
             hget = c.hget('b')
             hgetall = c.hgetall()
@@ -1017,7 +1067,7 @@ class HashFieldsTestCase(BaseTestCase):
         self.assertEqual(hget.result, True)
         self.assertEqual(
             hgetall.result,
-            {'b': True, 'i': 1, 'f': 3.1, 't': 'a'})
+            {'b': True, 'i': 1, 'f': 3.1, 't': utf8_sample})
         self.assertEqual(hincrby.result, 3)
         self.assertEqual(hincrbyfloat.result, 5.2)
         self.assertEqual(hmget.result, [5.2, True])
