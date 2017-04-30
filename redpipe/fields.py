@@ -1,6 +1,7 @@
 import json
 import re
 from .compat import long, unicode
+from .exceptions import InvalidFieldValue
 
 __all__ = [
     'IntegerField',
@@ -20,27 +21,26 @@ class BooleanField(object):
     """
 
     @classmethod
-    def to_redis(cls, obj):
+    def encode(cls, value):
         """
         convert a boolean value into something we can persist to redis.
         An empty string is the representation for False.
         :param obj:
         :return:
         """
-        return '1' if obj else ''
+        if value not in [True, False]:
+            raise InvalidFieldValue('not a boolean')
+
+        return '1' if value else ''
 
     @classmethod
-    def from_redis(cls, obj):
+    def decode(cls, obj):
         """
         convert from redis bytes into a boolean value
         :param obj:
         :return:
         """
         return bool(obj)
-
-    @classmethod
-    def validate(cls, value):
-        return True if value in [None, True, False] else False
 
 
 class FloatField(object):
@@ -51,19 +51,18 @@ class FloatField(object):
     allowed = (float, int, long)
 
     @classmethod
-    def from_redis(cls, value):
+    def decode(cls, value):
         return float(value)
 
     @classmethod
-    def to_redis(cls, value):
-        return repr(value)
-
-    @classmethod
-    def validate(cls, value):
+    def encode(cls, value):
         try:
-            return True if float(value) + 0 == value else False
+            if float(value) + 0 == value:
+                return repr(value)
         except (TypeError, ValueError):
-            return False
+            pass
+
+        raise InvalidFieldValue('not a float')
 
 
 class IntegerField(object):
@@ -72,19 +71,19 @@ class IntegerField(object):
     """
 
     @classmethod
-    def validate(cls, value):
-        try:
-            return True if int(value) + 0 == value else False
-        except (TypeError, ValueError):
-            return False
-
-    @classmethod
-    def from_redis(cls, value):
+    def decode(cls, value):
         return int(value)
 
     @classmethod
-    def to_redis(cls, value):
-        return repr(value)
+    def encode(cls, value):
+        try:
+            if int(value) + 0 == value:
+                return repr(value)
+
+        except (TypeError, ValueError):
+            pass
+
+        raise InvalidFieldValue('not an int')
 
 
 class TextField(object):
@@ -93,87 +92,95 @@ class TextField(object):
 
     Encoded via utf-8 before writing to persistence.
     """
+    _encoding = 'utf-8'
 
     @classmethod
-    def to_redis(cls, value):
-        return value
+    def encode(cls, value):
+        if unicode(value) == value:
+            return value.encode(cls._encoding)
+
+        raise InvalidFieldValue('not text')
 
     @classmethod
-    def from_redis(cls, value):
-        return value
-
-    @classmethod
-    def validate(cls, value):
-        return unicode(value) == value
+    def decode(cls, value):
+        return unicode(value.decode(cls._encoding))
 
 
 class AsciiField(TextField):
     PATTERN = re.compile('^([ -~]+)?$')
 
     @classmethod
-    def validate(cls, value):
+    def encode(cls, value):
         try:
-            return True if cls.PATTERN.match(value) else False
-        except TypeError:
-            return False
+            if cls.PATTERN.match(value):
+                return value.encode(cls._encoding)
+        except (TypeError, UnicodeError):
+            pass
+
+        raise InvalidFieldValue('not text')
 
 
 class ListField(object):
-    @classmethod
-    def to_redis(cls, value):
-        return json.dumps(value)
+    _encoding = 'utf-8'
 
     @classmethod
-    def from_redis(cls, value):
+    def encode(cls, value):
         try:
-            return list(json.loads(value))
+            if list(value) == value:
+                return json.dumps(value).encode(cls._encoding)
         except TypeError:
+            pass
+
+        raise InvalidFieldValue('not a list')
+
+    @classmethod
+    def decode(cls, value):
+        try:
+            return list(json.loads(value.decode(cls._encoding)))
+        except (TypeError, AttributeError):
             return list(value)
-
-    @classmethod
-    def validate(cls, value):
-        try:
-            return list(value) == value
-        except TypeError:
-            return False
 
 
 class DictField(object):
-    @classmethod
-    def to_redis(cls, value):
-        return json.dumps(value)
+    _encoding = 'utf-8'
 
     @classmethod
-    def from_redis(cls, value):
+    def encode(cls, value):
         try:
-            return dict(json.loads(value))
-        except TypeError:
-            return dict(value)
-
-    @classmethod
-    def validate(cls, value):
-        try:
-            return dict(value) == value
+            if dict(value) == value:
+                return json.dumps(value).encode(cls._encoding)
         except (TypeError, ValueError):
-            return False
+            pass
+        raise InvalidFieldValue('not a dict')
+
+    @classmethod
+    def decode(cls, value):
+        try:
+            return dict(json.loads(value.decode(cls._encoding)))
+        except (TypeError, AttributeError):
+            return dict(value)
 
 
 class StringListField(object):
+    _encoding = 'utf-8'
+
     @classmethod
-    def from_redis(cls, value):
+    def decode(cls, value):
         try:
-            data = [v for v in value.split(',') if v != '']
+            data = [v for v in value.decode(cls._encoding).split(',') if
+                    v != '']
             return data if data else None
         except AttributeError:
             return value
 
     @classmethod
-    def to_redis(cls, value):
-        return ",".join(value) if len(value) > 0 else None
+    def encode(cls, value):
 
-    @classmethod
-    def validate(cls, value):
         try:
-            return [str(v) for v in value] == value
+            if [str(v) for v in value] == value:
+                return ",".join(value).encode(cls._encoding) if len(
+                    value) > 0 else None
         except TypeError:
-            return False
+            pass
+
+        raise InvalidFieldValue('not a list of strings')

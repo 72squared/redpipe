@@ -104,117 +104,156 @@ class PipelineTestCase(BaseTestCase):
 class FieldsTestCase(unittest.TestCase):
     def test_float(self):
         field = redpipe.FloatField
-        self.assertTrue(field.validate(2.12))
-        self.assertTrue(field.validate(0.12456))
-        self.assertFalse(field.validate(''))
-        self.assertFalse(field.validate('a'))
-        self.assertFalse(field.validate('1'))
-        self.assertEqual(field.to_redis(1), '1')
-        self.assertEqual(field.to_redis(1.2), '1.2')
-        self.assertEqual(field.to_redis(1.2345), '1.2345')
-        self.assertEqual(field.from_redis('1'), 1)
-        self.assertEqual(field.from_redis('1.2'), 1.2)
-        self.assertEqual(field.from_redis('1.2345'), 1.2345)
-        self.assertRaises(ValueError, lambda: field.from_redis('x'))
+        self.assertRaises(redpipe.InvalidFieldValue, lambda: field.encode(''))
+        self.assertRaises(redpipe.InvalidFieldValue, lambda: field.encode('a'))
+        self.assertRaises(redpipe.InvalidFieldValue, lambda: field.encode('1'))
+        self.assertRaises(redpipe.InvalidFieldValue, lambda: field.encode([]))
+        self.assertRaises(redpipe.InvalidFieldValue, lambda: field.encode({}))
+        self.assertEqual(field.encode(1), '1')
+        self.assertEqual(field.encode(1.2), '1.2')
+        self.assertEqual(field.encode(1.2345), '1.2345')
+        self.assertEqual(field.decode('1'), 1)
+        self.assertEqual(field.decode('1.2'), 1.2)
+        self.assertEqual(field.decode('1.2345'), 1.2345)
+        self.assertRaises(ValueError, lambda: field.decode('x'))
 
     def test_int(self):
         field = redpipe.IntegerField
-        self.assertTrue(field.validate(2))
-        self.assertTrue(field.validate(12456))
-        self.assertFalse(field.validate(''))
-        self.assertFalse(field.validate('a'))
-        self.assertFalse(field.validate('1'))
-        self.assertTrue(field.validate(0))
-        self.assertFalse(field.validate(0.1))
-        self.assertEqual(field.to_redis(1), '1')
-        self.assertEqual(field.from_redis('1234'), 1234)
-        self.assertRaises(ValueError, lambda: field.from_redis('x'))
+        self.assertEqual(field.encode(0), '0')
+        self.assertEqual(field.encode(2), '2')
+        self.assertEqual(field.encode(123456), '123456')
+        self.assertRaises(redpipe.InvalidFieldValue, lambda: field.encode(''))
+        self.assertRaises(redpipe.InvalidFieldValue, lambda: field.encode('a'))
+        self.assertRaises(redpipe.InvalidFieldValue, lambda: field.encode('1'))
+        self.assertRaises(redpipe.InvalidFieldValue, lambda: field.encode(1.2))
+        self.assertEqual(field.encode(1), '1')
+        self.assertEqual(field.decode(b'1234'), 1234)
+        self.assertRaises(ValueError, lambda: field.decode('x'))
 
     def test_text(self):
         field = redpipe.TextField
-        self.assertFalse(field.validate(1))
-        self.assertFalse(field.validate(False))
-        self.assertFalse(field.validate(0.12456))
-        self.assertTrue(field.validate('dddd'))
-        self.assertFalse(field.validate([]))
-        self.assertTrue(field.validate(json.loads('"15\u00f8C"')))
-        self.assertTrue(field.validate(''))
-        self.assertTrue(field.validate('a'))
-        self.assertTrue(field.validate('1'))
-        self.assertEqual(field.to_redis('1'), '1')
-        self.assertEqual(field.to_redis('1.2'), '1.2')
-        self.assertEqual(field.to_redis('abc123$!'), 'abc123$!')
+        self.assertRaises(redpipe.InvalidFieldValue, lambda: field.encode(1))
+        self.assertRaises(redpipe.InvalidFieldValue,
+                          lambda: field.encode(False))
+
+        self.assertRaises(redpipe.InvalidFieldValue,
+                          lambda: field.encode(0.12345))
+
+        self.assertRaises(redpipe.InvalidFieldValue,
+                          lambda: field.encode([]))
+
+        self.assertEqual(field.encode('d'), b'd')
+        self.assertEqual(field.encode(json.loads('"15\u00f8C"')),
+                         b'15\xc3\xb8C')
+
+        self.assertEqual(field.encode(''), b'')
+        self.assertEqual(field.encode('a'), b'a')
+        self.assertEqual(field.encode('1'), b'1')
+        self.assertEqual(field.encode('1.2'), b'1.2')
+        self.assertEqual(field.encode('abc123$!'), b'abc123$!')
         sample = json.loads('"15\u00f8C"')
         self.assertEqual(
-            field.from_redis(field.to_redis(sample)),
+            field.decode(field.encode(sample)),
             sample
         )
 
     def test_ascii(self):
         field = redpipe.AsciiField
-        self.assertFalse(field.validate(1))
-        self.assertFalse(field.validate(False))
-        self.assertFalse(field.validate(0.12456))
-        self.assertTrue(field.validate('dddd'))
-        self.assertFalse(field.validate(json.loads('"15\u00f8C"')))
-        self.assertTrue(field.validate(''))
-        self.assertTrue(field.validate('a'))
-        self.assertTrue(field.validate('1'))
-        self.assertEqual(field.to_redis('1'), '1')
-        self.assertEqual(field.to_redis('1.2'), '1.2')
-        self.assertEqual(field.to_redis('abc123$!'), 'abc123$!')
+        self.assertRaises(redpipe.InvalidFieldValue,
+                          lambda: field.encode(1))
+        self.assertRaises(redpipe.InvalidFieldValue,
+                          lambda: field.encode(False))
+        self.assertRaises(redpipe.InvalidFieldValue,
+                          lambda: field.encode(0.1))
+
+        self.assertEqual(field.encode(''), b'')
+        self.assertEqual(field.encode('dddd'), b'dddd')
+
+        self.assertRaises(redpipe.InvalidFieldValue,
+                          lambda: field.encode(json.loads('"15\u00f8C"')))
+
+        self.assertEqual(field.encode('1'), b'1')
+        self.assertEqual(field.encode('1.2'), b'1.2')
+        self.assertEqual(field.encode('abc123$!'), b'abc123$!')
         sample = '#$%^&*()!@#aABc'
         self.assertEqual(
-            field.from_redis(field.to_redis(sample)),
+            field.decode(field.encode(sample)),
             sample
         )
 
     def test_list(self):
         field = redpipe.ListField
-        self.assertFalse(field.validate(1))
-        self.assertFalse(field.validate(False))
-        self.assertFalse(field.validate(0.12456))
-        self.assertFalse(field.validate('dddd'))
-        self.assertTrue(field.validate([1]))
-        self.assertFalse(field.validate({'a': 1}))
+
+        self.assertRaises(redpipe.InvalidFieldValue,
+                          lambda: field.encode(1))
+        self.assertRaises(redpipe.InvalidFieldValue,
+                          lambda: field.encode(False))
+        self.assertRaises(redpipe.InvalidFieldValue,
+                          lambda: field.encode(0.1))
+        self.assertRaises(redpipe.InvalidFieldValue,
+                          lambda: field.encode('ddd'))
+        self.assertRaises(redpipe.InvalidFieldValue,
+                          lambda: field.encode({}))
+        self.assertRaises(redpipe.InvalidFieldValue,
+                          lambda: field.encode({'a': 1}))
+
+        self.assertEqual(field.encode([1]), b'[1]')
+
         data = ['a', 1]
         self.assertEqual(
-            field.from_redis(field.to_redis(data)),
+            field.decode(field.encode(data)),
             data)
 
-        self.assertEqual(field.from_redis(data), data)
+        self.assertEqual(field.decode(data), data)
 
     def test_dict(self):
         field = redpipe.DictField
-        self.assertFalse(field.validate(1))
-        self.assertFalse(field.validate(False))
-        self.assertFalse(field.validate(0.12456))
-        self.assertFalse(field.validate('dddd'))
-        self.assertFalse(field.validate([1]))
-        self.assertTrue(field.validate({'a': 1}))
+        self.assertRaises(redpipe.InvalidFieldValue,
+                          lambda: field.encode(1))
+        self.assertRaises(redpipe.InvalidFieldValue,
+                          lambda: field.encode(False))
+        self.assertRaises(redpipe.InvalidFieldValue,
+                          lambda: field.encode(0.1))
+        self.assertRaises(redpipe.InvalidFieldValue,
+                          lambda: field.encode('ddd'))
+        self.assertRaises(redpipe.InvalidFieldValue,
+                          lambda: field.encode([]))
+        self.assertRaises(redpipe.InvalidFieldValue,
+                          lambda: field.encode([1]))
+
+        self.assertEqual(field.encode({'a': 1}), b'{"a": 1}')
+
         data = {'a': 1}
         self.assertEqual(
-            field.from_redis(field.to_redis(data)),
+            field.decode(field.encode(data)),
             data)
 
-        self.assertEqual(field.from_redis(data), data)
+        self.assertEqual(field.decode(data), data)
 
     def test_string_list(self):
         field = redpipe.StringListField
-        self.assertFalse(field.validate(1))
-        self.assertFalse(field.validate(False))
-        self.assertFalse(field.validate(0.12456))
-        self.assertFalse(field.validate('dddd'))
-        self.assertTrue(field.validate(['1']))
-        self.assertFalse(field.validate([1]))
-        self.assertFalse(field.validate({'a': 1}))
+        self.assertRaises(redpipe.InvalidFieldValue,
+                          lambda: field.encode(1))
+        self.assertRaises(redpipe.InvalidFieldValue,
+                          lambda: field.encode(False))
+        self.assertRaises(redpipe.InvalidFieldValue,
+                          lambda: field.encode(0.1))
+        self.assertRaises(redpipe.InvalidFieldValue,
+                          lambda: field.encode('ddd'))
+        self.assertRaises(redpipe.InvalidFieldValue,
+                          lambda: field.encode([1]))
+        self.assertRaises(redpipe.InvalidFieldValue,
+                          lambda: field.encode({}))
+        self.assertRaises(redpipe.InvalidFieldValue,
+                          lambda: field.encode({'a': 1}))
+        self.assertEqual(field.encode(['1']), b'1')
         data = ['a', 'b', 'c']
         self.assertEqual(
-            field.from_redis(field.to_redis(data)),
+            field.decode(field.encode(data)),
             data)
 
-        self.assertEqual(field.from_redis(data), data)
-        self.assertIsNone(field.from_redis(''))
+        self.assertEqual(field.decode(data), data)
+        self.assertIsNone(field.decode(b''))
 
 
 class StructTestCase(BaseTestCase):

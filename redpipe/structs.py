@@ -50,14 +50,13 @@ class Struct(object):
             core = self.core(self.key, pipe=pipe)
 
             def build(k, v):
-                pv = None if v is None else core.to_redis(k, v)
-                if pv is None:
+                if v is None:
                     core.hdel(k)
                 else:
                     core.hset(k, v)
 
                 def cb():
-                    if pv is None:
+                    if v is None:
                         try:
                             del self._data[k]
                         except KeyError:

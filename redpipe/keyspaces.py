@@ -1,6 +1,6 @@
 from .pipelines import pipeline
 from .luascripts import lua_restorenx, lua_object_info
-from .exceptions import InvalidOperation, InvalidFieldValue
+from .exceptions import InvalidOperation
 from .futures import Future
 import re
 
@@ -23,6 +23,7 @@ class KeySpace(object):
 
     _keyspace = None
     _connection = None
+    _encoding = 'utf-8'
 
     def __init__(self, key, pipe=None):
         """
@@ -40,13 +41,18 @@ class KeySpace(object):
         self.key = key
         self._pipe = pipe
 
-    @staticmethod
-    def _encode(v):
-        return None if v is None else v.encode('utf-8')
+    @classmethod
+    def _encode(cls, v):
+        return v.encode(cls._encoding)
 
-    @staticmethod
-    def _decode(v):
-        return None if v is None else v.decode()
+    @classmethod
+    def _decode(cls, v):
+        return None if v is None else v.decode(cls._encoding)
+
+    _encode_key = _encode
+    _encode_value = _encode
+    _decode_key = _decode
+    _decode_value = _decode
 
     @property
     def redis_key(self):
@@ -56,9 +62,9 @@ class KeySpace(object):
         :return: str
         """
         if self._keyspace is None:
-            return self._encode("%s" % self.key)
+            return self._encode_key("%s" % self.key)
 
-        return self._encode("%s{%s}" % (self._keyspace, self.key))
+        return self._encode_key("%s{%s}" % (self._keyspace, self.key))
 
     @property
     def pipe(self):
@@ -167,7 +173,7 @@ class KeySpace(object):
                 res = pipe.scan(cursor=cursor, match=match, count=count)
 
                 def cb():
-                    f.set((res[0], [cls._decode(v) for v in res[1]]))
+                    f.set((res[0], [cls._decode_key(v) for v in res[1]]))
 
                 pipe.on_execute(cb)
                 return f
@@ -184,7 +190,7 @@ class KeySpace(object):
             def cb():
                 keys = []
                 for k in res[1]:
-                    k = cls._decode(k)
+                    k = cls._decode_key(k)
                     m = pattern.match(k)
                     if m:
                         keys.append(m.group(1))
@@ -226,7 +232,7 @@ class String(KeySpace):
             res = pipe.get(self.redis_key)
 
             def cb():
-                f.set(self._decode(res.result))
+                f.set(self._decode_value(res.result))
 
             pipe.on_execute(cb)
             return f
@@ -258,7 +264,7 @@ class String(KeySpace):
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.setnx(self.redis_key, self._encode(value))
+            return pipe.setnx(self.redis_key, self._encode_value(value))
 
     def setex(self, value, time):
         """
@@ -267,7 +273,7 @@ class String(KeySpace):
         timedelta object.
         """
         with self.pipe as pipe:
-            return pipe.setex(self.redis_key, time, self._encode(value))
+            return pipe.setex(self.redis_key, time, self._encode_value(value))
 
     def append(self, value):
         """
@@ -277,7 +283,7 @@ class String(KeySpace):
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.append(self.redis_key, self._encode(value))
+            return pipe.append(self.redis_key, self._encode_value(value))
 
     def strlen(self):
         """
@@ -301,7 +307,7 @@ class String(KeySpace):
             res = pipe.substr(self.redis_key, start=start, end=end)
 
             def cb():
-                f.set(self._decode(res.result))
+                f.set(self._decode_value(res.result))
 
             pipe.on_execute(cb)
             return f
@@ -361,7 +367,7 @@ class String(KeySpace):
     def incrby(self, amount=1):
         """
         increment the value for key by value: int
-        :param value: int
+        :param amount: int
         :return: Future()
         """
         with self.pipe as pipe:
@@ -396,7 +402,7 @@ class Set(KeySpace):
         :return: Future()
         """
         with self.pipe as pipe:
-            values = [self._encode(v) for v in _parse_values(values)]
+            values = [self._encode_value(v) for v in _parse_values(values)]
             return pipe.sadd(self.redis_key, *values)
 
     def srem(self, *values):
@@ -407,7 +413,7 @@ class Set(KeySpace):
         :return: Future()
         """
         with self.pipe as pipe:
-            values = [self._encode(v) for v in _parse_values(values)]
+            values = [self._encode_value(v) for v in _parse_values(values)]
             return pipe.srem(self.redis_key, *values)
 
     def spop(self):
@@ -421,7 +427,7 @@ class Set(KeySpace):
             res = pipe.spop(self.redis_key)
 
             def cb():
-                f.set(self._decode(res.result))
+                f.set(self._decode_value(res.result))
 
             pipe.on_execute(cb)
             return f
@@ -432,7 +438,7 @@ class Set(KeySpace):
             res = pipe.smembers(self.redis_key)
 
             def cb():
-                f.set({self._decode(v) for v in res.result})
+                f.set({self._decode_value(v) for v in res.result})
 
             pipe.on_execute(cb)
             return f
@@ -456,7 +462,7 @@ class Set(KeySpace):
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.sismember(self.redis_key, self._encode(value))
+            return pipe.sismember(self.redis_key, self._encode_value(value))
 
     def srandmember(self):
         """
@@ -488,7 +494,7 @@ class Set(KeySpace):
                              match=match, count=count)
 
             def cb():
-                f.set((res[0], [self._decode(v) for v in res[1]]))
+                f.set((res[0], [self._decode_value(v) for v in res[1]]))
 
             pipe.on_execute(cb)
             return f
@@ -550,7 +556,7 @@ class List(KeySpace):
             res = pipe.lrange(self.redis_key, start, stop)
 
             def cb():
-                f.set([self._decode(v) for v in res.result])
+                f.set([self._decode_value(v) for v in res.result])
 
             pipe.on_execute(cb)
             return f
@@ -563,7 +569,7 @@ class List(KeySpace):
         :return: Future()
         """
         with self.pipe as pipe:
-            values = [self._encode(v) for v in _parse_values(values)]
+            values = [self._encode_value(v) for v in _parse_values(values)]
             return pipe.lpush(self.redis_key, *values)
 
     def rpush(self, *values):
@@ -574,7 +580,7 @@ class List(KeySpace):
         :return: Future()
         """
         with self.pipe as pipe:
-            values = [self._encode(v) for v in _parse_values(values)]
+            values = [self._encode_value(v) for v in _parse_values(values)]
             return pipe.rpush(self.redis_key, *values)
 
     def lpop(self):
@@ -589,7 +595,7 @@ class List(KeySpace):
             res = pipe.lpop(self.redis_key)
 
             def cb():
-                f.set(self._decode(res.result))
+                f.set(self._decode_value(res.result))
 
             pipe.on_execute(cb)
             return f
@@ -605,7 +611,7 @@ class List(KeySpace):
             res = pipe.rpop(self.redis_key)
 
             def cb():
-                f.set(self._decode(res.result))
+                f.set(self._decode_value(res.result))
 
             pipe.on_execute(cb)
             return f
@@ -644,7 +650,7 @@ class List(KeySpace):
             res = pipe.lindex(self.redis_key, idx)
 
             def cb():
-                f.set(self._decode(res.result))
+                f.set(self._decode_value(res.result))
 
             pipe.on_execute(cb)
             return f
@@ -658,7 +664,7 @@ class List(KeySpace):
         :return: Future()
         """
         with self.pipe as pipe:
-            value = self._encode(value)
+            value = self._encode_value(value)
             return pipe.lset(self.redis_key, idx, value)
 
     # noinspection PyRedeclaration
@@ -710,9 +716,9 @@ class SortedSet(KeySpace):
 
         if isinstance(members, dict):
             for member, score in members.items():
-                _args += [score, self._encode(member)]
+                _args += [score, self._encode_value(member)]
         else:
-            _args += [score, self._encode(members)]
+            _args += [score, self._encode_value(members)]
 
         if nx and xx:
             raise InvalidOperation('cannot specify nx and xx at the same time')
@@ -727,7 +733,7 @@ class SortedSet(KeySpace):
                  removed, False otherwise
         """
         with self.pipe as pipe:
-            values = [self._encode(v) for v in _parse_values(values)]
+            values = [self._encode_value(v) for v in _parse_values(values)]
             return pipe.zrem(self.redis_key, *values)
 
     def zincrby(self, member, increment):
@@ -739,7 +745,7 @@ class SortedSet(KeySpace):
         """
         with self.pipe as pipe:
             return pipe.zincrby(self.redis_key,
-                                self._encode(member), increment)
+                                self._encode_value(member), increment)
 
     def zrevrank(self, member):
         """
@@ -747,7 +753,7 @@ class SortedSet(KeySpace):
         :param member: str
         """
         with self.pipe as pipe:
-            return pipe.zrevrank(self.redis_key, self._encode(member))
+            return pipe.zrevrank(self.redis_key, self._encode_value(member))
 
     def zrange(self, start, end, desc=False, withscores=False,
                score_cast_func=float):
@@ -769,9 +775,9 @@ class SortedSet(KeySpace):
 
             def cb():
                 if withscores:
-                    f.set([[self._decode(v), s] for v, s in res.result])
+                    f.set([[self._decode_value(v), s] for v, s in res.result])
                 else:
-                    f.set([self._decode(v) for v in res.result])
+                    f.set([self._decode_value(v) for v in res.result])
 
             pipe.on_execute(cb)
             return f
@@ -795,9 +801,9 @@ class SortedSet(KeySpace):
 
             def cb():
                 if withscores:
-                    f.set([[self._decode(v), s] for v, s in res.result])
+                    f.set([[self._decode_value(v), s] for v, s in res.result])
                 else:
-                    f.set([self._decode(v) for v in res.result])
+                    f.set([self._decode_value(v) for v in res.result])
 
             pipe.on_execute(cb)
             return f
@@ -824,9 +830,9 @@ class SortedSet(KeySpace):
 
             def cb():
                 if withscores:
-                    f.set([[self._decode(v), s] for v, s in res.result])
+                    f.set([[self._decode_value(v), s] for v, s in res.result])
                 else:
-                    f.set([self._decode(v) for v in res.result])
+                    f.set([self._decode_value(v) for v in res.result])
 
             pipe.on_execute(cb)
             return f
@@ -860,9 +866,9 @@ class SortedSet(KeySpace):
 
             def cb():
                 if withscores:
-                    f.set([[self._decode(v), s] for v, s in res.result])
+                    f.set([[self._decode_value(v), s] for v, s in res.result])
                 else:
-                    f.set([self._decode(v) for v in res.result])
+                    f.set([self._decode_value(v) for v in res.result])
 
             pipe.on_execute(cb)
             return f
@@ -882,7 +888,7 @@ class SortedSet(KeySpace):
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.zscore(self.redis_key, self._encode(elem))
+            return pipe.zscore(self.redis_key, self._encode_value(elem))
 
     def zremrangebyrank(self, start, stop):
         """
@@ -955,7 +961,7 @@ class SortedSet(KeySpace):
                                       start=start, num=num)
 
             def cb():
-                f.set([self._decode(v) for v in res])
+                f.set([self._decode_value(v) for v in res])
 
             pipe.on_execute(cb)
             return f
@@ -985,10 +991,12 @@ class SortedSet(KeySpace):
         with self.pipe as pipe:
             f = Future()
             res = pipe.zscan(self.redis_key, cursor=cursor,
-                             match=match, count=count, score_cast_func=float)
+                             match=match, count=count,
+                             score_cast_func=score_cast_func)
 
             def cb():
-                f.set((res[0], [(self._decode(k), v) for k, v in res[1]]))
+                f.set((res[0], [(self._decode_value(k), v)
+                                for k, v in res[1]]))
 
             pipe.on_execute(cb)
             return f
@@ -1030,23 +1038,26 @@ class Hash(KeySpace):
 
     _fields = {}
 
-    def to_redis(self, k, v):
-        try:
-            field_validator = self._fields[k]
-            if not field_validator.validate(v):
-                raise InvalidFieldValue('invalid value for field %s' % k)
-            return self._encode(field_validator.to_redis(v))
-        except KeyError:
-            return self._encode(v)
+    _encode_member = KeySpace._encode_key
+    _decode_member = KeySpace._decode_key
 
-    def from_redis(self, k, v):
-        if v is None:
+    def _encode_by_member(self, member, value):
+        try:
+            field_validator = self._fields[member]
+        except KeyError:
+            return self._encode_value(value)
+
+        return field_validator.encode(value)
+
+    def _decode_by_member(self, member, value):
+        if value is None:
             return None
         try:
-            field_validator = self._fields[k]
-            return field_validator.from_redis(self._decode(v))
+            field_validator = self._fields[member]
         except KeyError:
-            return self._decode(v)
+            return self._decode_value(value)
+
+        return field_validator.decode(value)
 
     def hlen(self):
         """
@@ -1065,7 +1076,7 @@ class Hash(KeySpace):
         :return: Future()
         """
         with self.pipe as pipe:
-            value = self.to_redis(member, value)
+            value = self._encode_by_member(member, value)
             return pipe.hset(self.redis_key, self._encode(member), value)
 
     def hsetnx(self, member, value):
@@ -1077,8 +1088,9 @@ class Hash(KeySpace):
         :return: Future()
         """
         with self.pipe as pipe:
-            value = self.to_redis(member, value)
-            return pipe.hsetnx(self.redis_key, self._encode(member), value)
+            value = self._encode_by_member(member, value)
+            return pipe.hsetnx(self.redis_key,
+                               self._encode_member(member), value)
 
     def hdel(self, *members):
         """
@@ -1088,7 +1100,7 @@ class Hash(KeySpace):
         :return: Future()
         """
         with self.pipe as pipe:
-            members = [self._encode(m) for m in _parse_values(members)]
+            members = [self._encode_member(m) for m in _parse_values(members)]
             return pipe.hdel(self.redis_key, *members)
 
     def hkeys(self):
@@ -1101,7 +1113,7 @@ class Hash(KeySpace):
             res = pipe.hkeys(self.redis_key)
 
             def cb():
-                f.set([self._decode(v) for v in res.result])
+                f.set([self._decode_member(v) for v in res.result])
 
             pipe.on_execute(cb)
             return f
@@ -1118,8 +1130,8 @@ class Hash(KeySpace):
             def cb():
                 data = {}
                 for k, v in res.result.items():
-                    k = self._decode(k)
-                    v = self.from_redis(k, v)
+                    k = self._decode_member(k)
+                    v = self._decode_by_member(k, v)
                     data[k] = v
                 f.set(data)
 
@@ -1138,7 +1150,7 @@ class Hash(KeySpace):
             res = pipe.hvals(self.redis_key)
 
             def cb():
-                f.set([self._decode(v) for v in res.result])
+                f.set([self._decode_value(v) for v in res.result])
 
             pipe.on_execute(cb)
             return f
@@ -1151,10 +1163,10 @@ class Hash(KeySpace):
         """
         with self.pipe as pipe:
             f = Future()
-            res = pipe.hget(self.redis_key, self._encode(field))
+            res = pipe.hget(self.redis_key, self._encode_member(field))
 
             def cb():
-                f.set(self.from_redis(field, res.result))
+                f.set(self._decode_by_member(field, res.result))
 
             pipe.on_execute(cb)
             return f
@@ -1166,7 +1178,7 @@ class Hash(KeySpace):
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.hexists(self.redis_key, self._encode(field))
+            return pipe.hexists(self.redis_key, self._encode_member(field))
 
     def hincrby(self, field, increment=1):
         """
@@ -1176,7 +1188,8 @@ class Hash(KeySpace):
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.hincrby(self.redis_key, self._encode(field), increment)
+            return pipe.hincrby(self.redis_key, self._encode_member(field),
+                                increment)
 
     def hincrbyfloat(self, field, increment=1):
         """
@@ -1186,7 +1199,8 @@ class Hash(KeySpace):
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.hincrbyfloat(self.redis_key, self._encode(field),
+            return pipe.hincrbyfloat(self.redis_key,
+                                     self._encode_member(field),
                                      increment)
 
     def hmget(self, keys):
@@ -1197,10 +1211,11 @@ class Hash(KeySpace):
         """
         with self.pipe as pipe:
             f = Future()
-            res = pipe.hmget(self.redis_key, [self._encode(k) for k in keys])
+            res = pipe.hmget(self.redis_key,
+                             [self._encode_member(k) for k in keys])
 
             def cb():
-                f.set([self.from_redis(keys[i], v)
+                f.set([self._decode_by_member(keys[i], v)
                        for i, v in enumerate(res.result)])
 
             pipe.on_execute(cb)
@@ -1213,7 +1228,7 @@ class Hash(KeySpace):
         :return: Future()
         """
         with self.pipe as pipe:
-            mapping = {self._encode(k): self.to_redis(k, v)
+            mapping = {self._encode_member(k): self._encode_by_member(k, v)
                        for k, v in mapping.items()}
             return pipe.hmset(self.redis_key, mapping)
 
@@ -1232,8 +1247,13 @@ class Hash(KeySpace):
                              match=match, count=count)
 
             def cb():
-                f.set((res[0], {self._decode(k): self._decode(v)
-                                for k, v in res[1].items()}))
+                data = {}
+                for k, v in res[1].items():
+                    k = self._decode_member(k)
+                    v = self._decode_by_member(k, v)
+                    data[k] = v
+
+                f.set((res[0], data))
 
             pipe.on_execute(cb)
             return f
