@@ -94,8 +94,9 @@ class TextField(object):
 
     @classmethod
     def encode(cls, value):
-        if unicode(value) == value:
-            return value.encode(cls._encoding)
+        coerced = unicode(value)
+        if coerced == value:
+            return coerced.encode(cls._encoding)
 
         raise InvalidFieldValue('not text')
 
@@ -109,13 +110,11 @@ class AsciiField(TextField):
 
     @classmethod
     def encode(cls, value):
-        try:
-            if cls.PATTERN.match(value):
-                return value.encode(cls._encoding)
-        except (TypeError, UnicodeError):
-            pass
+        coerced = unicode(value)
+        if coerced == value and cls.PATTERN.match(coerced):
+            return coerced.encode(cls._encoding)
 
-        raise InvalidFieldValue('not text')
+        raise InvalidFieldValue('not ascii')
 
 
 class BinaryField(object):
@@ -128,8 +127,9 @@ class BinaryField(object):
     @classmethod
     def encode(cls, value):
         try:
-            if bytes(value) == value:
-                return value
+            coerced = bytes(value)
+            if coerced == value:
+                return coerced
         except (TypeError, UnicodeError):
             pass
 
@@ -146,8 +146,9 @@ class ListField(object):
     @classmethod
     def encode(cls, value):
         try:
-            if list(value) == value:
-                return json.dumps(value).encode(cls._encoding)
+            coerced = list(value)
+            if coerced == value:
+                return json.dumps(coerced).encode(cls._encoding)
         except TypeError:
             pass
 
@@ -167,8 +168,9 @@ class DictField(object):
     @classmethod
     def encode(cls, value):
         try:
-            if dict(value) == value:
-                return json.dumps(value).encode(cls._encoding)
+            coerced = dict(value)
+            if coerced == value:
+                return json.dumps(coerced).encode(cls._encoding)
         except (TypeError, ValueError):
             pass
         raise InvalidFieldValue('not a dict')
@@ -197,8 +199,9 @@ class StringListField(object):
     def encode(cls, value):
 
         try:
-            if [str(v) for v in value] == value:
-                return ",".join(value).encode(cls._encoding) if len(
+            coerced = [str(v) for v in value]
+            if coerced == value:
+                return ",".join(coerced).encode(cls._encoding) if len(
                     value) > 0 else None
         except TypeError:
             pass
