@@ -34,7 +34,7 @@ class Struct(object):
             if kwargs:
                 self.change(pipe=pipe, **kwargs)
 
-            ref = self.core(self.key, pipe=pipe).hgetall()
+            ref = self.core(pipe=pipe).hgetall(self.key)
 
             def cb():
                 if not ref.result:
@@ -47,13 +47,13 @@ class Struct(object):
 
     def change(self, pipe=None, **changes):
         with pipeline(pipe, name=self._connection, autocommit=True) as pipe:
-            core = self.core(self.key, pipe=pipe)
+            core = self.core(pipe=pipe)
 
             def build(k, v):
                 if v is None:
-                    core.hdel(k)
+                    core.hdel(self.key, k)
                 else:
-                    core.hset(k, v)
+                    core.hset(self.key, k, v)
 
                 def cb():
                     if v is None:
@@ -71,8 +71,8 @@ class Struct(object):
 
     def remove(self, fields, pipe=None):
         with pipeline(pipe, name=self._connection, autocommit=True) as pipe:
-            core = self.core(self.key, pipe=pipe)
-            core.hdel(*fields)
+            core = self.core(pipe=pipe)
+            core.hdel(self.key, *fields)
 
             def cb():
                 for k in fields:
@@ -89,7 +89,7 @@ class Struct(object):
 
     def delete(self, pipe=None):
         with pipeline(pipe, name=self._connection, autocommit=True) as pipe:
-            self.core(self.key, pipe=pipe).delete()
+            self.core(pipe=pipe).delete(self.key)
 
             def cb():
                 self._data = {}

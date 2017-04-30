@@ -14,7 +14,7 @@ HyperLogLog
 """.split()
 
 
-class KeySpace(object):
+class Keyspace(object):
     """
     Base class for all keyspace.
     This class should not be used directly.
@@ -25,20 +25,10 @@ class KeySpace(object):
     _connection = None
     _encoding = 'utf-8'
 
-    def __init__(self, key, pipe=None):
+    def __init__(self, pipe=None):
         """
-        Pass in the key identifier for your object. This should not
-        include the namespace. For example if you pass in 'foo', and
-        your class has the namespace of A, when we talk to redis, the
-        key will be: `A{foo}`.
-
-        This allows for consistent namespacing and iteration through
-        all keys in the namespace.
-
-        :param key: str The name of your key.
         :param pipe: optional Pipeline or NestedPipeline
         """
-        self.key = key
         self._pipe = pipe
 
     @classmethod
@@ -53,18 +43,20 @@ class KeySpace(object):
     _encode_value = _encode
     _decode_key = _decode
     _decode_value = _decode
+    _decode_sort_value = _decode
 
-    @property
-    def redis_key(self):
+    @classmethod
+    def redis_key(cls, key):
         """
         Get the key we pass to redis.
         If no namespace is declared, it will use the class name.
+        :param name: str     the name of the redis key
         :return: str
         """
-        if self._keyspace is None:
-            return self._encode_key("%s" % self.key)
+        if cls._keyspace is None:
+            return cls._encode_key("%s" % key)
 
-        return self._encode_key("%s{%s}" % (self._keyspace, self.key))
+        return cls._encode_key("%s{%s}" % (cls._keyspace, key))
 
     @property
     def pipe(self):
@@ -74,91 +66,142 @@ class KeySpace(object):
         """
         return pipeline(self._pipe, name=self._connection, autocommit=True)
 
-    def delete(self):
+    def delete(self, name):
         """
         Remove the key from redis
+        :param name: str     the name of the redis key
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.delete(self.redis_key)
+            return pipe.delete(self.redis_key(name))
 
-    def expire(self, time):
+    def expire(self, name, time):
         """
         Allow the key to expire after ``time`` seconds.
+        :param name: str     the name of the redis key
         :param time: time expressed in seconds.
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.expire(self.redis_key, time)
+            return pipe.expire(self.redis_key(name), time)
 
-    def exists(self):
+    def exists(self, name):
         """
         does the key exist in redis?
+        :param name: str the name of the redis key
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.exists(self.redis_key)
+            return pipe.exists(self.redis_key(name))
 
-    def eval(self, script, *args):
+    def eval(self, name, script, *args):
         """
         Run a lua script against the key.
+        Doesn't support multi-key lua operations because
+        we wouldn't be able to know what argument to namespace.
+        Also, redis cluster doesn't really support multi-key operations.
+        :param name: str     the name of the redis key
         :param script: str  A lua script targeting the current key.
         :param args: arguments to be passed to redis for the lua script
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.eval(script, 1, self.redis_key, *args)
+            return pipe.eval(script, 1, self.redis_key(name), *args)
 
-    def dump(self):
+    def dump(self, name):
         """
         get a redis RDB-like serialization of the object.
+        :param name: str     the name of the redis key
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.dump(self.redis_key)
+            return pipe.dump(self.redis_key(name))
 
-    def restore(self, data, pttl=0):
+    def restore(self, name, data, pttl=0):
         """
         Restore serialized dump of a key back into redis
+        :param name: str     the name of the redis key
         :param data: redis RDB-like serialization
         :param pttl: how many milliseconds till expiration of the key.
         :return: Future()
         """
-        return self.eval(lua_restorenx, pttl, data)
+        return self.eval(name, lua_restorenx, pttl, data)
 
-    def ttl(self):
+    def ttl(self, name):
         """
         get the number of seconds until the key's expiration
+        :param name: str     the name of the redis key
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.ttl(self.redis_key)
+            return pipe.ttl(self.redis_key(name))
 
-    def persist(self):
+    def persist(self, name):
         """
         clear any expiration TTL set on the object
+        :param name: str     the name of the redis key
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.persist(self.redis_key)
+            return pipe.persist(self.redis_key(name))
 
-    def object(self, subcommand):
+    def pexpire(self, name, time):
+        """
+        Set an expire flag on key ``name`` for ``time`` milliseconds.
+        ``time`` can be represented by an integer or a Python timedelta
+        object.
+        """
+        with self.pipe as pipe:
+            return pipe.pexpire(self.redis_key(name), time)
+
+    def pexpireat(self, name, when):
+        """
+        Set an expire flag on key ``name``. ``when`` can be represented
+        as an integer representing unix time in milliseconds (unix time * 1000)
+        or a Python datetime object.
+        """
+        with self.pipe as pipe:
+            return pipe.pexpireat(self.redis_key(name), when)
+
+    def pttl(self, name):
+        """
+        Returns the number of milliseconds until the key ``name`` will expire
+        :param name: str    the name of the redis key
+        :return:
+        """
+        with self.pipe as pipe:
+            return pipe.pttl(self.redis_key(name))
+
+    def rename(self, src, dst):
+        """
+        Rename key ``src`` to ``dst``
+        """
+        with self.pipe as pipe:
+            return pipe.rename(self.redis_key(src), self.redis_key(dst))
+
+    def renamenx(self, src, dst):
+        "Rename key ``src`` to ``dst`` if ``dst`` doesn't already exist"
+        with self.pipe as pipe:
+            return pipe.renamenx(self.redis_key(src), self.redis_key(dst))
+
+    def object(self, name, subcommand):
         """
         get the key's info stats
+        :param name: str     the name of the redis key
         :param subcommand: REFCOUNT | ENCODING | IDLETIME
         :return: Future()
         """
-        return self.eval(lua_object_info, subcommand)
+        return self.eval(name, lua_object_info, subcommand)
 
-    def __str__(self):
+    @classmethod
+    def __str__(cls):
         """
         A string representation of the Collection
         :return: str
         """
-        return "<%s:%s>" % (self.__class__.__name__, self.key)
+        return "<%s>" % cls.__name__
 
-    @classmethod
-    def scan(cls, cursor=0, match=None, count=None, pipe=None):
+    def scan(self, cursor=0, match=None, count=None):
         """
         Incrementally return lists of key names. Also return a cursor
         indicating the scan position.
@@ -168,29 +211,29 @@ class KeySpace(object):
         ``count`` allows for hint the minimum number of returns
         """
         f = Future()
-        if cls._keyspace is None:
-            with pipeline(pipe, name=cls._connection, autocommit=True) as pipe:
+        if self._keyspace is None:
+            with self.pipe as pipe:
                 res = pipe.scan(cursor=cursor, match=match, count=count)
 
                 def cb():
-                    f.set((res[0], [cls._decode_key(v) for v in res[1]]))
+                    f.set((res[0], [self._decode_key(v) for v in res[1]]))
 
                 pipe.on_execute(cb)
                 return f
 
         if match is None:
             match = '*'
-        match = "%s{%s}" % (cls._keyspace, match)
-        pattern = re.compile(r'^%s\{(.*)\}$' % cls._keyspace)
+        match = "%s{%s}" % (self._keyspace, match)
+        pattern = re.compile(r'^%s\{(.*)\}$' % self._keyspace)
 
-        with pipeline(pipe, name=cls._connection, autocommit=True) as pipe:
+        with self.pipe as pipe:
 
             res = pipe.scan(cursor=cursor, match=match, count=count)
 
             def cb():
                 keys = []
                 for k in res[1]:
-                    k = cls._decode_key(k)
+                    k = self._decode_key(k)
                     m = pattern.match(k)
                     if m:
                         keys.append(m.group(1))
@@ -200,8 +243,7 @@ class KeySpace(object):
             pipe.on_execute(cb)
             return f
 
-    @classmethod
-    def scan_iter(cls, match=None, count=None):
+    def scan_iter(self, match=None, count=None):
         """
         Make an iterator using the SCAN command so that the client doesn't
         need to remember the cursor position.
@@ -210,26 +252,70 @@ class KeySpace(object):
 
         ``count`` allows for hint the minimum number of returns
         """
+        if self._pipe is not None:
+            raise InvalidOperation('cannot pipeline scan operations')
+
         cursor = '0'
         while cursor != 0:
-            cursor, data = cls.scan(cursor=cursor, match=match, count=count)
+            cursor, data = self.scan(cursor=cursor, match=match, count=count)
             for item in data:
                 yield item
 
+    def sort(self, name, start=None, num=None, by=None, get=None,
+             desc=False, alpha=False, store=None, groups=False):
+        """
+        Sort and return the list, set or sorted set at ``name``.
 
-class String(KeySpace):
+        ``start`` and ``num`` allow for paging through the sorted data
+
+        ``by`` allows using an external key to weight and sort the items.
+            Use an "*" to indicate where in the key the item value is located
+
+        ``get`` allows for returning items from external keys rather than the
+            sorted data itself.  Use an "*" to indicate where int he key
+            the item value is located
+
+        ``desc`` allows for reversing the sort
+
+        ``alpha`` allows for sorting lexicographically rather than numerically
+
+        ``store`` allows for storing the result of the sort into
+            the key ``store``
+
+        ``groups`` if set to True and if ``get`` contains at least two
+            elements, sort will return a list of tuples, each containing the
+            values fetched from the arguments to ``get``.
+
+        """
+        with self.pipe as pipe:
+            res = pipe.sort(self.redis_key(name), start=start, num=num,
+                            by=by, get=get, desc=desc, alpha=alpha,
+                            store=store, groups=groups)
+            if store:
+                return res
+            f = Future()
+
+            def cb():
+                f.set([self._decode_value(v) for v in res.result])
+
+            pipe.on_execute(cb)
+            return f
+
+
+class String(Keyspace):
     """
     Manipulate a String key in Redis.
     """
 
-    def get(self):
+    def get(self, name):
         """
         Return the value of the key or None if the key doesn't exist
+        :param name: str     the name of the redis key
         :return: Future()
         """
         with self.pipe as pipe:
             f = Future()
-            res = pipe.get(self.redis_key)
+            res = pipe.get(self.redis_key(name))
 
             def cb():
                 f.set(self._decode_value(res.result))
@@ -237,7 +323,7 @@ class String(KeySpace):
             pipe.on_execute(cb)
             return f
 
-    def set(self, value, ex=None, px=None, nx=False, xx=False):
+    def set(self, name, value, ex=None, px=None, nx=False, xx=False):
         """
         Set the value at key ``name`` to ``value``
 
@@ -250,61 +336,79 @@ class String(KeySpace):
 
         ``xx`` if set to True, set the value at key ``name`` to ``value`` if it
             already exists.
-
+        :param name: str     the name of the redis key
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.set(self.redis_key, self._encode(value),
+            return pipe.set(self.redis_key(name), self._encode(value),
                             ex=ex, px=px, nx=nx, xx=xx)
 
-    def setnx(self, value):
+    def setnx(self, name, value):
         """
         Set the value as a string in the key only if the key doesn't exist.
+        :param name: str     the name of the redis key
         :param value:
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.setnx(self.redis_key, self._encode_value(value))
+            return pipe.setnx(self.redis_key(name), self._encode_value(value))
 
-    def setex(self, value, time):
+    def setex(self, name, value, time):
         """
         Set the value of key to ``value`` that expires in ``time``
         seconds. ``time`` can be represented by an integer or a Python
         timedelta object.
+        :param name: str     the name of the redis key
+        :param value: str
+        :param time: secs
+        :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.setex(self.redis_key, time, self._encode_value(value))
+            return pipe.setex(self.redis_key(name), time,
+                              self._encode_value(value))
 
-    def append(self, value):
+    def psetex(self, name, value, time_ms):
+        """
+        Set the value of key ``name`` to ``value`` that expires in ``time_ms``
+        milliseconds. ``time_ms`` can be represented by an integer or a Python
+        timedelta object
+        """
+        with self.pipe as pipe:
+            return pipe.psetex(self.redis_key(name), time_ms, value)
+
+    def append(self, name, value):
         """
         Appends the string ``value`` to the value at ``key``. If ``key``
         doesn't already exist, create it with a value of ``value``.
         Returns the new length of the value at ``key``.
+        :param name: str     the name of the redis key
+        :param value: str
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.append(self.redis_key, self._encode_value(value))
+            return pipe.append(self.redis_key(name), self._encode_value(value))
 
-    def strlen(self):
+    def strlen(self, name):
         """
         Return the number of bytes stored in the value of the key
-        :param name:
+        :param name: str     the name of the redis key
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.strlen(self.redis_key)
+            return pipe.strlen(self.redis_key(name))
 
-    def substr(self, start, end=-1):
+    def substr(self, name, start, end=-1):
         """
         Return a substring of the string at key ``name``. ``start`` and ``end``
         are 0-based integers specifying the portion of the string to return.
+        :param name: str     the name of the redis key
         :param start: int
         :param end: int
         :return: Future()
         """
         with self.pipe as pipe:
             f = Future()
-            res = pipe.substr(self.redis_key, start=start, end=end)
+            res = pipe.substr(self.redis_key(name), start=start, end=end)
 
             def cb():
                 f.set(self._decode_value(res.result))
@@ -312,7 +416,7 @@ class String(KeySpace):
             pipe.on_execute(cb)
             return f
 
-    def setrange(self, offset, value):
+    def setrange(self, name, offset, value):
         """
         Overwrite bytes in the value of ``name`` starting at ``offset`` with
         ``value``. If ``offset`` plus the length of ``value`` exceeds the
@@ -323,108 +427,207 @@ class String(KeySpace):
         of what's being injected.
 
         Returns the length of the new string.
+        :param name: str     the name of the redis key
+        :param offset: int
+        :param value: str
+        :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.setrange(self.redis_key, offset, value)
+            return pipe.setrange(self.redis_key(name), offset, value)
 
-    def setbit(self, offset, value):
+    def setbit(self, name, offset, value):
         """
         Flag the ``offset`` in the key as ``value``. Returns a boolean
         indicating the previous value of ``offset``.
+        :param name: str     the name of the redis key
         :param  offset: int
         :param value:
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.setbit(self.redis_key, offset, value)
+            return pipe.setbit(self.redis_key(name), offset, value)
 
-    def getbit(self, offset):
+    def getbit(self, name, offset):
         """
         Returns a boolean indicating the value of ``offset`` in key
+        :param name: str     the name of the redis key
+        :param offset: int
+        :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.getbit(self.redis_key, offset)
+            return pipe.getbit(self.redis_key(name), offset)
 
-    def bitcount(self, start=None, end=None):
+    def bitcount(self, name, start=None, end=None):
         """
         Returns the count of set bits in the value of ``key``.  Optional
         ``start`` and ``end`` paramaters indicate which bytes to consider
+        :param name: str     the name of the redis key
         :param start: int
         :param end: int
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.bitcount(self.redis_key, start=start, end=end)
+            return pipe.bitcount(self.redis_key(name), start=start, end=end)
 
-    def incr(self, amount=1):
+    def incr(self, name, amount=1):
         """
         increment the value for key by 1
-        :return: Future()
-        """
-        with self.pipe as pipe:
-            return pipe.incr(self.redis_key, amount=amount)
-
-    def incrby(self, amount=1):
-        """
-        increment the value for key by value: int
+        :param name: str     the name of the redis key
         :param amount: int
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.incrby(self.redis_key, amount=amount)
+            return pipe.incr(self.redis_key(name), amount=amount)
 
-    def incrbyfloat(self, amount=1.0):
+    def incrby(self, name, amount=1):
+        """
+        increment the value for key by value: int
+        :param name: str     the name of the redis key
+        :param amount: int
+        :return: Future()
+        """
+        with self.pipe as pipe:
+            return pipe.incrby(self.redis_key(name), amount=amount)
+
+    def incrbyfloat(self, name, amount=1.0):
         """
         increment the value for key by value: float
+        :param name: str     the name of the redis key
         :param value: int
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.incrbyfloat(self.redis_key, amount=amount)
+            return pipe.incrbyfloat(self.redis_key(name), amount=amount)
+
+    def __getitem__(self, name):
+        return self.get(name)
+
+    def __setitem__(self, name, value):
+        self.set(name, value)
 
 
-def _parse_values(values):
-    (_values,) = values if len(values) == 1 else (None,)
-    if _values and isinstance(_values, list):
-        return _values
+def _parse_values(values, extra=None):
+    coerced = list(values)
+
+    if coerced == values:
+        values = coerced
+    else:
+        coerced = tuple(values)
+        if coerced == values:
+            values = list(values)
+        else:
+            values = [values]
+
+    if extra:
+        values.extend(extra)
     return values
 
 
-class Set(KeySpace):
+class Set(Keyspace):
     """
     Manipulate a Set key in redis.
     """
 
-    def sadd(self, *values):
+    def sdiff(self, keys, *args):
+        "Return the difference of sets specified by ``keys``"
+        keys = [self.redis_key(k) for k in _parse_values(keys, args)]
+
+        with self.pipe as pipe:
+            res = pipe.sdiff(*keys)
+            f = Future()
+
+            def cb():
+                f.set({self._decode_value(v) for v in res.result})
+
+            pipe.on_execute(cb)
+            return f
+
+    def sdiffstore(self, dest, *keys):
+        """
+        Store the difference of sets specified by ``keys`` into a new
+        set named ``dest``.  Returns the number of keys in the new set.
+        """
+        keys = [self.redis_key(k) for k in _parse_values(keys)]
+
+        with self.pipe as pipe:
+            return pipe.sdiffstore(self.redis_key(dest), *keys)
+
+    def sinter(self, keys, *args):
+        "Return the intersection of sets specified by ``keys``"
+        keys = [self.redis_key(k) for k in _parse_values(keys, args)]
+        with self.pipe as pipe:
+            res = pipe.sinter(*keys)
+            f = Future()
+
+            def cb():
+                f.set({self._decode_value(v) for v in res.result})
+
+            pipe.on_execute(cb)
+            return f
+
+    def sinterstore(self, dest, keys, *args):
+        """
+        Store the intersection of sets specified by ``keys`` into a new
+        set named ``dest``.  Returns the number of keys in the new set.
+        """
+        keys = [self.redis_key(k) for k in _parse_values(keys, args)]
+        with self.pipe as pipe:
+            return pipe.sinterstore(self.redis_key(dest), keys)
+
+    def sunion(self, keys, *args):
+        "Return the union of sets specified by ``keys``"
+        keys = [self.redis_key(k) for k in _parse_values(keys, args)]
+        with self.pipe as pipe:
+            res = pipe.sunion(*keys)
+            f = Future()
+
+            def cb():
+                f.set({self._decode_value(v) for v in res.result})
+
+            pipe.on_execute(cb)
+            return f
+
+    def sunionstore(self, dest, keys, *args):
+        """
+        Store the union of sets specified by ``keys`` into a new
+        set named ``dest``.  Returns the number of members in the new set.
+        """
+        keys = [self.redis_key(k) for k in _parse_values(keys, args)]
+        with self.pipe as pipe:
+            return pipe.sunionstore(self.redis_key(dest), *keys)
+
+    def sadd(self, name, values, *args):
         """
         Add the specified members to the Set.
+        :param name: str     the name of the redis key
         :param values: a list of values or a simple value.
         :return: Future()
         """
         with self.pipe as pipe:
-            values = [self._encode_value(v) for v in _parse_values(values)]
-            return pipe.sadd(self.redis_key, *values)
+            values = [self._encode_value(v) for v in
+                      _parse_values(values, args)]
+            return pipe.sadd(self.redis_key(name), *values)
 
-    def srem(self, *values):
+    def srem(self, name, *values):
         """
         Remove the values from the Set if they are present.
-
+        :param name: str     the name of the redis key
         :param values: a list of values or a simple value.
         :return: Future()
         """
         with self.pipe as pipe:
             values = [self._encode_value(v) for v in _parse_values(values)]
-            return pipe.srem(self.redis_key, *values)
+            return pipe.srem(self.redis_key(name), *values)
 
-    def spop(self):
+    def spop(self, name):
         """
         Remove and return (pop) a random element from the Set.
-
+        :param name: str     the name of the redis key
         :return: Future()
         """
         with self.pipe as pipe:
             f = Future()
-            res = pipe.spop(self.redis_key)
+            res = pipe.spop(self.redis_key(name))
 
             def cb():
                 f.set(self._decode_value(res.result))
@@ -432,10 +635,15 @@ class Set(KeySpace):
             pipe.on_execute(cb)
             return f
 
-    def smembers(self):
+    def smembers(self, name):
+        """
+        get the set of all members for key
+        :param name: str     the name of the redis key
+        :return:
+        """
         with self.pipe as pipe:
             f = Future()
-            res = pipe.smembers(self.redis_key)
+            res = pipe.smembers(self.redis_key(name))
 
             def cb():
                 f.set({self._decode_value(v) for v in res.result})
@@ -445,33 +653,36 @@ class Set(KeySpace):
 
     members = smembers
 
-    def scard(self):
+    def scard(self, name):
         """
         How many items in the set?
-
+        :param name: str     the name of the redis key
         :return: Future()
 
         """
         with self.pipe as pipe:
-            return pipe.scard(self.redis_key)
+            return pipe.scard(self.redis_key(name))
 
-    def sismember(self, value):
+    def sismember(self, name, value):
         """
         Is the provided value is in the ``Set`?
+        :param name: str     the name of the redis key
         :param value:
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.sismember(self.redis_key, self._encode_value(value))
+            return pipe.sismember(self.redis_key(name),
+                                  self._encode_value(value))
 
-    def srandmember(self):
+    def srandmember(self, name):
         """
         Return a random member of the set.
+        :param name: str     the name of the redis key
         :return: Future()
         """
         with self.pipe as pipe:
             f = Future()
-            res = pipe.srandmember(self.redis_key)
+            res = pipe.srandmember(self.redis_key(name))
 
             def cb():
                 f.set(self._decode(res.result))
@@ -479,7 +690,7 @@ class Set(KeySpace):
             pipe.on_execute(cb)
             return f
 
-    def sscan(self, cursor=0, match=None, count=None):
+    def sscan(self, name, cursor=0, match=None, count=None):
         """
         Incrementally return lists of elements in a set. Also return a cursor
         indicating the scan position.
@@ -487,10 +698,14 @@ class Set(KeySpace):
         ``match`` allows for filtering the keys by pattern
 
         ``count`` allows for hint the minimum number of returns
+        :param name: str     the name of the redis key
+        :param cursor: int
+        :param match: str
+        :param count: int
         """
         with self.pipe as pipe:
             f = Future()
-            res = pipe.sscan(self.redis_key, cursor=cursor,
+            res = pipe.sscan(self.redis_key(name), cursor=cursor,
                              match=match, count=count)
 
             def cb():
@@ -499,7 +714,7 @@ class Set(KeySpace):
             pipe.on_execute(cb)
             return f
 
-    def sscan_iter(self, match=None, count=None):
+    def sscan_iter(self, name, match=None, count=None):
         """
         Make an iterator using the SSCAN command so that the client doesn't
         need to remember the cursor position.
@@ -507,13 +722,16 @@ class Set(KeySpace):
         ``match`` allows for filtering the keys by pattern
 
         ``count`` allows for hint the minimum number of returns
+        :param name: str     the name of the redis key
+        :param match: str
+        :param count: int
         """
         if self._pipe is not None:
             raise InvalidOperation('cannot pipeline scan operations')
 
         cursor = '0'
         while cursor != 0:
-            cursor, data = self.sscan(cursor=cursor,
+            cursor, data = self.sscan(name, cursor=cursor,
                                       match=match, count=count)
             for item in data:
                 yield item
@@ -523,37 +741,111 @@ class Set(KeySpace):
     remove = srem
 
 
-class List(KeySpace):
+class List(Keyspace):
     """
     Manipulate a List key in redis
     """
 
-    def members(self):
+    def blpop(self, keys, timeout=0):
         """
-        Returns all items in the list.
-        :return: Future()
-        """
-        return self.lrange(0, -1)
+        LPOP a value off of the first non-empty list
+        named in the ``keys`` list.
 
-    def llen(self):
+        If none of the lists in ``keys`` has a value to LPOP, then block
+        for ``timeout`` seconds, or until a value gets pushed on to one
+        of the lists.
+
+        If timeout is 0, then block indefinitely.
+        """
+        map = {self.redis_key(k): k for k in _parse_values(keys)}
+        keys = map.keys()
+
+        with self.pipe as pipe:
+            f = Future()
+            res = pipe.blpop(keys, timeout=timeout)
+
+            def cb():
+                if res.result:
+                    k = map[res.result[0]]
+                    v = self._decode_value(res.result[1])
+
+                    f.set((k, v))
+                else:
+                    f.set(res.result)
+
+            pipe.on_execute(cb)
+            return f
+
+    def brpop(self, keys, timeout=0):
+        """
+        RPOP a value off of the first non-empty list
+        named in the ``keys`` list.
+
+        If none of the lists in ``keys`` has a value to LPOP, then block
+        for ``timeout`` seconds, or until a value gets pushed on to one
+        of the lists.
+
+        If timeout is 0, then block indefinitely.
+        """
+        map = {self.redis_key(k): k for k in _parse_values(keys)}
+        keys = map.keys()
+
+        with self.pipe as pipe:
+            f = Future()
+            res = pipe.brpop(keys, timeout=timeout)
+
+            def cb():
+                if res.result:
+                    k = map[res.result[0]]
+                    v = self._decode_value(res.result[1])
+
+                    f.set((k, v))
+                else:
+                    f.set(res.result)
+
+            pipe.on_execute(cb)
+            return f
+
+    def brpoplpush(self, src, dst, timeout=0):
+        """
+        Pop a value off the tail of ``src``, push it on the head of ``dst``
+        and then return it.
+
+        This command blocks until a value is in ``src`` or until ``timeout``
+        seconds elapse, whichever is first. A ``timeout`` value of 0 blocks
+        forever.
+        """
+        with self.pipe as pipe:
+            res = pipe.brpoplpush(self.redis_key(src),
+                                  self.redis_key(dst), timeout)
+            f = Future()
+
+            def cb():
+                f.set(self._decode_value(res.result))
+
+            pipe.on_execute(cb)
+            return f
+
+    def llen(self, name):
         """
         Returns the length of the list.
+        :param name: str     the name of the redis key
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.llen(self.redis_key)
+            return pipe.llen(self.redis_key(name))
 
-    def lrange(self, start, stop):
+    def lrange(self, name, start, stop):
         """
         Returns a range of items.
-
+        :param name: str     the name of the redis key
         :param start: integer representing the start index of the range
         :param stop: integer representing the size of the list.
         :return: Future()
         """
         with self.pipe as pipe:
             f = Future()
-            res = pipe.lrange(self.redis_key, start, stop)
+            res = pipe.lrange(self.redis_key(name), start, stop)
 
             def cb():
                 f.set([self._decode_value(v) for v in res.result])
@@ -561,38 +853,38 @@ class List(KeySpace):
             pipe.on_execute(cb)
             return f
 
-    def lpush(self, *values):
+    def lpush(self, name, *values):
         """
         Push the value into the list from the *left* side
-
+        :param name: str     the name of the redis key
         :param values: a list of values or single value to push
         :return: Future()
         """
         with self.pipe as pipe:
             values = [self._encode_value(v) for v in _parse_values(values)]
-            return pipe.lpush(self.redis_key, *values)
+            return pipe.lpush(self.redis_key(name), *values)
 
-    def rpush(self, *values):
+    def rpush(self, name, *values):
         """
         Push the value into the list from the *right* side
-
+        :param name: str     the name of the redis key
         :param values: a list of values or single value to push
         :return: Future()
         """
         with self.pipe as pipe:
             values = [self._encode_value(v) for v in _parse_values(values)]
-            return pipe.rpush(self.redis_key, *values)
+            return pipe.rpush(self.redis_key(name), *values)
 
-    def lpop(self):
+    def lpop(self, name):
         """
         Pop the first object from the left.
-
+        :param name: str     the name of the redis key
         :return: Future()
 
         """
         with self.pipe as pipe:
             f = Future()
-            res = pipe.lpop(self.redis_key)
+            res = pipe.lpop(self.redis_key(name))
 
             def cb():
                 f.set(self._decode_value(res.result))
@@ -600,15 +892,15 @@ class List(KeySpace):
             pipe.on_execute(cb)
             return f
 
-    def rpop(self):
+    def rpop(self, name):
         """
         Pop the first object from the right.
-
+        :param name: str     the name of the redis key
         :return: the popped value.
         """
         with self.pipe as pipe:
             f = Future()
-            res = pipe.rpop(self.redis_key)
+            res = pipe.rpop(self.redis_key(name))
 
             def cb():
                 f.set(self._decode_value(res.result))
@@ -616,38 +908,54 @@ class List(KeySpace):
             pipe.on_execute(cb)
             return f
 
-    def lrem(self, value, num=1):
+    def rpoplpush(self, src, dst):
+        """
+        RPOP a value off of the ``src`` list and atomically LPUSH it
+        on to the ``dst`` list.  Returns the value.
+        """
+        with self.pipe as pipe:
+            f = Future()
+            res = pipe.rpoplpush(self.redis_key(src), self.redis_key(dst))
+
+            def cb():
+                f.set(self._decode_value(res.result))
+
+            pipe.on_execute(cb)
+            return f
+
+    def lrem(self, name, value, num=1):
         """
         Remove first occurrence of value.
+        :param name: str     the name of the redis key
         :param num:
         :param value:
         :return: Future()
         """
         with self.pipe as pipe:
             value = self._encode(value)
-            return pipe.lrem(self.redis_key, num, value)
+            return pipe.lrem(self.redis_key(name), num, value)
 
-    def ltrim(self, start, end):
+    def ltrim(self, name, start, end):
         """
         Trim the list from start to end.
-
+        :param name: str     the name of the redis key
         :param start:
         :param end:
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.ltrim(self.redis_key, start, end)
+            return pipe.ltrim(self.redis_key(name), start, end)
 
-    def lindex(self, idx):
+    def lindex(self, name, idx):
         """
         Return the value at the index *idx*
-
+        :param name: str     the name of the redis key
         :param idx: the index to fetch the value.
         :return: Future()
         """
         with self.pipe as pipe:
             f = Future()
-            res = pipe.lindex(self.redis_key, idx)
+            res = pipe.lindex(self.redis_key(name), idx)
 
             def cb():
                 f.set(self._decode_value(res.result))
@@ -655,17 +963,17 @@ class List(KeySpace):
             pipe.on_execute(cb)
             return f
 
-    def lset(self, idx, value):
+    def lset(self, name, idx, value):
         """
         Set the value in the list at index *idx*
-
+        :param name: str     the name of the redis key
         :param value:
         :param idx:
         :return: Future()
         """
         with self.pipe as pipe:
             value = self._encode_value(value)
-            return pipe.lset(self.redis_key, idx, value)
+            return pipe.lset(self.redis_key(name), idx, value)
 
     # noinspection PyRedeclaration
     remove = lrem
@@ -677,21 +985,20 @@ class List(KeySpace):
     append = rpush
 
 
-class SortedSet(KeySpace):
+class SortedSet(Keyspace):
+    encode_member = Keyspace._encode_value
+    decode_member = Keyspace._decode_value
+    _decode_sort_value = Keyspace._decode_value
+
     """
     Manipulate a SortedSet key in redis.
     """
 
-    def members(self):
-        """
-        Returns the members of the set.
-        :return: Future()
-        """
-        return self.zrange(0, -1)
-
-    def zadd(self, members, score=1, nx=False, xx=False, ch=False, incr=False):
+    def zadd(self, name, members, score=1, nx=False,
+             xx=False, ch=False, incr=False):
         """
         Add members in the set and assign them the score.
+        :param name: str     the name of the redis key
         :param members: a list of item or a single item
         :param score: the score the assign to the item(s)
         :param nx:
@@ -723,43 +1030,48 @@ class SortedSet(KeySpace):
         if nx and xx:
             raise InvalidOperation('cannot specify nx and xx at the same time')
         with self.pipe as pipe:
-            return pipe.execute_command('ZADD', self.redis_key, *_args)
+            return pipe.execute_command('ZADD', self.redis_key(name), *_args)
 
-    def zrem(self, *values):
+    def zrem(self, name, *values):
         """
         Remove the values from the SortedSet
+        :param name: str     the name of the redis key
         :param values:
         :return: True if **at least one** value is successfully
                  removed, False otherwise
         """
         with self.pipe as pipe:
             values = [self._encode_value(v) for v in _parse_values(values)]
-            return pipe.zrem(self.redis_key, *values)
+            return pipe.zrem(self.redis_key(name), *values)
 
-    def zincrby(self, member, increment):
+    def zincrby(self, name, member, increment):
         """
         Increment the score of the item by `value`
+        :param name: str     the name of the redis key
         :param member:
         :param increment:
         :return:
         """
         with self.pipe as pipe:
-            return pipe.zincrby(self.redis_key,
+            return pipe.zincrby(self.redis_key(name),
                                 self._encode_value(member), increment)
 
-    def zrevrank(self, member):
+    def zrevrank(self, name, member):
         """
         Returns the ranking in reverse order for the member
+        :param name: str     the name of the redis key
         :param member: str
         """
         with self.pipe as pipe:
-            return pipe.zrevrank(self.redis_key, self._encode_value(member))
+            return pipe.zrevrank(self.redis_key(name),
+                                 self._encode_value(member))
 
-    def zrange(self, start, end, desc=False, withscores=False,
+    def zrange(self, name, start, end, desc=False, withscores=False,
                score_cast_func=float):
         """
         Returns all the elements including between ``start`` (non included)
         and ``stop`` (included).
+        :param name: str     the name of the redis key
         :param start:
         :param end:
         :param desc:
@@ -770,7 +1082,7 @@ class SortedSet(KeySpace):
         with self.pipe as pipe:
             f = Future()
             res = pipe.zrange(
-                self.redis_key, start, end, desc=desc,
+                self.redis_key(name), start, end, desc=desc,
                 withscores=withscores, score_cast_func=score_cast_func)
 
             def cb():
@@ -782,11 +1094,12 @@ class SortedSet(KeySpace):
             pipe.on_execute(cb)
             return f
 
-    def zrevrange(self, start, end,
+    def zrevrange(self, name, start, end,
                   withscores=False, score_cast_func=float):
         """
         Returns the range of items included between ``start`` and ``stop``
         in reverse order (from high to low)
+        :param name: str     the name of the redis key
         :param start:
         :param end:
         :param withscores:
@@ -795,7 +1108,7 @@ class SortedSet(KeySpace):
         """
         with self.pipe as pipe:
             f = Future()
-            res = pipe.zrevrange(self.redis_key, start, end,
+            res = pipe.zrevrange(self.redis_key(name), start, end,
                                  withscores=withscores,
                                  score_cast_func=score_cast_func)
 
@@ -809,10 +1122,11 @@ class SortedSet(KeySpace):
             return f
 
     # noinspection PyShadowingBuiltins
-    def zrangebyscore(self, min, max, start=None, num=None,
+    def zrangebyscore(self, name, min, max, start=None, num=None,
                       withscores=False, score_cast_func=float):
         """
         Returns the range of elements included between the scores (min and max)
+        :param name: str     the name of the redis key
         :param min:
         :param max:
         :param start:
@@ -823,7 +1137,7 @@ class SortedSet(KeySpace):
         """
         with self.pipe as pipe:
             f = Future()
-            res = pipe.zrangebyscore(self.redis_key, min, max,
+            res = pipe.zrangebyscore(self.redis_key(name), min, max,
                                      start=start, num=num,
                                      withscores=withscores,
                                      score_cast_func=score_cast_func)
@@ -838,7 +1152,7 @@ class SortedSet(KeySpace):
             return f
 
     # noinspection PyShadowingBuiltins
-    def zrevrangebyscore(self, max, min, start=None, num=None,
+    def zrevrangebyscore(self, name, max, min, start=None, num=None,
                          withscores=False, score_cast_func=float):
         """
         Returns the range of elements between the scores (min and max).
@@ -850,6 +1164,7 @@ class SortedSet(KeySpace):
         The return type is a list of (value, score) pairs
 
         `score_cast_func`` a callable used to cast the score return value
+        :param name: str     the name of the redis key
         :param max: int
         :param min: int
         :param start: int
@@ -860,8 +1175,9 @@ class SortedSet(KeySpace):
         """
         with self.pipe as pipe:
             f = Future()
-            res = pipe.zrevrangebyscore(self.redis_key, max, min, start=start,
-                                        num=num, withscores=withscores,
+            res = pipe.zrevrangebyscore(self.redis_key(name), max, min,
+                                        start=start, num=num,
+                                        withscores=withscores,
                                         score_cast_func=score_cast_func)
 
             def cb():
@@ -873,72 +1189,90 @@ class SortedSet(KeySpace):
             pipe.on_execute(cb)
             return f
 
-    def zcard(self):
+    def zcard(self, name):
         """
         Returns the cardinality of the SortedSet.
+        :param name: str     the name of the redis key
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.zcard(self.redis_key)
+            return pipe.zcard(self.redis_key(name))
 
-    def zscore(self, elem):
+    def zscore(self, name, elem):
         """
         Return the score of an element
+        :param name: str     the name of the redis key
         :param elem:
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.zscore(self.redis_key, self._encode_value(elem))
+            return pipe.zscore(self.redis_key(name), self._encode_value(elem))
 
-    def zremrangebyrank(self, start, stop):
+    def zremrangebyrank(self, name, start, stop):
         """
         Remove a range of element between the rank ``start`` and
         ``stop`` both included.
+        :param name: str     the name of the redis key
         :param stop:
         :param start:
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.zremrangebyrank(self.redis_key, start, stop)
+            return pipe.zremrangebyrank(self.redis_key(name), start, stop)
 
-    def zremrangebyscore(self, min_value, max_value):
+    def zremrangebyscore(self, name, min_value, max_value):
         """
         Remove a range of element by between score ``min_value`` and
         ``max_value`` both included.
+        :param name: str     the name of the redis key
         :param max_value:
         :param min_value:
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.zremrangebyscore(self.redis_key, min_value, max_value)
+            return pipe.zremrangebyscore(self.redis_key(name),
+                                         min_value, max_value)
 
-    def zrank(self, elem):
+    def zrank(self, name, elem):
         """
         Returns the rank of the element.
+        :param name: str     the name of the redis key
         :param elem:
         """
         with self.pipe as pipe:
-            return pipe.zrank(self.redis_key, elem)
+            return pipe.zrank(self.redis_key(name), elem)
 
-    def zlexcount(self, min, max):
+    # noinspection PyShadowingBuiltins
+    def zlexcount(self, name, min, max):
         """
         Return the number of items in the sorted set between the
         lexicographical range ``min`` and ``max``.
+        :param name: str     the name of the redis key
+        :param min: int or '-inf'
+        :param max: int or '+inf'
+        :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.zlexcount(self.redis_key, min, max)
+            return pipe.zlexcount(self.redis_key(name), min, max)
 
-    def zrangebylex(self, min, max, start=None, num=None):
+    # noinspection PyShadowingBuiltins
+    def zrangebylex(self, name, min, max, start=None, num=None):
         """
         Return the lexicographical range of values from sorted set ``name``
         between ``min`` and ``max``.
 
         If ``start`` and ``num`` are specified, then return a slice of the
         range.
+        :param name: str     the name of the redis key
+        :param min: int or '-inf'
+        :param max: int or '+inf'
+        :param start: int
+        :param num: int
+        :return: Future()
         """
         with self.pipe as pipe:
             f = Future()
-            res = pipe.zrangebylex(self.redis_key, min, max,
+            res = pipe.zrangebylex(self.redis_key(name), min, max,
                                    start=start, num=num)
 
             def cb():
@@ -947,17 +1281,24 @@ class SortedSet(KeySpace):
             pipe.on_execute(cb)
             return f
 
-    def zrevrangebylex(self, max, min, start=None, num=None):
+    # noinspection PyShadowingBuiltins
+    def zrevrangebylex(self, name, max, min, start=None, num=None):
         """
         Return the reversed lexicographical range of values from the sorted set
          between ``max`` and ``min``.
 
         If ``start`` and ``num`` are specified, then return a slice of the
         range.
+        :param name: str     the name of the redis key
+        :param max: int or '+inf'
+        :param min: int or '-inf'
+        :param start: int
+        :param num: int
+        :return: Future()
         """
         with self.pipe as pipe:
             f = Future()
-            res = pipe.zrevrangebylex(self.redis_key, max, min,
+            res = pipe.zrevrangebylex(self.redis_key(name), max, min,
                                       start=start, num=num)
 
             def cb():
@@ -966,17 +1307,33 @@ class SortedSet(KeySpace):
             pipe.on_execute(cb)
             return f
 
-    def zremrangebylex(self, min, max):
+    # noinspection PyShadowingBuiltins
+    def zremrangebylex(self, name, min, max):
         """
         Remove all elements in the sorted set between the
         lexicographical range specified by ``min`` and ``max``.
 
         Returns the number of elements removed.
+        :param name: str     the name of the redis key
+        :param min: int or -inf
+        :param max: into or +inf
+        :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.zremrangebylex(self, min, max)
+            return pipe.zremrangebylex(self.redis_key(name), min, max)
 
-    def zscan(self, cursor=0, match=None, count=None,
+    def zunionstore(self, dest, keys, aggregate=None):
+        """
+        Union multiple sorted sets specified by ``keys`` into
+        a new sorted set, ``dest``. Scores in the destination will be
+        aggregated based on the ``aggregate``, or SUM if none is provided.
+        """
+        with self.pipe as pipe:
+            keys = [self.redis_key(k) for k in keys]
+            return pipe.zunionstore(self.redis_key(dest), keys,
+                                    aggregate=aggregate)
+
+    def zscan(self, name, cursor=0, match=None, count=None,
               score_cast_func=float):
         """
         Incrementally return lists of elements in a sorted set. Also return a
@@ -990,7 +1347,7 @@ class SortedSet(KeySpace):
         """
         with self.pipe as pipe:
             f = Future()
-            res = pipe.zscan(self.redis_key, cursor=cursor,
+            res = pipe.zscan(self.redis_key(name), cursor=cursor,
                              match=match, count=count,
                              score_cast_func=score_cast_func)
 
@@ -1001,7 +1358,7 @@ class SortedSet(KeySpace):
             pipe.on_execute(cb)
             return f
 
-    def zscan_iter(self, match=None, count=None,
+    def zscan_iter(self, name, match=None, count=None,
                    score_cast_func=float):
         """
         Make an iterator using the ZSCAN command so that the client doesn't
@@ -1017,7 +1374,7 @@ class SortedSet(KeySpace):
             raise InvalidOperation('cannot pipeline scan operations')
         cursor = '0'
         while cursor != 0:
-            cursor, data = self.zscan(cursor=cursor, match=match,
+            cursor, data = self.zscan(name, cursor=cursor, match=match,
                                       count=count,
                                       score_cast_func=score_cast_func)
             for item in data:
@@ -1031,15 +1388,15 @@ class SortedSet(KeySpace):
     remove = zrem
 
 
-class Hash(KeySpace):
+class Hash(Keyspace):
     """
     Manipulate a Hash key in Redis.
     """
 
     _fields = {}
 
-    _encode_member = KeySpace._encode_key
-    _decode_member = KeySpace._decode_key
+    _encode_member = Keyspace._encode_key
+    _decode_member = Keyspace._decode_key
 
     def _encode_by_member(self, member, value):
         try:
@@ -1059,58 +1416,61 @@ class Hash(KeySpace):
 
         return field_validator.decode(value)
 
-    def hlen(self):
+    def hlen(self, name):
         """
         Returns the number of elements in the Hash.
+        :param name: str     the name of the redis key
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.hlen(self.redis_key)
+            return pipe.hlen(self.redis_key(name))
 
-    def hset(self, member, value):
+    def hset(self, name, member, value):
         """
         Set ``member`` in the Hash at ``value``.
-
+        :param name: str     the name of the redis key
         :param value:
         :param member:
         :return: Future()
         """
         with self.pipe as pipe:
             value = self._encode_by_member(member, value)
-            return pipe.hset(self.redis_key, self._encode(member), value)
+            return pipe.hset(self.redis_key(name),
+                             self._encode(member), value)
 
-    def hsetnx(self, member, value):
+    def hsetnx(self, name, member, value):
         """
         Set ``member`` in the Hash at ``value``.
-
+        :param name: str     the name of the redis key
         :param value:
         :param member:
         :return: Future()
         """
         with self.pipe as pipe:
             value = self._encode_by_member(member, value)
-            return pipe.hsetnx(self.redis_key,
+            return pipe.hsetnx(self.redis_key(name),
                                self._encode_member(member), value)
 
-    def hdel(self, *members):
+    def hdel(self, name, *keys):
         """
         Delete one or more hash field.
-
+        :param name: str     the name of the redis key
         :param members: on or more fields to remove.
         :return: Future()
         """
         with self.pipe as pipe:
-            members = [self._encode_member(m) for m in _parse_values(members)]
-            return pipe.hdel(self.redis_key, *members)
+            keys = [self._encode_member(m) for m in _parse_values(keys)]
+            return pipe.hdel(self.redis_key(name), *keys)
 
-    def hkeys(self):
+    def hkeys(self, name):
         """
         Returns all fields name in the Hash
+        :param name: str     the name of the redis key
         return: Future()
         """
         with self.pipe as pipe:
             f = Future()
-            res = pipe.hkeys(self.redis_key)
+            res = pipe.hkeys(self.redis_key(name))
 
             def cb():
                 f.set([self._decode_member(v) for v in res.result])
@@ -1118,14 +1478,15 @@ class Hash(KeySpace):
             pipe.on_execute(cb)
             return f
 
-    def hgetall(self):
+    def hgetall(self, name):
         """
         Returns all the fields and values in the Hash.
+        :param name: str     the name of the redis key
         :return: Future()
         """
         with self.pipe as pipe:
             f = Future()
-            res = pipe.hgetall(self.redis_key)
+            res = pipe.hgetall(self.redis_key(name))
 
             def cb():
                 data = {}
@@ -1138,16 +1499,17 @@ class Hash(KeySpace):
             pipe.on_execute(cb)
             return f
 
-    def hvals(self):
+    def hvals(self, name):
         """
         Returns all the values in the Hash
         Unfortunately we can't type cast these fields.
         it is a useless call anyway imho.
+        :param name: str     the name of the redis key
         :return: Future()
         """
         with self.pipe as pipe:
             f = Future()
-            res = pipe.hvals(self.redis_key)
+            res = pipe.hvals(self.redis_key(name))
 
             def cb():
                 f.set([self._decode_value(v) for v in res.result])
@@ -1155,15 +1517,16 @@ class Hash(KeySpace):
             pipe.on_execute(cb)
             return f
 
-    def hget(self, field):
+    def hget(self, name, field):
         """
         Returns the value stored in the field, None if the field doesn't exist.
+        :param name: str     the name of the redis key
         :param field:
         :return: Future()
         """
         with self.pipe as pipe:
             f = Future()
-            res = pipe.hget(self.redis_key, self._encode_member(field))
+            res = pipe.hget(self.redis_key(name), self._encode_member(field))
 
             def cb():
                 f.set(self._decode_by_member(field, res.result))
@@ -1171,47 +1534,53 @@ class Hash(KeySpace):
             pipe.on_execute(cb)
             return f
 
-    def hexists(self, field):
+    def hexists(self, name, field):
         """
         Returns ``True`` if the field exists, ``False`` otherwise.
+        :param name: str     the name of the redis key
         :param field:
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.hexists(self.redis_key, self._encode_member(field))
+            return pipe.hexists(self.redis_key(name),
+                                self._encode_member(field))
 
-    def hincrby(self, field, increment=1):
+    def hincrby(self, name, field, increment=1):
         """
         Increment the value of the field.
-        :param increment:
-        :param field:
+        :param name: str     the name of the redis key
+        :param increment: int
+        :param field: str
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.hincrby(self.redis_key, self._encode_member(field),
+            return pipe.hincrby(self.redis_key(name),
+                                self._encode_member(field),
                                 increment)
 
-    def hincrbyfloat(self, field, increment=1):
+    def hincrbyfloat(self, name, field, increment=1):
         """
         Increment the value of the field.
+        :param name: str     the name of the redis key
         :param increment:
         :param field:
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.hincrbyfloat(self.redis_key,
+            return pipe.hincrbyfloat(self.redis_key(name),
                                      self._encode_member(field),
                                      increment)
 
-    def hmget(self, keys):
+    def hmget(self, name, keys):
         """
         Returns the values stored in the fields.
+        :param name: str     the name of the redis key
         :param fields:
         :return: Future()
         """
         with self.pipe as pipe:
             f = Future()
-            res = pipe.hmget(self.redis_key,
+            res = pipe.hmget(self.redis_key(name),
                              [self._encode_member(k) for k in keys])
 
             def cb():
@@ -1221,18 +1590,19 @@ class Hash(KeySpace):
             pipe.on_execute(cb)
             return f
 
-    def hmset(self, mapping):
+    def hmset(self, name, mapping):
         """
         Sets or updates the fields with their corresponding values.
+        :param name: str     the name of the redis key
         :param mapping: a dict with keys and values
         :return: Future()
         """
         with self.pipe as pipe:
             mapping = {self._encode_member(k): self._encode_by_member(k, v)
                        for k, v in mapping.items()}
-            return pipe.hmset(self.redis_key, mapping)
+            return pipe.hmset(self.redis_key(name), mapping)
 
-    def hscan(self, cursor=0, match=None, count=None):
+    def hscan(self, name, cursor=0, match=None, count=None):
         """
         Incrementally return key/value slices in a hash. Also return a cursor
         indicating the scan position.
@@ -1243,7 +1613,7 @@ class Hash(KeySpace):
         """
         with self.pipe as pipe:
             f = Future()
-            res = pipe.hscan(self.redis_key, cursor=cursor,
+            res = pipe.hscan(self.redis_key(name), cursor=cursor,
                              match=match, count=count)
 
             def cb():
@@ -1258,7 +1628,7 @@ class Hash(KeySpace):
             pipe.on_execute(cb)
             return f
 
-    def hscan_iter(self, match=None, count=None):
+    def hscan_iter(self, name, match=None, count=None):
         """
         Make an iterator using the HSCAN command so that the client doesn't
         need to remember the cursor position.
@@ -1271,28 +1641,43 @@ class Hash(KeySpace):
             raise InvalidOperation('cannot pipeline scan operations')
         cursor = '0'
         while cursor != 0:
-            cursor, data = self.hscan(cursor=cursor,
+            cursor, data = self.hscan(name, cursor=cursor,
                                       match=match, count=count)
             for item in data.items():
                 yield item
 
 
-class HyperLogLog(KeySpace):
+class HyperLogLog(Keyspace):
     """
     Manipulate a HyperLogLog key in redis.
     """
 
-    def pfadd(self, *values):
+    def pfadd(self, name, *values):
         """
         Adds the specified elements to the specified HyperLogLog.
+        :param name: str     the name of the redis key
+        :param values: list of str
         """
         with self.pipe as pipe:
-            return pipe.pfadd(self.redis_key, *values)
+            values = [self._encode_value(v) for v in _parse_values(values)]
+            return pipe.pfadd(self.redis_key(name), *values)
 
-    def pfcount(self):
+    def pfcount(self, name):
         """
         Return the approximated cardinality of
         the set observed by the HyperLogLog at key(s).
+        :param name: str     the name of the redis key
         """
         with self.pipe as pipe:
-            return pipe.pfcount(self.redis_key)
+            return pipe.pfcount(self.redis_key(name))
+
+    def pfmerge(self, dest, *sources):
+        """
+        Merge N different HyperLogLogs into a single one.
+        :param dest:
+        :param sources:
+        :return:
+        """
+        with self.pipe as pipe:
+            sources = [self.redis_key(k) for k in sources]
+            return pipe.pfmerge(self.redis_key(dest), *sources)

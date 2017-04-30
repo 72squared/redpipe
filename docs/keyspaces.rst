@@ -21,13 +21,14 @@ Here's an example of a sorted set:
         _keyspace = 'F'
         _connection = 'default'
 
+    key1 = '1'
+    key2 = '2'
     with redpipe.pipeline(name='default') as pipe:
-        f1 = Followers('1', pipe=pipe)
-        f2 = Followers('2', pipe=pipe)
-        f1.zadd('a', score=1)
-        f2.zadd('a', score=2)
-        f1_members = f1.zrange(0, -1)
-        f2_members = f2.zrange(0, -1)
+        f = Followers(pipe=pipe)
+        f.zadd(key1, 'a', score=1)
+        f.zadd(key2, 'a', score=2)
+        f1_members = f.zrange(key1, 0, -1)
+        f2_members = f.zrange(key2, 0, -1)
         pipe.execute()
 
     print(f1_members)
@@ -79,17 +80,17 @@ You can see we defined a few fields and gave them types that we can use in pytho
 The fields will perform basic data validation on the input and correctly serialize and deserialize from a *Redis* hash key.
 
 .. code:: python
-
+    key = '1'
     with redpipe.pipeline(autocommit=True) as pipe:
-        u = User('1', pipe=pipe)
+        u = User(pipe=pipe)
         data = {
             'first_name': 'Fred',
             'last_name': 'Flitstone',
             'admin': True,
             'last_seen': time.time(),
         }
-        u.hmset(data)
-        ref = u.hgetall()
+        u.hmset(key, data)
+        ref = u.hgetall(key)
 
     assert(ref == data)
 

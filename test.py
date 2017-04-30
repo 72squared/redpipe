@@ -350,7 +350,7 @@ class StructTestCase(BaseTestCase):
 
     def test_core(self):
         self.create_user('1')
-        ref = self.User.core('1').hgetall()
+        ref = self.User.core().hgetall('1')
         self.assertEqual(ref.result['first_name'], 'first1')
 
     def test_pipeline(self):
@@ -680,44 +680,47 @@ class StringTestCase(BaseTestCase):
 
     def test(self):
         with redpipe.pipeline(autocommit=True) as pipe:
-            s = self.Data('1', pipe=pipe)
-            self.assertEqual(s.redis_key, b'STRING{1}')
-            s.set('2')
-            before = s.get()
-            serialize = s.dump()
-            s.expire(3)
-            ttl = s.ttl()
-            s.delete()
-            exists = s.exists()
-            after = s.get()
+            key = '1'
+            s = self.Data(pipe=pipe)
+            self.assertEqual(s.redis_key(key), b'STRING{1}')
+            s.set(key, '2')
+            before = s.get(key)
+            serialize = s.dump(key)
+            s.expire(key, 3)
+            ttl = s.ttl(key)
+            s.delete(key)
+            exists = s.exists(key)
+            after = s.get(key)
             self.assertRaises(redpipe.ResultNotReady, lambda: before.result)
 
-        self.assertEqual(before.result, '2')
-        self.assertEqual(after.result, None)
+        self.assertEqual(before, '2')
+        self.assertEqual(after, None)
         self.assertAlmostEqual(ttl, 3, delta=1)
         self.assertIsNotNone(serialize.result)
         self.assertFalse(exists.result)
 
         with redpipe.pipeline(autocommit=True) as pipe:
-            s = self.Data('2', pipe=pipe)
-            restore = s.restore(serialize.result)
-            ref = s.get()
-            idle = s.object('IDLETIME')
-            persist = s.persist()
-            incr = s.incr()
-            incrby = s.incrby(2)
-            incrbyfloat = s.incrbyfloat(2.1)
-            setnx = s.setnx('foo')
-            getaftersetnx = s.get()
-            setex = s.setex('bar', 60)
-            getaftersetex = s.get()
-            ttl = s.ttl()
+            key = '2'
+            s = self.Data(pipe=pipe)
+            restore = s.restore(key, serialize.result)
+            ref = s.get(key)
+            idle = s.object(key, 'IDLETIME')
+            persist = s.persist(key)
+            incr = s.incr(key)
+            incrby = s.incrby(key, 2)
+            incrbyfloat = s.incrbyfloat(key, 2.1)
+            setnx = s.setnx(key, 'foo')
+            getaftersetnx = s.get(key)
+            setex = s.setex(key, 'bar', 60)
+            getaftersetex = s.get(key)
+            ttl = s.ttl(key)
+            psetex = s.psetex(key, 'bar', 6000)
         self.assertEqual(restore.result, 1)
-        self.assertEqual(ref.result, '2')
-        self.assertEqual(str(s), '<Data:2>')
-        self.assertEqual(idle.result, 0)
-        self.assertEqual(persist.result, 0)
-        self.assertEqual(incr.result, 3)
+        self.assertEqual(ref, '2')
+        self.assertEqual(str(s), '<Data>')
+        self.assertEqual(idle, 0)
+        self.assertEqual(persist, 0)
+        self.assertEqual(incr, 3)
         self.assertEqual(incrby.result, 5)
         self.assertEqual(incrbyfloat.result, 7.1)
         self.assertEqual(setnx.result, 0)
@@ -725,15 +728,17 @@ class StringTestCase(BaseTestCase):
         self.assertEqual(setex, 1)
         self.assertEqual(getaftersetex, 'bar')
         self.assertAlmostEqual(ttl, 60, delta=1)
+        self.assertEqual(psetex, 1)
 
         with redpipe.pipeline(autocommit=True) as pipe:
-            s = self.Data('3', pipe=pipe)
-            s.set('bar')
-            append = s.append('r')
-            substr = s.substr(1, 3)
-            strlen = s.strlen()
-            setrange = s.setrange(1, 'azz')
-            get = s.get()
+            key = '3'
+            s = self.Data(pipe=pipe)
+            s.set(key, 'bar')
+            append = s.append(key, 'r')
+            substr = s.substr(key, 1, 3)
+            strlen = s.strlen(key)
+            setrange = s.setrange(key, 1, 'azz')
+            get = s.get(key)
 
         self.assertEqual(append, 4)
         self.assertEqual(strlen, 4)
@@ -743,32 +748,65 @@ class StringTestCase(BaseTestCase):
 
     def test_bitwise(self):
         with redpipe.pipeline(autocommit=True) as pipe:
-            s = self.Data('1', pipe=pipe)
-            setbit = s.setbit(2, 1)
-            getbit = s.getbit(2)
-            bitcount = s.bitcount()
+            key = '1'
+            s = self.Data(pipe=pipe)
+            setbit = s.setbit(key, 2, 1)
+            getbit = s.getbit(key, 2)
+            bitcount = s.bitcount(key)
 
         self.assertEqual(setbit, 0)
         self.assertEqual(getbit, 1)
         self.assertEqual(bitcount, 1)
 
+    def test_rename(self):
+        with redpipe.pipeline(autocommit=True) as pipe:
+            key1 = '1'
+            key2 = '2'
+            key3 = '3'
+            s = self.Data(pipe=pipe)
+            s.set(key1, '1')
+            rename = s.rename(key1, key2)
+
+            s.set(key3, '3')
+            renamenx = s.renamenx(key3, key2)
+            get = s.get(key2)
+
+        self.assertEqual(rename, 1)
+        self.assertEqual(renamenx, 0)
+        self.assertEqual(get, '1')
+
+    def test_dict(self):
+        key1 = '1'
+        with redpipe.pipeline(autocommit=True) as pipe:
+            s = self.Data(pipe=pipe)
+            s[key1] = 'a'
+            get = s[key1]
+        self.assertEqual(get, 'a')
+
     def test_bare(self):
         with redpipe.pipeline(autocommit=True) as pipe:
-            f = redpipe.String('foo', pipe=pipe)
-            self.assertEqual(f.redis_key, b'foo')
-            f.set('2')
-            before = f.get()
-            serialize = f.dump()
-            f.expire(3)
-            ttl = f.ttl()
+            key = 'foo'
+            f = redpipe.String(pipe=pipe)
+            self.assertEqual(f.redis_key(key), b'foo')
+            f.set(key, '2')
+            before = f.get(key)
+            serialize = f.dump(key)
+            f.expire(key, 3)
+            ttl = f.ttl(key)
+            pttl = f.pttl(key)
+            pexpire = f.pexpire(key, 3000)
+            pexpireat = f.pexpireat(key, int(time.time() * 1000) + 1000)
 
-            f.delete()
-            exists = f.exists()
-            after = f.get()
+            f.delete(key)
+            exists = f.exists(key)
+            after = f.get(key)
             self.assertRaises(redpipe.ResultNotReady, lambda: before.result)
         self.assertEqual(before.result, '2')
         self.assertEqual(after.result, None)
         self.assertAlmostEqual(ttl.result, 3, delta=1)
+        self.assertAlmostEqual(pttl, 3000, delta=100)
+        self.assertEqual(pexpire, 1)
+        self.assertEqual(pexpireat, 1)
         self.assertIsNotNone(serialize.result)
         self.assertFalse(exists.result)
 
@@ -779,17 +817,18 @@ class SetTestCase(BaseTestCase):
 
     def test(self):
         with redpipe.pipeline(autocommit=True) as pipe:
-            c = self.Data('1', pipe=pipe)
-            sadd = c.sadd(['a', 'b', 'c'])
-            saddnx = c.sadd('a')
-            srem = c.srem('c')
-            smembers = c.smembers()
-            card = c.scard()
-            ismember_a = c.sismember('a')
-            c.srem('b')
-            ismember_b = c.sismember('b')
-            srandmember = c.srandmember()
-            spop = c.spop()
+            key = '1'
+            c = self.Data(pipe=pipe)
+            sadd = c.sadd(key, ['a', 'b', 'c'])
+            saddnx = c.sadd(key, 'a')
+            srem = c.srem(key, 'c')
+            smembers = c.smembers(key)
+            card = c.scard(key)
+            ismember_a = c.sismember(key, 'a')
+            c.srem(key, 'b')
+            ismember_b = c.sismember(key, 'b')
+            srandmember = c.srandmember(key)
+            spop = c.spop(key)
 
         self.assertEqual(sadd.result, 3)
         self.assertEqual(saddnx.result, 0)
@@ -803,9 +842,10 @@ class SetTestCase(BaseTestCase):
 
     def test_scan(self):
         with redpipe.pipeline(autocommit=True) as pipe:
-            s = self.Data('1', pipe=pipe)
-            s.sadd('a1', 'a2', 'b1', 'b2')
-            sscan = s.sscan(0, match='a*')
+            key = '1'
+            s = self.Data(pipe=pipe)
+            s.sadd(key, 'a1', 'a2', 'b1', 'b2')
+            sscan = s.sscan(key, 0, match='a*')
 
         self.assertEqual(sscan[0], 0)
         self.assertEqual(set(sscan[1]), {'a1', 'a2'})
@@ -813,10 +853,40 @@ class SetTestCase(BaseTestCase):
         with redpipe.pipeline(autocommit=True) as pipe:
             self.assertRaises(
                 redpipe.InvalidOperation,
-                lambda: {k for k in self.Data('1', pipe=pipe).sscan_iter()})
+                lambda: {k for k in self.Data(pipe=pipe).sscan_iter('1')})
 
-        data = {k for k in self.Data('1').sscan_iter()}
+        data = {k for k in self.Data().sscan_iter('1')}
         self.assertEqual(data, {'a1', 'a2', 'b1', 'b2'})
+
+    def test_sdiff(self):
+        key1 = '1'
+        key2 = '2'
+        key3 = '3'
+        with redpipe.pipeline(autocommit=True) as pipe:
+            s = self.Data(pipe=pipe)
+            s.add(key1, 'a', 'b', 'c')
+            s.add(key2, 'a', 'b', 'd', 'e')
+            sdiff = s.sdiff(key2, key1)
+            sinter = s.sinter(key1, key2)
+            sinter_missing = s.sinter(key3, key2)
+            sdiffstore = s.sdiffstore(key3, key2, key1)
+            sdiffstore_get = s.smembers(key3)
+            sinterstore = s.sinterstore(key3, key2, key1)
+            sinterstore_get = s.smembers(key3)
+            sunion = s.sunion(key1, key2)
+            sunionstore = s.sunionstore(key3, key1, key2)
+            sunionstore_get = s.members(key3)
+
+        self.assertEqual(sdiff, {'e', 'd'})
+        self.assertEqual(sinter, {'a', 'b'})
+        self.assertEqual(sinter_missing, set())
+        self.assertEqual(sdiffstore, 2)
+        self.assertEqual(sdiffstore_get, {'e', 'd'})
+        self.assertEqual(sinterstore, 2)
+        self.assertEqual(sinterstore_get, {'a', 'b'})
+        self.assertEqual(sunion, {'a', 'b', 'c', 'd', 'e'})
+        self.assertEqual(sunionstore, 5)
+        self.assertEqual(sunionstore_get, {'a', 'b', 'c', 'd', 'e'})
 
 
 class ListTestCase(BaseTestCase):
@@ -825,20 +895,21 @@ class ListTestCase(BaseTestCase):
 
     def test(self):
         with redpipe.pipeline(autocommit=True) as pipe:
-            c = self.Data('1', pipe=pipe)
-            lpush = c.lpush('a', 'b', 'c', 'd')
-            members = c.members()
-            rpush = c.rpush('e')
-            llen = c.llen()
-            lrange = c.lrange(0, -1)
-            rpop = c.rpop()
-            lrem = c.lrem('a', 1)
-            ltrim = c.ltrim(0, 1)
-            members_after_ltrim = c.members()
-            lindex = c.lindex(1)
-            lset = c.lset(1, 'a')
-            lindex_after = c.lindex(1)
-            lpop = c.lpop()
+            key = '1'
+            c = self.Data(pipe=pipe)
+            lpush = c.lpush(key, 'a', 'b', 'c', 'd')
+            members = c.lrange(key, 0, -1)
+            rpush = c.rpush(key, 'e')
+            llen = c.llen(key, )
+            lrange = c.lrange(key, 0, -1)
+            rpop = c.rpop(key)
+            lrem = c.lrem(key, 'a', 1)
+            ltrim = c.ltrim(key, 0, 1)
+            members_after_ltrim = c.lrange(key, 0, -1)
+            lindex = c.lindex(key, 1)
+            lset = c.lset(key, 1, 'a')
+            lindex_after = c.lindex(key, 1)
+            lpop = c.lpop(key)
 
         self.assertEqual(lpush.result, 4)
         self.assertEqual(members.result, ['d', 'c', 'b', 'a'])
@@ -856,29 +927,60 @@ class ListTestCase(BaseTestCase):
 
     def test_scan(self):
         with redpipe.pipeline(autocommit=True) as pipe:
-            self.Data('1a', pipe=pipe).lpush('1')
-            self.Data('1b', pipe=pipe).lpush('1')
-            self.Data('2a', pipe=pipe).lpush('1')
-            self.Data('2b', pipe=pipe).lpush('1')
-            sscan = self.Data.scan(0, match='1*', pipe=pipe)
-            sscan_all = self.Data.scan(pipe=pipe)
+            d = self.Data(pipe=pipe)
+            d.lpush('1a', '1')
+            d.lpush('1b', '1')
+            d.lpush('2a', '1')
+            d.lpush('2b', '1')
+            sscan = d.scan(0, match='1*')
+            sscan_all = d.scan()
 
         self.assertEqual(sscan[0], 0)
         self.assertEqual(set(sscan[1]), {'1a', '1b'})
         self.assertEqual(set(sscan_all[1]), {'1a', '1b', '2a', '2b'})
-        self.assertEqual({k for k in self.Data.scan_iter()},
+        self.assertEqual({k for k in self.Data().scan_iter()},
                          {'1a', '1b', '2a', '2b'})
+
+        with redpipe.pipeline(autocommit=True) as pipe:
+            s = self.Data(pipe=pipe)
+            self.assertRaises(redpipe.InvalidOperation,
+                              lambda: [v for v in s.scan_iter()])
 
     def test_scan_with_no_keyspace(self):
         with redpipe.pipeline(autocommit=True) as pipe:
-            redpipe.List('1a', pipe=pipe).lpush('1')
-            redpipe.List('1b', pipe=pipe).lpush('1')
-            redpipe.List('2a', pipe=pipe).lpush('1')
-            redpipe.List('2b', pipe=pipe).lpush('1')
-            sscan = redpipe.List.scan(0, match='1*', pipe=pipe)
+            l = redpipe.List(pipe=pipe)
+            l.lpush('1a', '1')
+            l.lpush('1b', '1')
+            l.lpush('2a', '1')
+            l.lpush('2b', '1')
+            sscan = l.scan(0, match='1*')
 
         self.assertEqual(sscan[0], 0)
         self.assertEqual(set(sscan[1]), {'1a', '1b'})
+
+    def test_pop(self):
+        key1 = '1'
+        key2 = '2'
+        key3 = '3'
+        with redpipe.pipeline(autocommit=True) as pipe:
+            l = self.Data(pipe=pipe)
+            l.append(key1, 'a', 'b')
+            l.append(key2, 'c', 'd')
+            blpop = l.blpop([key1])
+            brpop = l.brpop([key1])
+            blpop_missing = l.blpop(['4', '5'], timeout=1)
+            brpop_missing = l.brpop(['4', '5'], timeout=1)
+            brpoplpush = l.brpoplpush(key2, key3, timeout=1)
+            rpoplpush = l.rpoplpush(key2, key3)
+            members = l.lrange(key3, 0, -1)
+
+        self.assertEqual(blpop, ('1', 'a'))
+        self.assertEqual(brpop, ('1', 'b'))
+        self.assertEqual(blpop_missing, None)
+        self.assertEqual(brpop_missing, None)
+        self.assertEqual(brpoplpush, 'd')
+        self.assertEqual(rpoplpush, 'c')
+        self.assertEqual(members, ['c', 'd'])
 
 
 class SortedSetTestCase(BaseTestCase):
@@ -887,30 +989,31 @@ class SortedSetTestCase(BaseTestCase):
 
     def test(self):
         with redpipe.pipeline(autocommit=True) as pipe:
-            s = self.Data('1', pipe=pipe)
-            s.add('2', 2)
-            s.add('3', 3)
-            add = s.add('4', 4)
-            zaddincr = s.zadd('4', 1, incr=True)
-            zscore_after_incr = s.zscore('4')
-            zaddnx = s.zadd('4', 4.1, nx=True)
-            zaddxx = s.zadd('4', 4.2, xx=True)
-            zaddch = s.zadd('4', 4.3, ch=True)
-            zscore = s.zscore('4')
-            remove = s.remove('4')
-            members = s.members()
-            zaddmulti = s.zadd({'4': 4, '5': 5})
-            zincrby = s.zincrby('5', 2)
-            zrevrank = s.zrevrank('5')
-            zrevrange = s.zrevrange(0, 1)
-            zrange_withscores = s.zrange(0, 1, withscores=True)
-            zrevrange_withscores = s.zrevrange(0, 1, withscores=True)
+            key = '1'
+            s = self.Data(pipe=pipe)
+            s.add(key, '2', 2)
+            s.add(key, '3', 3)
+            add = s.add(key, '4', 4)
+            zaddincr = s.zadd(key, '4', 1, incr=True)
+            zscore_after_incr = s.zscore(key, '4')
+            zaddnx = s.zadd(key, '4', 4.1, nx=True)
+            zaddxx = s.zadd(key, '4', 4.2, xx=True)
+            zaddch = s.zadd(key, '4', 4.3, ch=True)
+            zscore = s.zscore(key, '4')
+            remove = s.remove(key, '4')
+            members = s.zrange(key, 0, -1)
+            zaddmulti = s.zadd(key, {'4': 4, '5': 5})
+            zincrby = s.zincrby(key, '5', 2)
+            zrevrank = s.zrevrank(key, '5')
+            zrevrange = s.zrevrange(key, 0, 1)
+            zrange_withscores = s.zrange(key, 0, 1, withscores=True)
+            zrevrange_withscores = s.zrevrange(key, 0, 1, withscores=True)
 
             self.assertRaises(
                 redpipe.InvalidOperation,
-                lambda: s.zadd('4', 4, xx=True, nx=True))
-            s.delete()
-            zrange = s.zrange(0, -1)
+                lambda: s.zadd(key, '4', 4, xx=True, nx=True))
+            s.delete(key)
+            zrange = s.zrange(key, 0, -1)
             self.assertRaises(redpipe.ResultNotReady, lambda: members.result)
         self.assertEqual(add.result, 1)
         self.assertEqual(zaddincr.result, 5)
@@ -930,23 +1033,27 @@ class SortedSetTestCase(BaseTestCase):
         self.assertEqual(zrevrange_withscores, [['5', 7.0], ['4', 4.0]])
 
         with redpipe.pipeline(autocommit=True) as pipe:
-            s = self.Data('1', pipe=pipe)
-            s.zadd('a', 1)
-            s.zadd('b', 2)
-            zrangebyscore = s.zrangebyscore(0, 10, start=0, num=1)
-            zrangebyscore_withscores = s.zrangebyscore(
-                0, 10, start=0, num=1, withscores=True)
-            zrevrangebyscore = s.zrevrangebyscore(10, 0, start=0, num=1)
-            zrevrangebyscore_withscores = s.zrevrangebyscore(
-                10, 0, start=0, num=1, withscores=True)
-            zcard = s.zcard()
-            zrank = s.zrank('b')
-            zlexcount = s.zlexcount('-', '+')
-            zrangebylex = s.zrangebylex('-', '+')
-            zrevrangebylex = s.zrevrangebylex('+', '-')
-            zremrangebyrank = s.zremrangebyrank(0, 0)
-            zremrangebyscore = s.zremrangebyscore(2, 2)
-            zremrangebylex = s.zremrangebylex('-', '+')
+            key = '1'
+            s = self.Data(pipe=pipe)
+            s.zadd(key, 'a', 1)
+            s.zadd(key, 'b', 2)
+            zrangebyscore = s.zrangebyscore(key, 0, 10, start=0, num=1)
+            zrangebyscore_withscores = s.zrangebyscore(key,
+                                                       0, 10, start=0, num=1,
+                                                       withscores=True)
+            zrevrangebyscore = s.zrevrangebyscore(key, 10, 0, start=0, num=1)
+            zrevrangebyscore_withscores = s.zrevrangebyscore(key,
+                                                             10, 0, start=0,
+                                                             num=1,
+                                                             withscores=True)
+            zcard = s.zcard(key, )
+            zrank = s.zrank(key, 'b')
+            zlexcount = s.zlexcount(key, '-', '+')
+            zrangebylex = s.zrangebylex(key, '-', '+')
+            zrevrangebylex = s.zrevrangebylex(key, '+', '-')
+            zremrangebyrank = s.zremrangebyrank(key, 0, 0)
+            zremrangebyscore = s.zremrangebyscore(key, 2, 2)
+            zremrangebylex = s.zremrangebylex(key, '-', '+')
 
         self.assertEqual(zrangebyscore, ['a'])
         self.assertEqual(zrangebyscore_withscores, [['a', 1.0]])
@@ -963,24 +1070,45 @@ class SortedSetTestCase(BaseTestCase):
 
     def test_scan(self):
         with redpipe.pipeline(autocommit=True) as pipe:
-            s = self.Data('1', pipe=pipe)
-            s.zadd('a1', 1)
-            s.zadd('a2', 2)
-            s.zadd('b1', 1)
-            s.zadd('b2', 2)
-            sscan = s.zscan(0, match='a*')
+            key = '1'
+            s = self.Data(pipe=pipe)
+            s.zadd(key, 'a1', 1.0)
+            s.zadd(key, 'a2', 2)
+            s.zadd(key, 'b1', 1)
+            s.zadd(key, 'b2', 2)
+            sscan = s.zscan(key, 0, match='a*')
+            sort = s.sort(key, alpha=True)
+            sort_store = s.sort(key, alpha=True, store=True)
 
         self.assertEqual(sscan[0], 0)
         self.assertEqual(set(sscan[1]), {('a1', 1.0), ('a2', 2.0)})
+        self.assertEqual(sort, ['a1', 'a2', 'b1', 'b2'])
+        self.assertEqual(sort_store, 4)
 
         with redpipe.pipeline(autocommit=True) as pipe:
             self.assertRaises(
                 redpipe.InvalidOperation,
-                lambda: {k for k in self.Data('1', pipe=pipe).zscan_iter()})
+                lambda: {k for k in self.Data(pipe=pipe).zscan_iter(key)})
 
-        data = {k for k in self.Data('1').zscan_iter()}
+        data = {k for k in self.Data().zscan_iter(key)}
         expected = {('a1', 1.0), ('a2', 2.0), ('b1', 1.0), ('b2', 2.0)}
         self.assertEqual(data, expected)
+
+    def test_union(self):
+        key1 = '1'
+        key2 = '2'
+        key3 = '3'
+        with redpipe.pipeline(autocommit=True) as pipe:
+            s = self.Data(pipe=pipe)
+            s.zadd(key1, 'a', 1)
+            s.zadd(key1, 'b', 2)
+            s.zadd(key2, 'c', 3)
+            s.zadd(key2, 'd', 4)
+            zunionstore = s.zunionstore(key3, [key1, key2])
+            zrange = s.zrange(key3, 0, -1)
+
+        self.assertEqual(zunionstore, 4)
+        self.assertEqual(zrange, ['a', 'b', 'c', 'd'])
 
 
 class HashTestCase(BaseTestCase):
@@ -989,19 +1117,20 @@ class HashTestCase(BaseTestCase):
 
     def test(self):
         with redpipe.pipeline(autocommit=True) as pipe:
-            c = self.Data('1', pipe=pipe)
-            hset = c.hset('a', '1')
-            hmset = c.hmset({'b': '2', 'c': '3', 'd': '4'})
-            hsetnx = c.hsetnx('b', '9999')
-            hget = c.hget('a')
-            hgetall = c.hgetall()
-            hlen = c.hlen()
-            hdel = c.hdel('a', 'b')
-            hkeys = c.hkeys()
-            hexists = c.hexists('c')
-            hincrby = c.hincrby('d', 2)
-            hmget = c.hmget(['c', 'd'])
-            hvals = c.hvals()
+            key = '1'
+            c = self.Data(pipe=pipe)
+            hset = c.hset(key, 'a', '1')
+            hmset = c.hmset(key, {'b': '2', 'c': '3', 'd': '4'})
+            hsetnx = c.hsetnx(key, 'b', '9999')
+            hget = c.hget(key, 'a')
+            hgetall = c.hgetall(key, )
+            hlen = c.hlen(key, )
+            hdel = c.hdel(key, 'a', 'b')
+            hkeys = c.hkeys(key)
+            hexists = c.hexists(key, 'c')
+            hincrby = c.hincrby(key, 'd', 2)
+            hmget = c.hmget(key, ['c', 'd'])
+            hvals = c.hvals(key)
 
         self.assertEqual(hset.result, True)
         self.assertEqual(hmset.result, True)
@@ -1019,20 +1148,21 @@ class HashTestCase(BaseTestCase):
         self.assertEqual(set(hvals.result), {'3', '6'})
 
     def test_scan(self):
+        key = '1'
         with redpipe.pipeline(autocommit=True) as pipe:
-            s = self.Data('1', pipe=pipe)
-            s.hmset({'a1': '1', 'a2': '2', 'b1': '1', 'b2': '2'})
-            hscan = s.hscan(0, match='a*')
+            s = self.Data(pipe=pipe)
+            s.hmset(key, {'a1': '1', 'a2': '2', 'b1': '1', 'b2': '2'})
+            hscan = s.hscan(key, 0, match='a*')
 
         self.assertEqual(hscan[0], 0)
         self.assertEqual(hscan[1], {'a1': '1', 'a2': '2'})
 
         with redpipe.pipeline(autocommit=True) as pipe:
-            s = self.Data('1', pipe=pipe)
+            s = self.Data(pipe=pipe)
             self.assertRaises(redpipe.InvalidOperation,
-                              lambda: [v for v in s.hscan_iter()])
+                              lambda: [v for v in s.hscan_iter(key)])
 
-        data = {k: v for k, v in self.Data('1').hscan_iter()}
+        data = {k: v for k, v in self.Data().hscan_iter(key)}
         self.assertEqual(data, {'b2': '2', 'b1': '1', 'a1': '1', 'a2': '2'})
 
 
@@ -1050,21 +1180,22 @@ class HashFieldsTestCase(BaseTestCase):
         }
 
     def test(self):
+        key = '1'
         with redpipe.pipeline(autocommit=True) as pipe:
-            c = self.Data('1', pipe=pipe)
-            hset = c.hset('i', 1)
-            hmset = c.hmset({'b': True, 'f': 3.1, 't': utf8_sample})
-            hsetnx = c.hsetnx('b', False)
-            hget = c.hget('b')
-            hgetall = c.hgetall()
-            hincrby = c.hincrby('i', 2)
-            hincrbyfloat = c.hincrbyfloat('f', 2.1)
-            hmget = c.hmget(['f', 'b'])
+            c = self.Data(pipe=pipe)
+            hset = c.hset(key, 'i', 1)
+            hmset = c.hmset(key, {'b': True, 'f': 3.1, 't': utf8_sample})
+            hsetnx = c.hsetnx(key, 'b', False)
+            hget = c.hget(key, 'b')
+            hgetall = c.hgetall(key)
+            hincrby = c.hincrby(key, 'i', 2)
+            hincrbyfloat = c.hincrbyfloat(key, 'f', 2.1)
+            hmget = c.hmget(key, ['f', 'b'])
 
-        self.assertEqual(hset.result, True)
-        self.assertEqual(hmset.result, True)
+        self.assertEqual(hset, True)
+        self.assertEqual(hmset, True)
         self.assertEqual(hsetnx.result, 0)
-        self.assertEqual(hget.result, True)
+        self.assertEqual(hget, True)
         self.assertEqual(
             hgetall.result,
             {'b': True, 'i': 1, 'f': 3.1, 't': utf8_sample})
@@ -1073,28 +1204,30 @@ class HashFieldsTestCase(BaseTestCase):
         self.assertEqual(hmget.result, [5.2, True])
 
     def test_invalid_value(self):
+        key = '1'
         with redpipe.pipeline() as pipe:
-            c = self.Data('1', pipe=pipe)
+            c = self.Data(pipe=pipe)
             self.assertRaises(
-                redpipe.InvalidFieldValue, lambda: c.hset('i', 'a'))
+                redpipe.InvalidFieldValue, lambda: c.hset(key, 'i', 'a'))
             self.assertRaises(
-                redpipe.InvalidFieldValue, lambda: c.hset('b', '1'))
+                redpipe.InvalidFieldValue, lambda: c.hset(key, 'b', '1'))
             self.assertRaises(
-                redpipe.InvalidFieldValue, lambda: c.hset('t', 1))
+                redpipe.InvalidFieldValue, lambda: c.hset(key, 't', 1))
 
-            c.hset('f', 1)
+            c.hset(key, 'f', 1)
 
             self.assertRaises(
-                redpipe.InvalidFieldValue, lambda: c.hset('f', '1'))
+                redpipe.InvalidFieldValue, lambda: c.hset(key, 'f', '1'))
 
     def test_dict(self):
+        key = 'd'
         with redpipe.pipeline(autocommit=True) as pipe:
             data = {'a': 1, 'b': 'test'}
-            c = self.Data('d', pipe=pipe)
-            hset = c.hset('d', data)
-            hget = c.hget('d')
-            hmget = c.hmget(['d'])
-            hgetall = c.hgetall()
+            c = self.Data(pipe=pipe)
+            hset = c.hset(key, 'd', data)
+            hget = c.hget(key, 'd')
+            hmget = c.hmget(key, ['d'])
+            hgetall = c.hgetall(key, )
 
         self.assertEqual(hset, 1)
         self.assertEqual(hget, data)
@@ -1102,13 +1235,14 @@ class HashFieldsTestCase(BaseTestCase):
         self.assertEqual(hgetall, {'d': data})
 
     def test_list(self):
+        key = '1'
         with redpipe.pipeline(autocommit=True) as pipe:
             data = [1, 'a']
-            c = self.Data('1', pipe=pipe)
-            hset = c.hset('l', data)
-            hget = c.hget('l')
-            hmget = c.hmget(['l'])
-            hgetall = c.hgetall()
+            c = self.Data(pipe=pipe)
+            hset = c.hset(key, 'l', data)
+            hget = c.hget(key, 'l')
+            hmget = c.hmget(key, ['l'])
+            hgetall = c.hgetall(key, )
 
         self.assertEqual(hset, 1)
         self.assertEqual(hget, data)
@@ -1116,14 +1250,15 @@ class HashFieldsTestCase(BaseTestCase):
         self.assertEqual(hgetall, {'l': data})
 
     def test_string_list(self):
+        key = '1'
         with redpipe.pipeline(autocommit=True) as pipe:
             data = ['a', 'b']
-            c = self.Data('1', pipe=pipe)
-            hget_pre = c.hget('sl')
-            hset = c.hset('sl', data)
-            hget = c.hget('sl')
-            hmget = c.hmget(['sl'])
-            hgetall = c.hgetall()
+            c = self.Data(pipe=pipe)
+            hget_pre = c.hget(key, 'sl')
+            hset = c.hset(key, 'sl', data)
+            hget = c.hget(key, 'sl')
+            hmget = c.hmget(key, ['sl'])
+            hgetall = c.hgetall(key, )
 
         self.assertEqual(hget_pre, None)
         self.assertEqual(hset, 1)
@@ -1137,13 +1272,21 @@ class HyperloglogTestCase(BaseTestCase):
         _keyspace = 'HYPERLOGLOG'
 
     def test(self):
+        key1 = '1'
+        key2 = '2'
+        key3 = '3'
         with redpipe.pipeline(autocommit=True) as pipe:
-            c = self.Data('1', pipe=pipe)
-            pfadd = c.pfadd('a', 'b', 'c')
-            pfcount = c.pfcount()
+            c = self.Data(pipe=pipe)
+            pfadd = c.pfadd(key1, 'a', 'b', 'c')
+            pfcount = c.pfcount(key1)
+            c.pfadd(key2, 'b', 'c', 'd')
+            pfmerge = c.pfmerge(key3, key1, key2)
+            pfcount_aftermerge = c.pfcount(key3)
 
         self.assertEqual(pfadd, 1)
         self.assertEqual(pfcount, 3)
+        self.assertEqual(pfmerge, True)
+        self.assertEqual(pfcount_aftermerge, 4)
 
 
 class AsyncTestCase(unittest.TestCase):

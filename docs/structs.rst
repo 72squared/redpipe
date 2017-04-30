@@ -84,7 +84,7 @@ From our earlier `User` struct example:
 
 .. code:: python
 
-    username = User.core('1').hget('name')
+    username = User.core().hget('1', 'name')
 
 More on this later.
 
