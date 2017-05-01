@@ -8,6 +8,20 @@ We make no guarantees about backward compatibility.
 Once the api reaches **1.0.0**, all major and minor release notes will be well documented.
 Upgrade notes and any breaking changes will be described here and how to handle them.
 
+0.3.0 (April 30, 2017)
+----------------------
+BIG REFACTOR.
+key no longer part of the constructor of Keyspace objects.
+Instead, you pass the key name to the method.
+This keeps the api identical in arguments in redis-py.
+It also allows me to support multi-key operations.
+This is a breaking change.
+
+* no need for a compat layer, using six
+* standardize key, value, member encoding & decoding by reusing Field interface
+* key no longer part of the constructor of Keyspace objects
+
+
 0.2.5 (April 30, 2017)
 ----------------------
 * support for binary field
