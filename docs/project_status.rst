@@ -1,7 +1,7 @@
 Project Status
 ==============
 
-RedPipe is a big rewrite based on what I've learned over the past 3 years.
+RedPipe is based on what I've learned over the past 3 years.
 We run a really big open-source redis cluster where all of our data is stored in Redis.
 So these ideas were tested by fire in real production environments.
 
@@ -28,7 +28,7 @@ Here's what I still have on my list:
 * simplify autocommit
 * standardize transactions
 * pubsub
-
+* geo keyspaces
 
 How Long until a Stable Release?
 --------------------------------

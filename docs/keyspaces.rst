@@ -52,6 +52,8 @@ In a similar way, we support the other *Redis* primitives:
     * lists
     * hashes
     * sorted sets
+    * hyperloglog
+    * geo (in progress)
 
 The supported commands are limited to single key operations.
 

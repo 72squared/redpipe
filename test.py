@@ -110,11 +110,11 @@ class PipelineTestCase(BaseTestCase):
 class FieldsTestCase(unittest.TestCase):
     def test_float(self):
         field = redpipe.FloatField
-        self.assertRaises(redpipe.InvalidFieldValue, lambda: field.encode(''))
-        self.assertRaises(redpipe.InvalidFieldValue, lambda: field.encode('a'))
-        self.assertRaises(redpipe.InvalidFieldValue, lambda: field.encode('1'))
-        self.assertRaises(redpipe.InvalidFieldValue, lambda: field.encode([]))
-        self.assertRaises(redpipe.InvalidFieldValue, lambda: field.encode({}))
+        self.assertRaises(redpipe.InvalidValue, lambda: field.encode(''))
+        self.assertRaises(redpipe.InvalidValue, lambda: field.encode('a'))
+        self.assertRaises(redpipe.InvalidValue, lambda: field.encode('1'))
+        self.assertRaises(redpipe.InvalidValue, lambda: field.encode([]))
+        self.assertRaises(redpipe.InvalidValue, lambda: field.encode({}))
         self.assertEqual(field.encode(1), '1')
         self.assertEqual(field.encode(1.2), '1.2')
         self.assertEqual(field.encode(1.2345), '1.2345')
@@ -128,24 +128,24 @@ class FieldsTestCase(unittest.TestCase):
         self.assertEqual(field.encode(0), '0')
         self.assertEqual(field.encode(2), '2')
         self.assertEqual(field.encode(123456), '123456')
-        self.assertRaises(redpipe.InvalidFieldValue, lambda: field.encode(''))
-        self.assertRaises(redpipe.InvalidFieldValue, lambda: field.encode('a'))
-        self.assertRaises(redpipe.InvalidFieldValue, lambda: field.encode('1'))
-        self.assertRaises(redpipe.InvalidFieldValue, lambda: field.encode(1.2))
+        self.assertRaises(redpipe.InvalidValue, lambda: field.encode(''))
+        self.assertRaises(redpipe.InvalidValue, lambda: field.encode('a'))
+        self.assertRaises(redpipe.InvalidValue, lambda: field.encode('1'))
+        self.assertRaises(redpipe.InvalidValue, lambda: field.encode(1.2))
         self.assertEqual(field.encode(1), '1')
         self.assertEqual(field.decode(b'1234'), 1234)
         self.assertRaises(ValueError, lambda: field.decode('x'))
 
     def test_text(self):
         field = redpipe.TextField
-        self.assertRaises(redpipe.InvalidFieldValue, lambda: field.encode(1))
-        self.assertRaises(redpipe.InvalidFieldValue,
+        self.assertRaises(redpipe.InvalidValue, lambda: field.encode(1))
+        self.assertRaises(redpipe.InvalidValue,
                           lambda: field.encode(False))
 
-        self.assertRaises(redpipe.InvalidFieldValue,
+        self.assertRaises(redpipe.InvalidValue,
                           lambda: field.encode(0.12345))
 
-        self.assertRaises(redpipe.InvalidFieldValue,
+        self.assertRaises(redpipe.InvalidValue,
                           lambda: field.encode([]))
 
         self.assertEqual(field.encode('d'), b'd')
@@ -170,17 +170,17 @@ class FieldsTestCase(unittest.TestCase):
 
     def test_ascii(self):
         field = redpipe.AsciiField
-        self.assertRaises(redpipe.InvalidFieldValue,
+        self.assertRaises(redpipe.InvalidValue,
                           lambda: field.encode(1))
-        self.assertRaises(redpipe.InvalidFieldValue,
+        self.assertRaises(redpipe.InvalidValue,
                           lambda: field.encode(False))
-        self.assertRaises(redpipe.InvalidFieldValue,
+        self.assertRaises(redpipe.InvalidValue,
                           lambda: field.encode(0.1))
 
         self.assertEqual(field.encode(''), b'')
         self.assertEqual(field.encode('dddd'), b'dddd')
 
-        self.assertRaises(redpipe.InvalidFieldValue,
+        self.assertRaises(redpipe.InvalidValue,
                           lambda: field.encode(json.loads('"15\u00f8C"')))
 
         self.assertEqual(field.encode('1'), b'1')
@@ -194,22 +194,22 @@ class FieldsTestCase(unittest.TestCase):
 
     def test_binary(self):
         field = redpipe.BinaryField
-        self.assertRaises(redpipe.InvalidFieldValue,
+        self.assertRaises(redpipe.InvalidValue,
                           lambda: field.encode(1))
-        self.assertRaises(redpipe.InvalidFieldValue,
+        self.assertRaises(redpipe.InvalidValue,
                           lambda: field.encode(False))
-        self.assertRaises(redpipe.InvalidFieldValue,
+        self.assertRaises(redpipe.InvalidValue,
                           lambda: field.encode(0.1))
 
         if six.PY3:
-            self.assertRaises(redpipe.InvalidFieldValue,
+            self.assertRaises(redpipe.InvalidValue,
                               lambda: field.encode(''))
 
-            self.assertRaises(redpipe.InvalidFieldValue,
+            self.assertRaises(redpipe.InvalidValue,
                               lambda: field.encode('dddd'))
 
         sample = json.loads('"15\u00f8C"')
-        self.assertRaises(redpipe.InvalidFieldValue,
+        self.assertRaises(redpipe.InvalidValue,
                           lambda: field.encode(sample))
 
         self.assertEqual(field.encode(b'1'), b'1')
@@ -234,17 +234,17 @@ class FieldsTestCase(unittest.TestCase):
     def test_list(self):
         field = redpipe.ListField
 
-        self.assertRaises(redpipe.InvalidFieldValue,
+        self.assertRaises(redpipe.InvalidValue,
                           lambda: field.encode(1))
-        self.assertRaises(redpipe.InvalidFieldValue,
+        self.assertRaises(redpipe.InvalidValue,
                           lambda: field.encode(False))
-        self.assertRaises(redpipe.InvalidFieldValue,
+        self.assertRaises(redpipe.InvalidValue,
                           lambda: field.encode(0.1))
-        self.assertRaises(redpipe.InvalidFieldValue,
+        self.assertRaises(redpipe.InvalidValue,
                           lambda: field.encode('ddd'))
-        self.assertRaises(redpipe.InvalidFieldValue,
+        self.assertRaises(redpipe.InvalidValue,
                           lambda: field.encode({}))
-        self.assertRaises(redpipe.InvalidFieldValue,
+        self.assertRaises(redpipe.InvalidValue,
                           lambda: field.encode({'a': 1}))
 
         self.assertEqual(field.encode([1]), b'[1]')
@@ -258,17 +258,17 @@ class FieldsTestCase(unittest.TestCase):
 
     def test_dict(self):
         field = redpipe.DictField
-        self.assertRaises(redpipe.InvalidFieldValue,
+        self.assertRaises(redpipe.InvalidValue,
                           lambda: field.encode(1))
-        self.assertRaises(redpipe.InvalidFieldValue,
+        self.assertRaises(redpipe.InvalidValue,
                           lambda: field.encode(False))
-        self.assertRaises(redpipe.InvalidFieldValue,
+        self.assertRaises(redpipe.InvalidValue,
                           lambda: field.encode(0.1))
-        self.assertRaises(redpipe.InvalidFieldValue,
+        self.assertRaises(redpipe.InvalidValue,
                           lambda: field.encode('ddd'))
-        self.assertRaises(redpipe.InvalidFieldValue,
+        self.assertRaises(redpipe.InvalidValue,
                           lambda: field.encode([]))
-        self.assertRaises(redpipe.InvalidFieldValue,
+        self.assertRaises(redpipe.InvalidValue,
                           lambda: field.encode([1]))
 
         self.assertEqual(field.encode({'a': 1}), b'{"a": 1}')
@@ -282,19 +282,19 @@ class FieldsTestCase(unittest.TestCase):
 
     def test_string_list(self):
         field = redpipe.StringListField
-        self.assertRaises(redpipe.InvalidFieldValue,
+        self.assertRaises(redpipe.InvalidValue,
                           lambda: field.encode(1))
-        self.assertRaises(redpipe.InvalidFieldValue,
+        self.assertRaises(redpipe.InvalidValue,
                           lambda: field.encode(False))
-        self.assertRaises(redpipe.InvalidFieldValue,
+        self.assertRaises(redpipe.InvalidValue,
                           lambda: field.encode(0.1))
-        self.assertRaises(redpipe.InvalidFieldValue,
+        self.assertRaises(redpipe.InvalidValue,
                           lambda: field.encode('ddd'))
-        self.assertRaises(redpipe.InvalidFieldValue,
+        self.assertRaises(redpipe.InvalidValue,
                           lambda: field.encode([1]))
-        self.assertRaises(redpipe.InvalidFieldValue,
+        self.assertRaises(redpipe.InvalidValue,
                           lambda: field.encode({}))
-        self.assertRaises(redpipe.InvalidFieldValue,
+        self.assertRaises(redpipe.InvalidValue,
                           lambda: field.encode({'a': 1}))
         self.assertEqual(field.encode(['1']), b'1')
         data = ['a', 'b', 'c']
@@ -407,11 +407,11 @@ class StructTestCase(BaseTestCase):
         self.assertEqual(dict(m), expected)
 
         self.assertRaises(
-            redpipe.InvalidFieldValue,
+            redpipe.InvalidValue,
             lambda: Multi('m3', text=123))
 
         self.assertRaises(
-            redpipe.InvalidFieldValue,
+            redpipe.InvalidValue,
             lambda: Multi('m3', boolean='abc'))
 
     def test_extra_fields(self):
@@ -1210,16 +1210,16 @@ class HashFieldsTestCase(BaseTestCase):
         with redpipe.pipeline() as pipe:
             c = self.Data(pipe=pipe)
             self.assertRaises(
-                redpipe.InvalidFieldValue, lambda: c.hset(key, 'i', 'a'))
+                redpipe.InvalidValue, lambda: c.hset(key, 'i', 'a'))
             self.assertRaises(
-                redpipe.InvalidFieldValue, lambda: c.hset(key, 'b', '1'))
+                redpipe.InvalidValue, lambda: c.hset(key, 'b', '1'))
             self.assertRaises(
-                redpipe.InvalidFieldValue, lambda: c.hset(key, 't', 1))
+                redpipe.InvalidValue, lambda: c.hset(key, 't', 1))
 
             c.hset(key, 'f', 1)
 
             self.assertRaises(
-                redpipe.InvalidFieldValue, lambda: c.hset(key, 'f', '1'))
+                redpipe.InvalidValue, lambda: c.hset(key, 'f', '1'))
 
     def test_dict(self):
         key = 'd'

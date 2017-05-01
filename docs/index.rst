@@ -38,11 +38,29 @@ All of these things together allow you to be able to build modular functions tha
 
 Pass a pipeline into multiple functions, collect the results from each function, and then execute the pipeline to hydrate those result objects with data.
 
-What Else Can it Do?
+What do I Need to Know?
+-----------------------
+If you've used redis-py, you know most of what you need already to start using RedPipe.
+
+If not, head over there and play with `redis-py <https://redis-py.readthedocs.io>`_ first.
+Or check out this very easy tutorial on redis-py basics:
+
+http://agiliq.com/blog/2015/03/getting-started-with-redis-py/
+
+
+You'll find the redpipe api looks nearly identical.
+That's because RedPipe is a wrapper around redis-py.
+
+The one big value that RedPipe adds is the ability to pipeline commands in a more natural way.
+
+What Else Can it do?
 --------------------
 You can use just the core of the *redpipe* module.
+That's the wrapper part.
+
+
 But there's a lot of other cool things included.
-Be sure to check out the wrappers around keyspaced data-types.
+Be sure to check out the keyspaced data-types.
 And the Struct objects are cool too.
 
 More on this later.
@@ -81,7 +99,6 @@ Community Documentation
     license
     authors
     faq
-    todo
 
 API Documentation
 =================

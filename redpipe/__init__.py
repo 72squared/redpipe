@@ -12,14 +12,11 @@
 #
 
 """
-RedPipe
-=======
-
 Redpipe makes redis pipelines easier to use in python.
 
 Usage:
 
-.. code: python
+.. code:: python
 
     import redpipe
     import redis
@@ -32,6 +29,58 @@ Usage:
     print([foo, bar])
 
 
+Module Structure
+----------------
+
+This is the structure of the top level of the package, grouped by category.
+
+Connections
+-----------
+* connect_redis
+* connect_redis_cluster
+* disconnect
+* reset
+* pipeline
+
+Fields
+------
+* IntegerField
+* FloatField
+* TextField
+* AsciiField
+* BinaryField
+* BooleanField
+* ListField
+* DictField',
+* StringListField
+
+Keyspaces
+---------
+* String
+* Set
+* List
+* SortedSet
+* Hash
+* HyperLogLog
+
+Exceptions
+----------
+* Error
+* ResultNotReady
+* InvalidOperation
+* InvalidValue
+* AlreadyConnected
+* InvalidPipeline
+
+Misc
+----
+* Future
+* Struct
+* enable_threads
+* disable_threads
+
+
+You shouldn't need to import the submodules directly.
 """
 from .version import __version__  # noqa
 from .pipelines import *  # noqa

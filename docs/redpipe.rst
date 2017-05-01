@@ -1,5 +1,10 @@
 redpipe package
 ===============
+.. automodule:: redpipe
+    :members:
+    :undoc-members:
+    :show-inheritance:
+
 
 Submodules
 ----------
@@ -85,10 +90,4 @@ redpipe\.version module
     :show-inheritance:
 
 
-Module contents
----------------
 
-.. automodule:: redpipe
-    :members:
-    :undoc-members:
-    :show-inheritance:

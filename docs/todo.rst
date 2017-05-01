@@ -1,6 +1,0 @@
-TODO
-====
-
-* PubSub
-* Geo support
-

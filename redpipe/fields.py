@@ -12,7 +12,7 @@ values.
 import json
 import re
 import six
-from .exceptions import InvalidFieldValue
+from .exceptions import InvalidValue
 
 __all__ = [
     'IntegerField',
@@ -44,7 +44,7 @@ class BooleanField(object):
         :return: bytes
         """
         if value not in [True, False]:
-            raise InvalidFieldValue('not a boolean')
+            raise InvalidValue('not a boolean')
 
         return b'1' if value else b''
 
@@ -89,7 +89,7 @@ class FloatField(object):
         except (TypeError, ValueError):
             pass
 
-        raise InvalidFieldValue('not a float')
+        raise InvalidValue('not a float')
 
 
 class IntegerField(object):
@@ -124,7 +124,7 @@ class IntegerField(object):
         except (TypeError, ValueError):
             pass
 
-        raise InvalidFieldValue('not an int')
+        raise InvalidValue('not an int')
 
 
 class TextField(object):
@@ -147,7 +147,7 @@ class TextField(object):
         if coerced == value:
             return coerced.encode(cls._encoding)
 
-        raise InvalidFieldValue('not text')
+        raise InvalidValue('not text')
 
     @classmethod
     def decode(cls, value):
@@ -178,7 +178,7 @@ class AsciiField(TextField):
         if coerced == value and cls.PATTERN.match(coerced):
             return coerced.encode(cls._encoding)
 
-        raise InvalidFieldValue('not ascii')
+        raise InvalidValue('not ascii')
 
 
 class BinaryField(object):
@@ -201,7 +201,7 @@ class BinaryField(object):
         except (TypeError, UnicodeError):
             pass
 
-        raise InvalidFieldValue('not binary')
+        raise InvalidValue('not binary')
 
     @classmethod
     def decode(cls, value):
@@ -236,7 +236,7 @@ class ListField(object):
         except TypeError:
             pass
 
-        raise InvalidFieldValue('not a list')
+        raise InvalidValue('not a list')
 
     @classmethod
     def decode(cls, value):
@@ -271,7 +271,7 @@ class DictField(object):
                 return json.dumps(coerced).encode(cls._encoding)
         except (TypeError, ValueError):
             pass
-        raise InvalidFieldValue('not a dict')
+        raise InvalidValue('not a dict')
 
     @classmethod
     def decode(cls, value):
@@ -324,4 +324,4 @@ class StringListField(object):
         except TypeError:
             pass
 
-        raise InvalidFieldValue('not a list of strings')
+        raise InvalidValue('not a list of strings')

@@ -779,14 +779,13 @@ class Set(Keyspace):
 
         :param name: str     the name of the redis key
         :return: Future()
-
         """
         with self.pipe as pipe:
             return pipe.scard(self.redis_key(name))
 
     def sismember(self, name, value):
         """
-        Is the provided value is in the ``Set`?
+        Is the provided value is in the ``Set``?
 
         :param name: str     the name of the redis key
         :param value: str
@@ -1627,7 +1626,7 @@ class Hash(Keyspace):
         Delete one or more hash field.
 
         :param name: str     the name of the redis key
-        :param members: on or more fields to remove.
+        :param keys: on or more members to remove from the key.
         :return: Future()
         """
         with self.pipe as pipe:
@@ -1639,8 +1638,8 @@ class Hash(Keyspace):
         """
         Returns all fields name in the Hash.
 
-        :param name: str, the name of the redis key
-        return: Future
+        :param name: str the name of the redis key
+        :return: Future
         """
         with self.pipe as pipe:
             f = Future()
