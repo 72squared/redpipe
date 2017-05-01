@@ -1,3 +1,32 @@
+# -*- coding: utf-8 -*-
+
+"""
+redpipe.keyspaces
+-----------------
+
+This module provides a way to access keys grouped under a certain keyspace.
+A keyspace is a convention used often in redis where many keys are grouped
+logically together.
+In the SQL world, you could think of this as a table.
+But in redis each key is independent whereas a record in a table is controlled
+by the schema.
+
+Examples of a group of keys in a keyspace:
+
+* user{A}
+* user{B}
+* user{C}
+
+It is inconvient to refer to keys this way.
+The identifiers for our user records are A, B, C.
+In addition, we usually know that a user record is always a redis hash.
+And we know that it has certain fields that have different data types.
+
+These keyspace classes in this module allow you to easily manipulate
+these keys.
+
+"""
+
 from .pipelines import pipeline
 from .luascripts import lua_restorenx, lua_object_info
 from .exceptions import InvalidOperation

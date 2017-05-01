@@ -1,3 +1,11 @@
+# -*- coding: utf-8 -*-
+"""
+redpipe.exceptions
+------------------
+This module contains the set of all of redpipe exceptions.
+
+"""
+
 __all__ = [
     'Error',
     'ResultNotReady',

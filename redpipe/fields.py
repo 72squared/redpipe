@@ -1,6 +1,6 @@
 import json
 import re
-from .compat import bytes, unicode
+import six
 from .exceptions import InvalidFieldValue
 
 __all__ = [
@@ -14,6 +14,8 @@ __all__ = [
     'DictField',
     'StringListField',
 ]
+
+unicode = unicode if six.PY2 else str  # noqa
 
 
 class BooleanField(object):
