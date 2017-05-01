@@ -1,7 +1,10 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 import os
 from os import path
 from setuptools import setup
+from distutils.cmd import Command
 
 NAME = 'redpipe'
 
@@ -16,7 +19,25 @@ with open(os.path.join(ROOTDIR, 'docs', 'release_notes.rst')) as f:
 with open(os.path.join(ROOTDIR, 'redpipe', 'VERSION')) as f:
     version = str(f.read().strip())
 
-cmdclass = {}
+
+class TestCommand(Command):
+    user_options = []
+
+    def initialize_options(self):
+        pass
+
+    def finalize_options(self):
+        pass
+
+    def run(self):
+        import sys
+        import subprocess
+
+        raise SystemExit(
+            subprocess.call([sys.executable, '-m', 'test']))
+
+
+cmdclass = {'test': TestCommand}
 ext_modules = []
 
 setup(
@@ -46,6 +67,7 @@ setup(
         'Operating System :: POSIX'],
     license='MIT',
     install_requires=['redis>=2.10.2', 'six'],
+    tests_require=['redislite>=3.0.271', 'redis-py-cluster>=1.3.0'],
     include_package_data=True,
     long_description=readme + '\n\n' + history,
     cmdclass=cmdclass,

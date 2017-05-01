@@ -1,3 +1,11 @@
+# -*- coding: utf-8 -*-
+"""
+redpipe.tasks
+-------------
+When sending commands to multiple redis backends in one redpipe.pipeline,
+this module gives us an api to allow threaded async communication to those
+different backends, improving parallelism.
+"""
 import sys
 from six import reraise
 import threading
@@ -6,6 +14,12 @@ __all__ = ['enable_threads', 'disable_threads']
 
 
 class SynchronousTask(object):
+    """
+    This is the default for now.
+    Just iterate through each backend sequentially.
+    Slow but reliable.
+    I'll make this a fallback once I feel confident in threaded behavior.
+    """
     def __init__(self, target, args=(), kwargs=None):
         self._target = target
         self._args = args
@@ -35,6 +49,11 @@ class SynchronousTask(object):
 
 
 class AsynchronousTask(threading.Thread):
+    """
+    use threads to talk to multiple redis backends simulaneously.
+    Should decrease latency for the case when sending commands to multiple
+    redis backends in one `redpipe.pipeline`.
+    """
     def __init__(self, target, args=None, kwargs=None):
         super(AsynchronousTask, self).__init__()
         if args is None:
@@ -69,6 +88,9 @@ class AsynchronousTask(threading.Thread):
 
 
 class TaskManager(object):
+    """
+    standardized interface for processing async vs synchronous tasks.
+    """
     task = SynchronousTask
 
     @classmethod
@@ -87,10 +109,24 @@ class TaskManager(object):
 
 
 def enable_threads():
+    """
+    used to enable threaded behavior when talking to multiple redis backends
+    in one pipeline execute call.
+    Otherwise we don't need it.
+    :return: None
+    """
     TaskManager.set_task_type(SynchronousTask)
 
 
 def disable_threads():
+    """
+    used to disable threaded behavior when talking to multiple redis backends
+    in one pipeline execute call.
+    Use this option if you are really concerned about python threaded behavior
+    in your application.
+    Doesn't apply if you are only ever talking to one redis backend at a time.
+    :return: None
+    """
     TaskManager.set_task_type(AsynchronousTask)
 
 

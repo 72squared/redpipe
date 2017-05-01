@@ -133,15 +133,33 @@ class Keyspace(object):
         with self.pipe as pipe:
             return pipe.dump(self.redis_key(name))
 
-    def restore(self, name, data, pttl=0):
+    def restorenx(self, name, value, pttl=0):
         """
         Restore serialized dump of a key back into redis
         :param name: str     the name of the redis key
-        :param data: redis RDB-like serialization
-        :param pttl: how many milliseconds till expiration of the key.
+        :param value: redis RDB-like serialization
+        :param pttl: milliseconds till key expires
         :return: Future()
         """
-        return self.eval(name, lua_restorenx, pttl, data)
+        return self.eval(name, lua_restorenx, pttl, value)
+
+    def restore(self, name, value, pttl=0):
+        """
+        Restore serialized dump of a key back into redis
+        :param name: the name of the key
+        :param value: the binary representation of the key.
+        :param pttl: milliseconds till key expires
+        :return:
+        """
+        with self.pipe as pipe:
+            res = pipe.restore(self.redis_key(name), pttl, value)
+            f = Future()
+
+            def cb():
+                f.set(self._valueparse.decode(res.result))
+
+            pipe.on_execute(cb)
+            return f
 
     def ttl(self, name):
         """

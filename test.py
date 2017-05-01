@@ -703,6 +703,7 @@ class StringTestCase(BaseTestCase):
             key = '2'
             s = self.Data(pipe=pipe)
             restore = s.restore(key, serialize.result)
+            restorenx = s.restorenx(key, serialize.result)
             ref = s.get(key)
             idle = s.object(key, 'IDLETIME')
             persist = s.persist(key)
@@ -715,7 +716,8 @@ class StringTestCase(BaseTestCase):
             getaftersetex = s.get(key)
             ttl = s.ttl(key)
             psetex = s.psetex(key, 'bar', 6000)
-        self.assertEqual(restore.result, 1)
+        self.assertEqual(restore.result, 'OK')
+        self.assertEqual(restorenx.result, 0)
         self.assertEqual(ref, '2')
         self.assertEqual(str(s), '<Data>')
         self.assertEqual(idle, 0)

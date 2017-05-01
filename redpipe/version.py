@@ -1,3 +1,8 @@
+# -*- coding: utf-8 -*-
+"""
+Utility for grabbing the redpipe version string from the VERSION file.
+"""
+
 import os
 
 __all__ = ['__version__']

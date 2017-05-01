@@ -1,3 +1,11 @@
+# -*- coding: utf-8 -*-
+"""
+redpipe.structs
+---------------
+Experimental code based on patterns I've used elsewhere.
+Makes it possible to load data from redis as an object and access the fields.
+Then store changes back into redis.
+"""
 from six import add_metaclass
 from .pipelines import pipeline
 from .keyspaces import Hash
@@ -6,6 +14,12 @@ __all__ = ['Struct']
 
 
 class StructMeta(type):
+    """
+    Data binding of a redpipe.Hash to the core of the Struct object.
+    Creates it dynamically on class construction.
+    uses the _keyspace and _connection fields
+    Meta Classes are strange beasts.
+    """
     def __new__(mcs, name, bases, d):
         if name in ['Struct']:
             return type.__new__(mcs, name, bases, d)
@@ -22,6 +36,9 @@ class StructMeta(type):
 
 @add_metaclass(StructMeta)
 class Struct(object):
+    """
+    load and store structured data in redis using OOP patterns.
+    """
     __slots__ = ['key', '_data']
     _keyspace = None
     _connection = None

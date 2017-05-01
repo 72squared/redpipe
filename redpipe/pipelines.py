@@ -1,3 +1,13 @@
+# -*- coding: utf-8 -*-
+"""
+redpipe.pipelines
+-----------------
+This is where the magic happens.
+The most important components of redpipe are here.
+The Pipeline and NestedPipeline classes and the pipeline function enable
+us to pass pipeline functions into each other and attach redis calls to them.
+"""
+
 from .futures import Future
 from .connections import connector, resolve_connection_name
 from .tasks import promise, wait
