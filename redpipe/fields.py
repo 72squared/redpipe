@@ -49,6 +49,7 @@ class FloatField(object):
     Numeric field that supports integers and floats (values are turned into
     floats on load from persistence).
     """
+
     @classmethod
     def decode(cls, value):
         return float(value)
@@ -68,6 +69,7 @@ class IntegerField(object):
     """
     Used for integer numeric fields.
     """
+
     @classmethod
     def decode(cls, value):
         return int(value)
@@ -102,7 +104,7 @@ class TextField(object):
 
     @classmethod
     def decode(cls, value):
-        return unicode(value.decode(cls._encoding))
+        return None if value is None else unicode(value.decode(cls._encoding))
 
 
 class AsciiField(TextField):
@@ -137,7 +139,7 @@ class BinaryField(object):
 
     @classmethod
     def decode(cls, value):
-        return bytes(value)
+        return None if value is None else bytes(value)
 
 
 class ListField(object):

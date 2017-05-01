@@ -875,7 +875,7 @@ class SetTestCase(BaseTestCase):
             sinterstore_get = s.smembers(key3)
             sunion = s.sunion(key1, key2)
             sunionstore = s.sunionstore(key3, key1, key2)
-            sunionstore_get = s.members(key3)
+            sunionstore_get = s.smembers(key3)
 
         self.assertEqual(sdiff, {'e', 'd'})
         self.assertEqual(sinter, {'a', 'b'})
