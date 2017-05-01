@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 
 """
-redpipe.luascripts
-------------------
 Some utility lua scripts used to extend some functionality in redis.
 It also let's me exercise the eval code path a bit.
 """

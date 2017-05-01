@@ -1,3 +1,8 @@
+# -*- coding: utf-8 -*-
+"""
+The `Future()` object defined here allows us to
+"""
+
 from .exceptions import ResultNotReady
 import json
 

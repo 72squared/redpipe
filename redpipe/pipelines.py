@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-redpipe.pipelines
------------------
 This is where the magic happens.
 The most important components of redpipe are here.
 The Pipeline and NestedPipeline classes and the pipeline function enable
@@ -362,6 +360,9 @@ def pipeline(pipe=None, name=None, autocommit=False):
     It all happens here.
 
     Here's a simple example:
+
+    .. code:: python
+
         with pipeline() as pipe:
             pipe.set('foo', 'bar')
             foo = pipe.get('foo')
@@ -370,6 +371,9 @@ def pipeline(pipe=None, name=None, autocommit=False):
         > bar
 
     Now let's look at how we can nest a pipeline.
+
+    .. code:: python
+
         def process(key, pipe=None):
             with pipeline(pipe, autocommit=True) as pipe:
                 return pipe.incr(key)
@@ -380,13 +384,14 @@ def pipeline(pipe=None, name=None, autocommit=False):
             pipe.execute()
 
         print([key1, key2])
+
         > [1, 1]
 
 
     :param pipe: a Pipeline() or NestedPipeline() object, or None
     :param name: str, optional. the name of the connection to use.
     :param autocommit: bool, if true, implicitly execute the pipe
-    :return:
+    :return: Pipeline or NestedPipeline
     """
     name = resolve_connection_name(name)
     if pipe is None:

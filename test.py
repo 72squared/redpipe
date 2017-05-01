@@ -463,7 +463,7 @@ class ConnectTestCase(unittest.TestCase):
         redpipe.connect_redis(r)
         redpipe.connect_redis(
             redis.Redis(connection_pool=r.connection_pool))
-        redpipe.connect(r.pipeline)
+        redpipe.connect_redis(r)
 
         self.assertRaises(
             redpipe.AlreadyConnected,

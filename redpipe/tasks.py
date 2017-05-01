@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-redpipe.tasks
--------------
 When sending commands to multiple redis backends in one redpipe.pipeline,
 this module gives us an api to allow threaded async communication to those
 different backends, improving parallelism.

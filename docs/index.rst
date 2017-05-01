@@ -51,8 +51,8 @@ More on this later.
 -------------------------------------
 
 
-Documentation
-=============
+Community Documentation
+=======================
 
 ..  toctree::
     :maxdepth: 2
@@ -82,6 +82,13 @@ Documentation
     authors
     faq
     todo
+
+API Documentation
+=================
+..  toctree::
+    :maxdepth: 3
+
+    redpipe
 
 
 .. |BuildStatus| image:: https://travis-ci.org/72squared/redpipe.svg?branch=master

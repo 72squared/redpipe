@@ -80,6 +80,7 @@ You can see we defined a few fields and gave them types that we can use in pytho
 The fields will perform basic data validation on the input and correctly serialize and deserialize from a *Redis* hash key.
 
 .. code:: python
+
     key = '1'
     with redpipe.pipeline(autocommit=True) as pipe:
         u = User(pipe=pipe)

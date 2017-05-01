@@ -19,6 +19,8 @@ Redpipe makes redis pipelines easier to use in python.
 
 Usage:
 
+.. code: python
+
     import redpipe
     import redis
 
@@ -29,7 +31,7 @@ Usage:
         pipe.execute()
     print([foo, bar])
 
-For more information, see docs: http://redpipe.readthedocs.io/
+
 """
 from .version import __version__  # noqa
 from .pipelines import *  # noqa

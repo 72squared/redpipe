@@ -1,9 +1,6 @@
 # -*- coding: utf-8 -*-
 
 """
-redpipe.keyspaces
------------------
-
 This module provides a way to access keys grouped under a certain keyspace.
 A keyspace is a convention used often in redis where many keys are grouped
 logically together.
@@ -58,6 +55,11 @@ class Keyspace(object):
 
     def __init__(self, pipe=None):
         """
+        Creates a new keyspace.
+        Optionally pass in a pipeline object.
+        If you pass in a pipeline, all commands to this instance will be
+        pipelined.
+
         :param pipe: optional Pipeline or NestedPipeline
         """
         self._pipe = pipe
@@ -67,6 +69,7 @@ class Keyspace(object):
         """
         Get the key we pass to redis.
         If no namespace is declared, it will use the class name.
+
         :param name: str     the name of the redis key
         :return: str
         """
@@ -78,6 +81,7 @@ class Keyspace(object):
     def pipe(self):
         """
         Get a fresh pipeline() to be used in a `with` block.
+
         :return: pipeline(autocommit=True)
         """
         return pipeline(self._pipe, name=self._connection, autocommit=True)
@@ -85,6 +89,7 @@ class Keyspace(object):
     def delete(self, name):
         """
         Remove the key from redis
+
         :param name: str     the name of the redis key
         :return: Future()
         """
@@ -94,6 +99,7 @@ class Keyspace(object):
     def expire(self, name, time):
         """
         Allow the key to expire after ``time`` seconds.
+
         :param name: str     the name of the redis key
         :param time: time expressed in seconds.
         :return: Future()
@@ -104,6 +110,7 @@ class Keyspace(object):
     def exists(self, name):
         """
         does the key exist in redis?
+
         :param name: str the name of the redis key
         :return: Future()
         """
@@ -116,6 +123,7 @@ class Keyspace(object):
         Doesn't support multi-key lua operations because
         we wouldn't be able to know what argument to namespace.
         Also, redis cluster doesn't really support multi-key operations.
+
         :param name: str     the name of the redis key
         :param script: str  A lua script targeting the current key.
         :param args: arguments to be passed to redis for the lua script
@@ -127,6 +135,7 @@ class Keyspace(object):
     def dump(self, name):
         """
         get a redis RDB-like serialization of the object.
+
         :param name: str     the name of the redis key
         :return: Future()
         """
@@ -136,6 +145,7 @@ class Keyspace(object):
     def restorenx(self, name, value, pttl=0):
         """
         Restore serialized dump of a key back into redis
+
         :param name: str     the name of the redis key
         :param value: redis RDB-like serialization
         :param pttl: milliseconds till key expires
@@ -146,6 +156,7 @@ class Keyspace(object):
     def restore(self, name, value, pttl=0):
         """
         Restore serialized dump of a key back into redis
+
         :param name: the name of the key
         :param value: the binary representation of the key.
         :param pttl: milliseconds till key expires
@@ -164,6 +175,7 @@ class Keyspace(object):
     def ttl(self, name):
         """
         get the number of seconds until the key's expiration
+
         :param name: str     the name of the redis key
         :return: Future()
         """
@@ -173,6 +185,7 @@ class Keyspace(object):
     def persist(self, name):
         """
         clear any expiration TTL set on the object
+
         :param name: str     the name of the redis key
         :return: Future()
         """
@@ -184,6 +197,10 @@ class Keyspace(object):
         Set an expire flag on key ``name`` for ``time`` milliseconds.
         ``time`` can be represented by an integer or a Python timedelta
         object.
+
+        :param name: str
+        :param time: int or timedelta
+        :return Future
         """
         with self.pipe as pipe:
             return pipe.pexpire(self.redis_key(name), time)
@@ -200,6 +217,7 @@ class Keyspace(object):
     def pttl(self, name):
         """
         Returns the number of milliseconds until the key ``name`` will expire
+
         :param name: str    the name of the redis key
         :return:
         """
@@ -221,6 +239,7 @@ class Keyspace(object):
     def object(self, name, subcommand):
         """
         get the key's info stats
+
         :param name: str     the name of the redis key
         :param subcommand: REFCOUNT | ENCODING | IDLETIME
         :return: Future()
@@ -231,6 +250,7 @@ class Keyspace(object):
     def __str__(cls):
         """
         A string representation of the Collection
+
         :return: str
         """
         return "<%s>" % cls.__name__
@@ -345,6 +365,7 @@ class String(Keyspace):
     def get(self, name):
         """
         Return the value of the key or None if the key doesn't exist
+
         :param name: str     the name of the redis key
         :return: Future()
         """
@@ -368,10 +389,11 @@ class String(Keyspace):
         ``px`` sets an expire flag on key ``name`` for ``px`` milliseconds.
 
         ``nx`` if set to True, set the value at key ``name`` to ``value`` if it
-            does not already exist.
+        does not already exist.
 
         ``xx`` if set to True, set the value at key ``name`` to ``value`` if it
-            already exists.
+        already exists.
+
         :param name: str     the name of the redis key
         :return: Future()
         """
@@ -383,6 +405,7 @@ class String(Keyspace):
     def setnx(self, name, value):
         """
         Set the value as a string in the key only if the key doesn't exist.
+
         :param name: str     the name of the redis key
         :param value:
         :return: Future()
@@ -396,6 +419,7 @@ class String(Keyspace):
         Set the value of key to ``value`` that expires in ``time``
         seconds. ``time`` can be represented by an integer or a Python
         timedelta object.
+
         :param name: str     the name of the redis key
         :param value: str
         :param time: secs
@@ -419,6 +443,7 @@ class String(Keyspace):
         Appends the string ``value`` to the value at ``key``. If ``key``
         doesn't already exist, create it with a value of ``value``.
         Returns the new length of the value at ``key``.
+
         :param name: str     the name of the redis key
         :param value: str
         :return: Future()
@@ -430,6 +455,7 @@ class String(Keyspace):
     def strlen(self, name):
         """
         Return the number of bytes stored in the value of the key
+
         :param name: str     the name of the redis key
         :return: Future()
         """
@@ -440,6 +466,7 @@ class String(Keyspace):
         """
         Return a substring of the string at key ``name``. ``start`` and ``end``
         are 0-based integers specifying the portion of the string to return.
+
         :param name: str     the name of the redis key
         :param start: int
         :param end: int
@@ -478,6 +505,7 @@ class String(Keyspace):
         """
         Flag the ``offset`` in the key as ``value``. Returns a boolean
         indicating the previous value of ``offset``.
+
         :param name: str     the name of the redis key
         :param  offset: int
         :param value:
@@ -489,6 +517,7 @@ class String(Keyspace):
     def getbit(self, name, offset):
         """
         Returns a boolean indicating the value of ``offset`` in key
+
         :param name: str     the name of the redis key
         :param offset: int
         :return: Future()
@@ -500,6 +529,7 @@ class String(Keyspace):
         """
         Returns the count of set bits in the value of ``key``.  Optional
         ``start`` and ``end`` paramaters indicate which bytes to consider
+
         :param name: str     the name of the redis key
         :param start: int
         :param end: int
@@ -511,6 +541,7 @@ class String(Keyspace):
     def incr(self, name, amount=1):
         """
         increment the value for key by 1
+
         :param name: str     the name of the redis key
         :param amount: int
         :return: Future()
@@ -521,6 +552,7 @@ class String(Keyspace):
     def incrby(self, name, amount=1):
         """
         increment the value for key by value: int
+
         :param name: str     the name of the redis key
         :param amount: int
         :return: Future()
@@ -531,6 +563,7 @@ class String(Keyspace):
     def incrbyfloat(self, name, amount=1.0):
         """
         increment the value for key by value: float
+
         :param name: str     the name of the redis key
         :param value: int
         :return: Future()
@@ -539,13 +572,39 @@ class String(Keyspace):
             return pipe.incrbyfloat(self.redis_key(name), amount=amount)
 
     def __getitem__(self, name):
+        """
+        magic python method that makes the class behave like a dictionary.
+
+        use to access elements.
+
+        :param name:
+        :return:
+        """
         return self.get(name)
 
     def __setitem__(self, name, value):
+        """
+        magic python method that makes the class behave like a dictionary.
+
+        use to set elements.
+
+        :param name:
+        :param value:
+        :return:
+        """
         self.set(name, value)
 
 
 def _parse_values(values, extra=None):
+    """
+    Utility function to flatten out args.
+
+    For internal use only.
+
+    :param values: list, tuple, or str
+    :param extra: list or None
+    :return: list
+    """
     coerced = list(values)
 
     if coerced == values:
@@ -568,7 +627,13 @@ class Set(Keyspace):
     """
 
     def sdiff(self, keys, *args):
-        "Return the difference of sets specified by ``keys``"
+        """
+        Return the difference of sets specified by ``keys``
+
+        :param keys: list
+        :param args: tuple
+        :return: Future()
+        """
         keys = [self.redis_key(k) for k in _parse_values(keys, args)]
 
         with self.pipe as pipe:
@@ -592,7 +657,14 @@ class Set(Keyspace):
             return pipe.sdiffstore(self.redis_key(dest), *keys)
 
     def sinter(self, keys, *args):
-        "Return the intersection of sets specified by ``keys``"
+        """
+        Return the intersection of sets specified by ``keys``
+
+        :param keys: list or str
+        :param args: tuple
+        :return: Future
+        """
+
         keys = [self.redis_key(k) for k in _parse_values(keys, args)]
         with self.pipe as pipe:
             res = pipe.sinter(*keys)
@@ -614,7 +686,13 @@ class Set(Keyspace):
             return pipe.sinterstore(self.redis_key(dest), keys)
 
     def sunion(self, keys, *args):
-        "Return the union of sets specified by ``keys``"
+        """
+        Return the union of sets specified by ``keys``
+
+        :param keys: list or str
+        :param args: tuple
+        :return: Future()
+        """
         keys = [self.redis_key(k) for k in _parse_values(keys, args)]
         with self.pipe as pipe:
             res = pipe.sunion(*keys)
@@ -638,6 +716,7 @@ class Set(Keyspace):
     def sadd(self, name, values, *args):
         """
         Add the specified members to the Set.
+
         :param name: str     the name of the redis key
         :param values: a list of values or a simple value.
         :return: Future()
@@ -650,6 +729,7 @@ class Set(Keyspace):
     def srem(self, name, *values):
         """
         Remove the values from the Set if they are present.
+
         :param name: str     the name of the redis key
         :param values: a list of values or a simple value.
         :return: Future()
@@ -662,6 +742,7 @@ class Set(Keyspace):
     def spop(self, name):
         """
         Remove and return (pop) a random element from the Set.
+
         :param name: str     the name of the redis key
         :return: Future()
         """
@@ -678,6 +759,7 @@ class Set(Keyspace):
     def smembers(self, name):
         """
         get the set of all members for key
+
         :param name: str     the name of the redis key
         :return:
         """
@@ -694,6 +776,7 @@ class Set(Keyspace):
     def scard(self, name):
         """
         How many items in the set?
+
         :param name: str     the name of the redis key
         :return: Future()
 
@@ -704,8 +787,9 @@ class Set(Keyspace):
     def sismember(self, name, value):
         """
         Is the provided value is in the ``Set`?
+
         :param name: str     the name of the redis key
-        :param value:
+        :param value: str
         :return: Future()
         """
         with self.pipe as pipe:
@@ -715,6 +799,7 @@ class Set(Keyspace):
     def srandmember(self, name):
         """
         Return a random member of the set.
+
         :param name: str     the name of the redis key
         :return: Future()
         """
@@ -736,6 +821,7 @@ class Set(Keyspace):
         ``match`` allows for filtering the keys by pattern
 
         ``count`` allows for hint the minimum number of returns
+
         :param name: str     the name of the redis key
         :param cursor: int
         :param match: str
@@ -760,6 +846,7 @@ class Set(Keyspace):
         ``match`` allows for filtering the keys by pattern
 
         ``count`` allows for hint the minimum number of returns
+
         :param name: str     the name of the redis key
         :param match: str
         :param count: int
@@ -867,6 +954,7 @@ class List(Keyspace):
     def llen(self, name):
         """
         Returns the length of the list.
+
         :param name: str     the name of the redis key
         :return: Future()
         """
@@ -876,6 +964,7 @@ class List(Keyspace):
     def lrange(self, name, start, stop):
         """
         Returns a range of items.
+
         :param name: str     the name of the redis key
         :param start: integer representing the start index of the range
         :param stop: integer representing the size of the list.
@@ -894,6 +983,7 @@ class List(Keyspace):
     def lpush(self, name, *values):
         """
         Push the value into the list from the *left* side
+
         :param name: str     the name of the redis key
         :param values: a list of values or single value to push
         :return: Future()
@@ -906,6 +996,7 @@ class List(Keyspace):
     def rpush(self, name, *values):
         """
         Push the value into the list from the *right* side
+
         :param name: str     the name of the redis key
         :param values: a list of values or single value to push
         :return: Future()
@@ -918,6 +1009,7 @@ class List(Keyspace):
     def lpop(self, name):
         """
         Pop the first object from the left.
+
         :param name: str     the name of the redis key
         :return: Future()
 
@@ -935,6 +1027,7 @@ class List(Keyspace):
     def rpop(self, name):
         """
         Pop the first object from the right.
+
         :param name: str     the name of the redis key
         :return: the popped value.
         """
@@ -966,6 +1059,7 @@ class List(Keyspace):
     def lrem(self, name, value, num=1):
         """
         Remove first occurrence of value.
+
         :param name: str     the name of the redis key
         :param num:
         :param value:
@@ -978,6 +1072,7 @@ class List(Keyspace):
     def ltrim(self, name, start, end):
         """
         Trim the list from start to end.
+
         :param name: str     the name of the redis key
         :param start:
         :param end:
@@ -989,6 +1084,7 @@ class List(Keyspace):
     def lindex(self, name, idx):
         """
         Return the value at the index *idx*
+
         :param name: str     the name of the redis key
         :param idx: the index to fetch the value.
         :return: Future()
@@ -1006,6 +1102,7 @@ class List(Keyspace):
     def lset(self, name, idx, value):
         """
         Set the value in the list at index *idx*
+
         :param name: str     the name of the redis key
         :param value:
         :param idx:
@@ -1034,6 +1131,7 @@ class SortedSet(Keyspace):
              xx=False, ch=False, incr=False):
         """
         Add members in the set and assign them the score.
+
         :param name: str     the name of the redis key
         :param members: a list of item or a single item
         :param score: the score the assign to the item(s)
@@ -1071,6 +1169,7 @@ class SortedSet(Keyspace):
     def zrem(self, name, *values):
         """
         Remove the values from the SortedSet
+
         :param name: str     the name of the redis key
         :param values:
         :return: True if **at least one** value is successfully
@@ -1084,6 +1183,7 @@ class SortedSet(Keyspace):
     def zincrby(self, name, member, increment):
         """
         Increment the score of the item by `value`
+
         :param name: str     the name of the redis key
         :param member:
         :param increment:
@@ -1096,6 +1196,7 @@ class SortedSet(Keyspace):
     def zrevrank(self, name, member):
         """
         Returns the ranking in reverse order for the member
+
         :param name: str     the name of the redis key
         :param member: str
         """
@@ -1108,6 +1209,7 @@ class SortedSet(Keyspace):
         """
         Returns all the elements including between ``start`` (non included)
         and ``stop`` (included).
+
         :param name: str     the name of the redis key
         :param start:
         :param end:
@@ -1137,6 +1239,7 @@ class SortedSet(Keyspace):
         """
         Returns the range of items included between ``start`` and ``stop``
         in reverse order (from high to low)
+
         :param name: str     the name of the redis key
         :param start:
         :param end:
@@ -1165,6 +1268,7 @@ class SortedSet(Keyspace):
                       withscores=False, score_cast_func=float):
         """
         Returns the range of elements included between the scores (min and max)
+
         :param name: str     the name of the redis key
         :param min:
         :param max:
@@ -1204,6 +1308,7 @@ class SortedSet(Keyspace):
         The return type is a list of (value, score) pairs
 
         `score_cast_func`` a callable used to cast the score return value
+
         :param name: str     the name of the redis key
         :param max: int
         :param min: int
@@ -1233,6 +1338,7 @@ class SortedSet(Keyspace):
     def zcard(self, name):
         """
         Returns the cardinality of the SortedSet.
+
         :param name: str     the name of the redis key
         :return: Future()
         """
@@ -1242,6 +1348,7 @@ class SortedSet(Keyspace):
     def zscore(self, name, elem):
         """
         Return the score of an element
+
         :param name: str     the name of the redis key
         :param elem:
         :return: Future()
@@ -1254,6 +1361,7 @@ class SortedSet(Keyspace):
         """
         Remove a range of element between the rank ``start`` and
         ``stop`` both included.
+
         :param name: str     the name of the redis key
         :param stop:
         :param start:
@@ -1266,6 +1374,7 @@ class SortedSet(Keyspace):
         """
         Remove a range of element by between score ``min_value`` and
         ``max_value`` both included.
+
         :param name: str     the name of the redis key
         :param max_value:
         :param min_value:
@@ -1278,6 +1387,7 @@ class SortedSet(Keyspace):
     def zrank(self, name, elem):
         """
         Returns the rank of the element.
+
         :param name: str     the name of the redis key
         :param elem:
         """
@@ -1289,6 +1399,7 @@ class SortedSet(Keyspace):
         """
         Return the number of items in the sorted set between the
         lexicographical range ``min`` and ``max``.
+
         :param name: str     the name of the redis key
         :param min: int or '-inf'
         :param max: int or '+inf'
@@ -1305,6 +1416,7 @@ class SortedSet(Keyspace):
 
         If ``start`` and ``num`` are specified, then return a slice of the
         range.
+
         :param name: str     the name of the redis key
         :param min: int or '-inf'
         :param max: int or '+inf'
@@ -1331,6 +1443,7 @@ class SortedSet(Keyspace):
 
         If ``start`` and ``num`` are specified, then return a slice of the
         range.
+
         :param name: str     the name of the redis key
         :param max: int or '+inf'
         :param min: int or '-inf'
@@ -1440,6 +1553,13 @@ class Hash(Keyspace):
     _memberparse = TextField
 
     def _value_encode(self, member, value):
+        """
+        Internal method used to encode values into the hash.
+
+        :param member: str
+        :param value: multi
+        :return: bytes
+        """
         try:
             field_validator = self._fields[member]
         except KeyError:
@@ -1448,6 +1568,13 @@ class Hash(Keyspace):
         return field_validator.encode(value)
 
     def _value_decode(self, member, value):
+        """
+        Internal method used to decode values from redis hash
+
+        :param member: str
+        :param value: bytes
+        :return: multi
+        """
         if value is None:
             return None
         try:
@@ -1460,6 +1587,7 @@ class Hash(Keyspace):
     def hlen(self, name):
         """
         Returns the number of elements in the Hash.
+
         :param name: str     the name of the redis key
         :return: Future()
         """
@@ -1469,6 +1597,7 @@ class Hash(Keyspace):
     def hset(self, name, member, value):
         """
         Set ``member`` in the Hash at ``value``.
+
         :param name: str     the name of the redis key
         :param value:
         :param member:
@@ -1482,6 +1611,7 @@ class Hash(Keyspace):
     def hsetnx(self, name, member, value):
         """
         Set ``member`` in the Hash at ``value``.
+
         :param name: str     the name of the redis key
         :param value:
         :param member:
@@ -1495,6 +1625,7 @@ class Hash(Keyspace):
     def hdel(self, name, *keys):
         """
         Delete one or more hash field.
+
         :param name: str     the name of the redis key
         :param members: on or more fields to remove.
         :return: Future()
@@ -1506,9 +1637,10 @@ class Hash(Keyspace):
 
     def hkeys(self, name):
         """
-        Returns all fields name in the Hash
-        :param name: str     the name of the redis key
-        return: Future()
+        Returns all fields name in the Hash.
+
+        :param name: str, the name of the redis key
+        return: Future
         """
         with self.pipe as pipe:
             f = Future()
@@ -1524,6 +1656,7 @@ class Hash(Keyspace):
     def hgetall(self, name):
         """
         Returns all the fields and values in the Hash.
+
         :param name: str     the name of the redis key
         :return: Future()
         """
@@ -1549,6 +1682,7 @@ class Hash(Keyspace):
         Returns all the values in the Hash
         Unfortunately we can't type cast these fields.
         it is a useless call anyway imho.
+
         :param name: str     the name of the redis key
         :return: Future()
         """
@@ -1565,6 +1699,7 @@ class Hash(Keyspace):
     def hget(self, name, field):
         """
         Returns the value stored in the field, None if the field doesn't exist.
+
         :param name: str     the name of the redis key
         :param field:
         :return: Future()
@@ -1583,6 +1718,7 @@ class Hash(Keyspace):
     def hexists(self, name, field):
         """
         Returns ``True`` if the field exists, ``False`` otherwise.
+
         :param name: str     the name of the redis key
         :param field:
         :return: Future()
@@ -1594,6 +1730,7 @@ class Hash(Keyspace):
     def hincrby(self, name, field, increment=1):
         """
         Increment the value of the field.
+
         :param name: str     the name of the redis key
         :param increment: int
         :param field: str
@@ -1607,6 +1744,7 @@ class Hash(Keyspace):
     def hincrbyfloat(self, name, field, increment=1):
         """
         Increment the value of the field.
+
         :param name: str     the name of the redis key
         :param increment:
         :param field:
@@ -1620,6 +1758,7 @@ class Hash(Keyspace):
     def hmget(self, name, keys):
         """
         Returns the values stored in the fields.
+
         :param name: str     the name of the redis key
         :param fields:
         :return: Future()
@@ -1639,6 +1778,7 @@ class Hash(Keyspace):
     def hmset(self, name, mapping):
         """
         Sets or updates the fields with their corresponding values.
+
         :param name: str     the name of the redis key
         :param mapping: a dict with keys and values
         :return: Future()
@@ -1703,6 +1843,7 @@ class HyperLogLog(Keyspace):
     def pfadd(self, name, *values):
         """
         Adds the specified elements to the specified HyperLogLog.
+
         :param name: str     the name of the redis key
         :param values: list of str
         """
@@ -1715,6 +1856,7 @@ class HyperLogLog(Keyspace):
         """
         Return the approximated cardinality of
         the set observed by the HyperLogLog at key(s).
+
         :param name: str     the name of the redis key
         """
         with self.pipe as pipe:
@@ -1723,6 +1865,7 @@ class HyperLogLog(Keyspace):
     def pfmerge(self, dest, *sources):
         """
         Merge N different HyperLogLogs into a single one.
+
         :param dest:
         :param sources:
         :return:

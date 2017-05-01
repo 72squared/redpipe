@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+"""
+Bind instances of the redis-py or redis-py-cluster client to redpipe.
+Assign named connections to be able to talk to multiple redis servers in your
+project.
+"""
+
 from redis.client import StrictPipeline
 from .exceptions import AlreadyConnected, InvalidPipeline
 
@@ -6,7 +13,6 @@ __all__ = [
     'connector',
     'connect_redis',
     'connect_rediscluster',
-    'connect',
     'disconnect',
     'reset'
 ]
@@ -15,12 +21,27 @@ CONNECTION_DEFAULT_NAME = 'default'
 
 
 def resolve_connection_name(name=None):
+    """
+    Utility method for resolving the connection name
+
+    :param name: str or None
+    :return: str
+    """
     return CONNECTION_DEFAULT_NAME if name is None else name
 
 
 class ConnectionManager(object):
     """
     A Connection manager. Used as a singleton.
+
+    Don't invoke methods on this class directly.
+    Instead use the convenience methods defined in this module:
+
+    * connect_redis
+    * connect_redis_cluster
+    * disconnect
+    * reset
+
     """
     __slots__ = ['connections']
 
@@ -28,6 +49,14 @@ class ConnectionManager(object):
         self.connections = {}
 
     def get(self, name=None):
+        """
+        Get a new redis-py pipeline object or similar object.
+        Called by the redpipe.pipelines module.
+        Don't call this directly.
+
+        :param name: str
+        :return: callable implementing the redis-py pipeline interface.
+        """
         name = resolve_connection_name(name)
         try:
             return self.connections[name]()
@@ -38,6 +67,7 @@ class ConnectionManager(object):
         """
         Low level logic to bind a callable method to a name.
         Don't call this directly unless you know what you are doing.
+
         :param pipeline_method: callable
         :param name: str optional
         :return: None
@@ -56,6 +86,9 @@ class ConnectionManager(object):
                       transaction=True, shard_hint=None):
         """
         Store the redis connection in our connector instance.
+
+        Do this during your application bootstrapping.
+
         We grab the connection pool from the redis object
         and inject it into StrictPipeline.
         That way it doesn't matter if you pass in Redis or StrictRedis.
@@ -75,7 +108,8 @@ class ConnectionManager(object):
         def pipeline_method():
             """
             A closure wrapping the pipeline.
-            :return:
+
+            :return: redis.StrictPipeline()
             """
             return StrictPipeline(
                 connection_pool=connection_pool,
@@ -89,6 +123,9 @@ class ConnectionManager(object):
 
     def connect_rediscluster(self, redis_cluster_client, name=None):
         """
+        Call this during your application bootstrapping to link your instance
+        of redis-py-cluster to redpipe.
+
         redis-py-cluster internals are messy and have changed a lot
         so I can't be quite as elegant here as I was with redis.
         You really need to pass me the StrictRedisCluster object.
@@ -100,7 +137,8 @@ class ConnectionManager(object):
         def pipeline_method():
             """
             A closure wrapping the pipeline.
-            :return:
+
+            :return: rediscluster.StrictClusterPipeline()
             """
             return redis_cluster_client.pipeline()
 
@@ -111,6 +149,9 @@ class ConnectionManager(object):
         """
         remove a connection by name.
         If no name is passed in, it assumes default.
+
+        Useful for testing.
+
         :param name:
         :return:
         """
@@ -121,12 +162,83 @@ class ConnectionManager(object):
             pass
 
     def reset(self):
+        """
+        remove all connections.
+        Useful for testing scenarios.
+
+        :return: None
+        """
         self.connections = {}
 
 
 connector = ConnectionManager()
-connect_redis = connector.connect_redis
-connect_rediscluster = connector.connect_rediscluster
-connect = connector.connect
-disconnect = connector.disconnect
-reset = connector.reset
+
+
+def connect_redis(redis_client, name=None, transaction=True, shard_hint=None):
+    """
+    Connect your redis-py instance to redpipe.
+
+    Example:
+
+    .. code:: python
+
+        redpipe.connect_redis(redis.StrictRedis(), name='users')
+
+
+    Do this during your application bootstrapping.
+
+    :param redis_client:
+    :param name:
+    :param transaction:
+    :param shard_hint:
+    :return:
+    """
+    return connector.connect_redis(redis_client=redis_client,  name=name,
+                                   transaction=transaction,
+                                   shard_hint=shard_hint)
+
+
+def connect_rediscluster(redis_cluster_client, name=None):
+    """
+    Connect an instance of the redis-py-cluster client to redpipe.
+
+    Call this during your application bootstrapping.
+
+    Example:
+
+    .. code:: python
+
+        client = rediscluster.StrictRedisCluster(
+            startup_nodes=[{'host': '0', 'port': 7000}]
+        )
+        redpipe.connect_rediscluster(client, name='users')
+
+
+    """
+    return connector.connect_rediscluster(
+        redis_cluster_client=redis_cluster_client,
+        name=name
+    )
+
+
+def disconnect(name=None):
+    """
+    remove a connection by name.
+    If no name is passed in, it assumes default.
+
+    Useful for testing.
+
+    :param name:
+    :return: None
+    """
+    return connector.disconnect(name=name)
+
+
+def reset():
+    """
+    remove all connections.
+    Useful for testing scenarios.
+
+    :return: None
+    """
+    return connector.reset()

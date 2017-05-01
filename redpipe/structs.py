@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 """
-redpipe.structs
----------------
 Experimental code based on patterns I've used elsewhere.
 Makes it possible to load data from redis as an object and access the fields.
 Then store changes back into redis.

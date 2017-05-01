@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 
 """
-redpipe.fields
---------------
 A module for marshalling data in and out of redis and back into the python
 data type we expect.
 
@@ -41,6 +39,7 @@ class BooleanField(object):
         """
         convert a boolean value into something we can persist to redis.
         An empty string is the representation for False.
+
         :param value: bool
         :return: bytes
         """
@@ -53,6 +52,7 @@ class BooleanField(object):
     def decode(cls, value):
         """
         convert from redis bytes into a boolean value
+
         :param value: bytes
         :return: bool
         """
@@ -69,6 +69,7 @@ class FloatField(object):
     def decode(cls, value):
         """
         decode the bytes from redis back into a float
+
         :param value: bytes
         :return: float
         """
@@ -78,6 +79,7 @@ class FloatField(object):
     def encode(cls, value):
         """
         encode a floating point number to bytes in redis
+
         :param value: float
         :return: bytes
         """
@@ -99,6 +101,7 @@ class IntegerField(object):
     def decode(cls, value):
         """
         read bytes from redis and turn it back into an integer.
+
         :param value: bytes
         :return: int
         """
@@ -108,7 +111,8 @@ class IntegerField(object):
     def encode(cls, value):
         """
         take an integer and turn it into a string representation
-         to write into redis.
+        to write into redis.
+
         :param value: int
         :return: str
         """
@@ -135,6 +139,7 @@ class TextField(object):
     def encode(cls, value):
         """
         take a valid unicode string and turn it into utf-8 bytes
+
         :param value: unicode, str
         :return: bytes
         """
@@ -148,6 +153,7 @@ class TextField(object):
     def decode(cls, value):
         """
         take bytes from redis and turn them into unicode string
+
         :param value:
         :return:
         """
@@ -164,6 +170,7 @@ class AsciiField(TextField):
     def encode(cls, value):
         """
         take a list of strings and turn it into utf-8 byte-string
+
         :param value:
         :return:
         """
@@ -183,6 +190,7 @@ class BinaryField(object):
     def encode(cls, value):
         """
         write binary data into redis without encoding it.
+
         :param value: bytes
         :return: bytes
         """
@@ -199,6 +207,7 @@ class BinaryField(object):
     def decode(cls, value):
         """
         read binary data from redis and pass it on through.
+
         :param value: bytes
         :return: bytes
         """
@@ -216,6 +225,7 @@ class ListField(object):
     def encode(cls, value):
         """
         take a list and turn it into a utf-8 encoded byte-string for redis.
+
         :param value: list
         :return: bytes
         """
@@ -233,6 +243,7 @@ class ListField(object):
         """
         take a utf-8 encoded byte-string from redis and
         turn it back into a list
+
         :param value: bytes
         :return: list
         """
@@ -250,6 +261,7 @@ class DictField(object):
     def encode(cls, value):
         """
         encode the dict as a json string to be written into redis.
+
         :param value: dict
         :return: bytes
         """
@@ -265,6 +277,7 @@ class DictField(object):
     def decode(cls, value):
         """
         decode the data from a json string in redis back into a dict object.
+
         :param value: bytes
         :return: dict
         """
@@ -299,6 +312,7 @@ class StringListField(object):
     def encode(cls, value):
         """
         the list it so it can be stored in redis.
+
         :param value: list
         :return: bytes
         """
