@@ -358,6 +358,11 @@ class StructTestCase(BaseTestCase):
         self.assertEqual(core.hget(u.key, 'first_name'), 'Pebbles')
         self.assertEqual(u['first_name'], 'Pebbles')
         self.assertEqual(dict(u.copy()), dict(u))
+        self.assertEqual(u, dict(u))
+        self.assertEqual(u, u)
+        self.assertNotEqual(u, 1)
+        self.assertNotEqual(u, u.keys())
+        self.assertEqual({k for k in u}, set(u.keys()))
         del u['arbitrary_field']
         self.assertEqual(u.get('arbitrary_field'), None)
         self.assertEqual(core.hget(u.key, 'arbitrary_field'), None)
@@ -452,6 +457,35 @@ class StructTestCase(BaseTestCase):
         u = self.User('1', first_name='Bob')
         u = self.User('1')
         self.assertRaises(KeyError, lambda: u['last_name'])
+
+    def test_context(self):
+        u = self.User('1', first_name='Bob')
+        with u.pipeline():
+            u['first_name'] = 'Cool'
+            u['last_name'] = 'Dude'
+            self.assertEqual(u['first_name'], 'Bob')
+            self.assertRaises(KeyError, lambda: u['last_name'])
+        self.assertEqual(u['first_name'], 'Cool')
+        self.assertEqual(u['last_name'], 'Dude')
+
+    def test_context_reset(self):
+        u = self.User('1', first_name='Bob')
+        with u.pipeline():
+            u['first_name'] = 'Cool'
+            u['last_name'] = 'Dude'
+            u.reset()
+
+        self.assertEqual(u['first_name'], 'Bob')
+        self.assertRaises(KeyError, lambda: u['last_name'])
+
+    def test_context_no_pipe(self):
+        u = self.User('1', first_name='Bob')
+
+        def fail():
+            with u:
+                pass
+
+        self.assertRaises(redpipe.InvalidPipeline, fail)
 
 
 class ConnectTestCase(unittest.TestCase):

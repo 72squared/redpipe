@@ -9,6 +9,7 @@ from six import add_metaclass
 from .pipelines import pipeline
 from .keyspaces import Hash
 from .fields import TextField
+from .exceptions import InvalidPipeline
 
 __all__ = ['Struct']
 
@@ -20,6 +21,7 @@ class StructMeta(type):
     uses the _keyspace and _connection fields
     Meta Classes are strange beasts.
     """
+
     def __new__(mcs, name, bases, d):
         if name in ['Struct']:
             return type.__new__(mcs, name, bases, d)
@@ -42,12 +44,14 @@ class Struct(object):
     """
     load and store structured data in redis using OOP patterns.
     """
-    __slots__ = ['key', '_data']
+    __slots__ = ['key', '_data', '_pipe']
     _keyspace = None
     _connection = None
     _fields = {}
 
     def __init__(self, _key, pipe=None, **kwargs):
+
+        self._pipe = None
 
         if pipe is None and not kwargs:
             try:
@@ -80,7 +84,8 @@ class Struct(object):
         return self.change(pipe=pipe, **changes)
 
     def change(self, pipe=None, **changes):
-        with pipeline(pipe, name=self._connection, autocommit=True) as pipe:
+        with pipeline(pipe or self._pipe, name=self._connection,
+                      autocommit=True) as pipe:
             core = self.core(pipe=pipe)
 
             def build(k, v):
@@ -104,7 +109,8 @@ class Struct(object):
                 build(k, v)
 
     def remove(self, fields, pipe=None):
-        with pipeline(pipe, name=self._connection, autocommit=True) as pipe:
+        with pipeline(pipe or self._pipe, name=self._connection,
+                      autocommit=True) as pipe:
             core = self.core(pipe=pipe)
             core.hdel(self.key, *fields)
 
@@ -125,7 +131,8 @@ class Struct(object):
         return True if self._data else False
 
     def clear(self, pipe=None):
-        with pipeline(pipe, name=self._connection, autocommit=True) as pipe:
+        with pipeline(pipe or self._pipe, name=self._connection,
+                      autocommit=True) as pipe:
             self.core(pipe=pipe).delete(self.key)
 
             def cb():
@@ -149,8 +156,8 @@ class Struct(object):
         self.remove([key])
 
     def __iter__(self):
-        for k, v in self.items():
-            yield k, v
+        for k in self.keys():
+            yield k
 
     def __len__(self):
         return len(dict(self))
@@ -167,8 +174,46 @@ class Struct(object):
 
     iteritems = items
 
+    def __eq__(self, other):
+        if self is other:
+            return True
+        try:
+            if dict(self) == dict(other):
+                return True
+        except (TypeError, ValueError):
+            pass
+
+        return False
+
+    def keys(self):
+        return [row[0] for row in self.items()]
+
     def __str__(self):
         return "<%s:%s>" % (self.__class__.__name__, self.key)
 
     def __repr__(self):
         return json.dumps(dict(self))
+
+    def __enter__(self):
+        if not self._pipe:
+            raise InvalidPipeline(
+                'entering a struct context requires a pipeline')
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        try:
+            pipe = self._pipe
+            if exc_type is None and pipe:
+                pipe.execute()
+        finally:
+            self.reset()
+
+    def reset(self):
+        pipe = self._pipe
+        self._pipe = None
+        if pipe is not None:
+            pipe.reset()
+
+    def pipeline(self, pipe=None):
+        self._pipe = pipeline(pipe)
+        return self
