@@ -94,6 +94,21 @@ class Struct(object):
     def key_name(self):
         return self._key_name or '_key'
 
+    def incr(self, field, amount=1, pipe=None):
+        with pipeline(pipe or self._pipe, name=self._connection,
+                      autocommit=True) as pipe:
+            core = self.core(pipe=pipe)
+            core.hincrby(self.key, field, amount)
+            ref = core.hget(self.key, field)
+
+            def cb():
+                self._data[field] = ref.result
+
+            pipe.on_execute(cb)
+
+    def decr(self, field, amount=1, pipe=None):
+        return self.incr(field, amount * -1, pipe=pipe)
+
     def update(self, changes, pipe=None):
         return self.change(pipe=pipe, **changes)
 

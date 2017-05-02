@@ -518,6 +518,60 @@ class StructTestCase(BaseTestCase):
         self.assertRaises(redpipe.InvalidOperation,
                           lambda: self.UserWithPk(data))
 
+    def test_incr(self):
+        key = '1'
+
+        class T(redpipe.Struct):
+            _keyspace = 'T'
+            _fields = {
+
+            }
+
+        field = 'arbitrary_field'
+        t = T(key)
+        t.incr(field)
+        self.assertEqual(t[field], '1')
+        with t.pipeline():
+            t.incr(field)
+            self.assertEqual(t[field], '1')
+
+        self.assertEqual(t[field], '2')
+
+        t.incr(field, 3)
+        self.assertEqual(t[field], '5')
+
+        t.decr(field)
+        self.assertEqual(t[field], '4')
+        t.decr(field, 2)
+        self.assertEqual(t[field], '2')
+
+    def test_typed_incr(self):
+        key = '1'
+
+        class T(redpipe.Struct):
+            _keyspace = 'T'
+            _fields = {
+                'counter': redpipe.IntegerField
+            }
+
+        field = 'counter'
+        t = T(key)
+        t.incr(field)
+        self.assertEqual(t[field], 1)
+        with t.pipeline():
+            t.incr(field)
+            self.assertEqual(t[field], 1)
+
+        self.assertEqual(t[field], 2)
+
+        t.incr(field, 3)
+        self.assertEqual(t[field], 5)
+
+        t.decr(field)
+        self.assertEqual(t[field], 4)
+        t.decr(field, 2)
+        self.assertEqual(t[field], 2)
+
 
 class ConnectTestCase(unittest.TestCase):
     def tearDown(self):
