@@ -8,6 +8,19 @@ We make no guarantees about backward compatibility.
 Once the api reaches **1.0.0**, all major and minor release notes will be well documented.
 Upgrade notes and any breaking changes will be described here and how to handle them.
 
+0.3.1 (May 2, 2017)
+-------------------
+Breaking changes in this release as well.
+Can only access data from a struct object like you would a dictionary.
+This is an important step because it disambiguates commands from data.
+And it enforces one consistent way to access data.
+All the methods on the `Struct` give it a dictionary interface.
+Easier to explain the mental model this way.
+
+* Improvements to `redpipe.Struct`.
+* Documentation improvements.
+
+
 0.3.0 (April 30, 2017)
 ----------------------
 BIG REFACTOR.
