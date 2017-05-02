@@ -322,20 +322,45 @@ class StructTestCase(BaseTestCase):
         self.assertTrue(u.persisted)
         u = self.User('1')
         self.assertTrue(u.persisted)
-        self.assertEqual(u.first_name, 'Fred')
+        self.assertEqual(u['first_name'], 'Fred')
         self.assertIn('U', str(u))
         self.assertIn('1', str(u))
-        self.assertEqual(u.last_name, 'Flintstone')
+        self.assertEqual(u['last_name'], 'Flintstone')
         u.remove(['last_name', 'test_field'])
-        self.assertEqual(u.last_name, None)
+        self.assertRaises(KeyError, lambda: u['last_name'])
         self.assertRaises(AttributeError, lambda: u.non_existent_field)
-        u.change(first_name='Wilma')
-        self.assertEqual(u.first_name, 'Wilma')
+        u.update({'first_name': 'Wilma'})
+        u.change(arbitrary_field='a')
+        self.assertEqual(u['first_name'], 'Wilma')
         u = self.User('1')
-        self.assertEqual(u.first_name, 'Wilma')
+        core = self.User.core()
+        self.assertTrue(core.exists('1'))
+        self.assertEqual(u['first_name'], 'Wilma')
         self.assertEqual('Wilma', u['first_name'])
-        u.delete()
+        u_copy = dict(u)
+        u_clone = self.User(u)
+        u.clear()
+        self.assertFalse(core.exists('1'))
+        self.assertRaises(KeyError, lambda: u['first_name'])
+        self.assertEqual(u_clone['first_name'], 'Wilma')
         self.assertFalse(u.persisted)
+        u = self.User(**u_copy)
+        self.assertTrue(core.exists('1'))
+        self.assertEqual(u['first_name'], 'Wilma')
+        self.assertEqual(u['arbitrary_field'], 'a')
+        self.assertIn('_key', u)
+        self.assertEqual(u.key, '1')
+        self.assertEqual(u['_key'], '1')
+        self.assertEqual(repr(u), json.dumps(dict(u)))
+        self.assertEqual(len(u), 3)
+        self.assertIn('first_name', u)
+        u['first_name'] = 'Pebbles'
+        self.assertEqual(core.hget(u.key, 'first_name'), 'Pebbles')
+        self.assertEqual(u['first_name'], 'Pebbles')
+        self.assertEqual(dict(u.copy()), dict(u))
+        del u['arbitrary_field']
+        self.assertEqual(u.get('arbitrary_field'), None)
+        self.assertEqual(core.hget(u.key, 'arbitrary_field'), None)
 
     def create_user(self, k, pipe=None, **kwargs):
         u = self.User(
@@ -371,7 +396,7 @@ class StructTestCase(BaseTestCase):
             [True for _ in user_ids])
 
         self.assertEqual(
-            [u.b for u in retrieved_users],
+            [u['b'] for u in retrieved_users],
             ['123' for _ in retrieved_users])
 
     def test_fields(self):
@@ -394,7 +419,6 @@ class StructTestCase(BaseTestCase):
         expected = {'_key': 'm1'}
         expected.update(data)
         self.assertEqual(dict(m), expected)
-        self.assertEqual(m.boolean, data['boolean'])
         self.assertEqual(m['boolean'], data['boolean'])
         self.assertEqual(m.get('boolean'), data['boolean'])
         self.assertEqual(m.get('non_existent', 'foo'), 'foo')
@@ -418,18 +442,16 @@ class StructTestCase(BaseTestCase):
         u = self.User('1', first_name='Bob', last_name='smith',
                       nickname='BUBBA')
         u = self.User('1')
-        self.assertEqual(u._key, '1')
         self.assertEqual(u['_key'], '1')
-        self.assertEqual(u.nickname, 'BUBBA')
+        self.assertEqual(u['nickname'], 'BUBBA')
         self.assertEqual(u.get('nickname'), 'BUBBA')
         self.assertEqual(u.get('nonexistent', 'test'), 'test')
-        self.assertRaises(AttributeError, lambda: u.nonexistent)
         self.assertRaises(KeyError, lambda: u['nonexistent'])
 
     def test_missing_fields(self):
         u = self.User('1', first_name='Bob')
         u = self.User('1')
-        self.assertEqual(u.last_name, None)
+        self.assertRaises(KeyError, lambda: u['last_name'])
 
 
 class ConnectTestCase(unittest.TestCase):

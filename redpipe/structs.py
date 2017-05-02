@@ -4,9 +4,11 @@ Experimental code based on patterns I've used elsewhere.
 Makes it possible to load data from redis as an object and access the fields.
 Then store changes back into redis.
 """
+import json
 from six import add_metaclass
 from .pipelines import pipeline
 from .keyspaces import Hash
+from .fields import TextField
 
 __all__ = ['Struct']
 
@@ -26,6 +28,9 @@ class StructMeta(type):
             _keyspace = d.get('_keyspace', name)
             _connection = d.get('_connection', None)
             _fields = d.get('_fields', {})
+            _keyparse = d.get('_keyparse', TextField)
+            _valueparse = d.get('_valueparse', TextField)
+            _memberparse = d.get('_memberparse', TextField)
 
         d['core'] = StructHash
 
@@ -42,8 +47,19 @@ class Struct(object):
     _connection = None
     _fields = {}
 
-    def __init__(self, key, pipe=None, **kwargs):
-        self.key = key
+    def __init__(self, _key, pipe=None, **kwargs):
+
+        if pipe is None and not kwargs:
+            try:
+                coerced = dict(_key)
+                self.key = coerced['_key']
+                del coerced['_key']
+                self._data = coerced
+                return
+            except (ValueError, TypeError, KeyError):
+                pass
+
+        self.key = _key
         self._data = {}
         with pipeline(pipe, name=self._connection, autocommit=True) as pipe:
             if kwargs:
@@ -59,6 +75,9 @@ class Struct(object):
                     self._data[k] = v
 
             pipe.on_execute(cb)
+
+    def update(self, changes, pipe=None):
+        return self.change(pipe=pipe, **changes)
 
     def change(self, pipe=None, **changes):
         with pipeline(pipe, name=self._connection, autocommit=True) as pipe:
@@ -98,11 +117,14 @@ class Struct(object):
 
             pipe.on_execute(cb)
 
+    def copy(self):
+        return self.__class__(dict(self))
+
     @property
     def persisted(self):
         return True if self._data else False
 
-    def delete(self, pipe=None):
+    def clear(self, pipe=None):
         with pipeline(pipe, name=self._connection, autocommit=True) as pipe:
             self.core(pipe=pipe).delete(self.key)
 
@@ -114,27 +136,29 @@ class Struct(object):
     def get(self, item, default=None):
         return self._data.get(item, default)
 
-    def __getattr__(self, item):
+    def __getitem__(self, item):
         if item == '_key':
             return self.key
 
-        try:
-            return self._data[item]
-        except KeyError:
-            pass
+        return self._data[item]
 
-        if item in self._fields:
-            return None
+    def __setitem__(self, key, value):
+        self.update({key: value})
 
-        raise AttributeError("%s not found in %s" %
-                             (item, self.__class__.__name__))
-
-    def __getitem__(self, item):
-        return self.key if item == '_key' else self._data[item]
+    def __delitem__(self, key):
+        self.remove([key])
 
     def __iter__(self):
         for k, v in self.items():
             yield k, v
+
+    def __len__(self):
+        return len(dict(self))
+
+    def __contains__(self, item):
+        if item == '_key':
+            return True
+        return item in self._data
 
     def items(self):
         yield '_key', self.key
@@ -145,3 +169,6 @@ class Struct(object):
 
     def __str__(self):
         return "<%s:%s>" % (self.__class__.__name__, self.key)
+
+    def __repr__(self):
+        return json.dumps(dict(self))
