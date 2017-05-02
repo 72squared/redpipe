@@ -3,9 +3,17 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to RedPipe's documentation!
-===================================
-*Making Redis pipelines easier to use in python.*
+RedPipe: Pain-Free Pipelining
+=============================
+Did you try to use Redis pipelines?
+Did it make you `headdesk <http://www.urbandictionary.com/headdesk>`_ repeatedly for an hour afterward?
+Oh the PAIN!!!
+Never fear.
+**RedPipe** will make you feel better almost immediately.
+
+If you have no idea what Redis is or why you should pipeline commands, `look it up <https://redis.io/topics/pipelining>`_ already.
+Really.
+
 
 |BuildStatus| |CoverageStatus| |Version| |Python| |Docs|
 
