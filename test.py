@@ -11,6 +11,7 @@ import rediscluster.exceptions
 import redpipe
 import redpipe.tasks
 import six
+import pickle
 
 # Tegalu: I can eat glass ...
 utf8_sample = u'నేను గాజు తినగలను మరియు అలా చేసినా నాకు ఏమి ఇబ్బంది లేదు'
@@ -1552,6 +1553,7 @@ class FutureDictTestCase(unittest.TestCase):
         self.assertEqual(self.future.id(), id(self.result))
         self.assertEqual(self.future['a'], self.result['a'])
         self.assertRaises(KeyError, lambda: self.future['xyz'])
+        self.assertEqual(pickle.loads(pickle.dumps(self.future)), self.result)
 
 
 class FutureListTestCase(unittest.TestCase):

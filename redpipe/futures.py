@@ -205,6 +205,12 @@ class Future(object):
 
         return getattr(self.result, name, default)
 
+    def __getstate__(self):
+        return self.result
+
+    def __setstate__(self, state):
+        self._result = state
+
     IS_REDPIPE_FUTURE = True
 
 
