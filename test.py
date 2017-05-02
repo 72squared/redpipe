@@ -314,6 +314,14 @@ class StructTestCase(BaseTestCase):
             'last_name': redpipe.TextField,
         }
 
+    class UserWithPk(redpipe.Struct):
+        _keyspace = 'U'
+        _key_name = 'user_id'
+        _fields = {
+            'first_name': redpipe.TextField,
+            'last_name': redpipe.TextField,
+        }
+
     def test(self):
         u = self.User('1')
         self.assertFalse(u.persisted)
@@ -367,8 +375,10 @@ class StructTestCase(BaseTestCase):
         self.assertEqual(u.get('arbitrary_field'), None)
         self.assertEqual(core.hget(u.key, 'arbitrary_field'), None)
 
-    def create_user(self, k, pipe=None, **kwargs):
-        u = self.User(
+    def create_user(self, k, pipe=None, klass=None, **kwargs):
+        if klass is None:
+            klass = self.User
+        u = klass(
             "%s" % k,
             pipe=pipe,
             first_name='first%s' % k,
@@ -486,6 +496,27 @@ class StructTestCase(BaseTestCase):
                 pass
 
         self.assertRaises(redpipe.InvalidPipeline, fail)
+
+    def test_remove_pk(self):
+        u = self.create_user('1')
+        self.assertRaises(redpipe.InvalidOperation,
+                          lambda: u.remove(['_key']))
+        self.assertRaises(redpipe.InvalidOperation,
+                          lambda: u.update({'_key': '2'}))
+
+    def test_custom_pk(self):
+        u = self.create_user('1', klass=self.UserWithPk)
+        self.assertEqual(u['user_id'], '1')
+        self.assertIn('user_id', u)
+        u_copy = self.UserWithPk(u)
+        self.assertEqual(u_copy, u)
+
+    def test_copy_with_no_pk(self):
+        data = {'first_name': 'Bill'}
+        self.assertRaises(redpipe.InvalidOperation,
+                          lambda: self.User(data))
+        self.assertRaises(redpipe.InvalidOperation,
+                          lambda: self.UserWithPk(data))
 
 
 class ConnectTestCase(unittest.TestCase):

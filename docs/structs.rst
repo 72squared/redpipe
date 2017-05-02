@@ -45,6 +45,7 @@ Here's an example of how to define a *Struct*.
     # set up a struct object.
     class User(redpipe.Struct):
         _keyspace = 'U'
+        _key_name = 'user_id'
         _fields = {
             'name': redpipe.TextField,
             'last_seen': redpipe.IntegerField,
@@ -79,11 +80,14 @@ We pass in a pipeline so we can combine the save operation with other network i/
     assert(u1['name'] == 'Bob')
     assert(u2['name'] == 'Jill')
     assert(isinstance(u1['last_seen'], int))
+    assert(u1['user_id'] == '1')
+    assert(u2['user_id'] == '2')
 
 
 When we exit the context, all the structs are saved to *Redis* in one pipeline operation.
 It also automatically loads any other data.
 Since the commands are batched together, you can write the keys then read the hash in one pass.
+
 
 Accessing the Data
 ------------------

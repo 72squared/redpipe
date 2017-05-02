@@ -9,7 +9,7 @@ from six import add_metaclass
 from .pipelines import pipeline
 from .keyspaces import Hash
 from .fields import TextField
-from .exceptions import InvalidPipeline
+from .exceptions import InvalidPipeline, InvalidOperation
 
 __all__ = ['Struct']
 
@@ -47,20 +47,25 @@ class Struct(object):
     __slots__ = ['key', '_data', '_pipe']
     _keyspace = None
     _connection = None
+    _key_name = None
     _fields = {}
 
     def __init__(self, _key, pipe=None, **kwargs):
 
         self._pipe = None
+        keyname = self.key_name
 
         if pipe is None and not kwargs:
             try:
                 coerced = dict(_key)
-                self.key = coerced['_key']
-                del coerced['_key']
+                self.key = coerced[keyname]
+                del coerced[keyname]
                 self._data = coerced
                 return
-            except (ValueError, TypeError, KeyError):
+            except KeyError:
+                raise InvalidOperation(
+                    'must specify primary key when copying a struct')
+            except (ValueError, TypeError):
                 pass
 
         self.key = _key
@@ -80,10 +85,17 @@ class Struct(object):
 
             pipe.on_execute(cb)
 
+    @property
+    def key_name(self):
+        return self._key_name or '_key'
+
     def update(self, changes, pipe=None):
         return self.change(pipe=pipe, **changes)
 
     def change(self, pipe=None, **changes):
+        if self.key_name in changes:
+            raise InvalidOperation('cannot change the primary key')
+
         with pipeline(pipe or self._pipe, name=self._connection,
                       autocommit=True) as pipe:
             core = self.core(pipe=pipe)
@@ -109,6 +121,9 @@ class Struct(object):
                 build(k, v)
 
     def remove(self, fields, pipe=None):
+        if self.key_name in fields:
+            raise InvalidOperation('cannot change the primary key')
+
         with pipeline(pipe or self._pipe, name=self._connection,
                       autocommit=True) as pipe:
             core = self.core(pipe=pipe)
@@ -144,7 +159,7 @@ class Struct(object):
         return self._data.get(item, default)
 
     def __getitem__(self, item):
-        if item == '_key':
+        if item == self.key_name:
             return self.key
 
         return self._data[item]
@@ -163,12 +178,12 @@ class Struct(object):
         return len(dict(self))
 
     def __contains__(self, item):
-        if item == '_key':
+        if item == self.key_name:
             return True
         return item in self._data
 
     def items(self):
-        yield '_key', self.key
+        yield self.key_name, self.key
         for k, v in self._data.items():
             yield k, v
 
