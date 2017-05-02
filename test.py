@@ -512,6 +512,9 @@ class StructTestCase(BaseTestCase):
         u_copy = self.UserWithPk(u)
         self.assertEqual(u_copy, u)
 
+        u = self.UserWithPk(user_id='1')
+        self.assertEqual(u_copy, u)
+
     def test_copy_with_no_pk(self):
         data = {'first_name': 'Bill'}
         self.assertRaises(redpipe.InvalidOperation,

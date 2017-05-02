@@ -246,4 +246,5 @@ def _json_default_encoder(func):
 
     return inner
 
+
 JSONEncoder.default = _json_default_encoder(JSONEncoder.default)
