@@ -69,14 +69,16 @@ More on this later.
 -------------------------------------
 
 
-Community Documentation
-=======================
+User Documentation
+==================
+This part of the documentation explains why you need RedPipe.
+Then it focuses on step-by-step instructions for getting the most out of RedPipe.
 
 ..  toctree::
     :maxdepth: 2
 
-    getting_started
     rationale
+    getting_started
     autocommit
     callbacks
     named_connections
@@ -85,23 +87,36 @@ Community Documentation
     keyspaces
     structs
     latency
-    tutorial
     project_status
     redis_cluster
     unicode
-    orm
-    inspiration
-    benchmarking
+    license
+    faq
+
+Community Documentation
+=======================
+This part of the documentation explains the RedPipe ecosystem.
+
+..  toctree::
+    :maxdepth: 2
+
     testing
+    benchmarking
+    inspiration
     disclaimer
     contributing
     release_notes
-    license
     authors
-    faq
+
 
 API Documentation
 =================
+This part of the documentation provides detailed API documentation.
+Dig into the source code and see how everything ties together.
+This is what is great about open-source projects.
+You can see everything.
+
+
 ..  toctree::
     :maxdepth: 3
 

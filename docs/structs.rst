@@ -3,22 +3,30 @@ Structs
 
 A *Struct* in redpipe is a dictionary-like object with persistence built in.
 
-Why not an ORM?
----------------
+Why no ORM?
+-----------
+An Object-Relational Mapping can make life much simpler.
+Automatic indexes, foreign keys, unique constraints, etc.
+It hides all that pesky complexity from you.
+If you want a good ORM for redis, check out `ROM <http://pythonhosted.org/rom/rom.html#documentation>`_.
+Or `redish <https://readthedocs.org/projects/redish/>`_.
+Both are pretty cool.
+
 *RedPipe* does not provide you with an ORM solution.
-Choose one of the many other packages for python to turn redis into a full-fledged ORM solution.
+
 Choose *Redpipe* if you really care about optimizing your network i/o.
 
-To optimize redis i/o, batch command operations together as much as possible.
+To optimize redis i/o, you need to batch command operations together as much as possible.
 ORMs often hide things like automatic unique constraints and indexes beneath the covers.
+It bundles lots of multi-step operations together, where one operation feeds another.
 That makes it tricky to ensure you are batching those operations efficently as possible over the network.
 
-RedPipe exposes these primitives.
-Keep the data structures simple.
+RedPipe exposes low level redis command primitives.
 Inputs and outputs.
-This allows us to construct with building blocks that can be pipelined efficiently.
+This allows you to construct building blocks that can be pipelined efficiently.
 
 However, we could make things a little bit nicer.
+
 
 Easy, Efficient I/O
 -------------------

@@ -1,7 +1,0 @@
-Tutorial
-========
-
-
-Sample application
-------------------
-

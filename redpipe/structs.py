@@ -50,14 +50,14 @@ class Struct(object):
     _key_name = None
     _fields = {}
 
-    def __init__(self, _key, pipe=None, **kwargs):
+    def __init__(self, _key_or_data=None, pipe=None, **kwargs):
 
         self._pipe = None
         keyname = self.key_name
 
         if pipe is None and not kwargs:
             try:
-                coerced = dict(_key)
+                coerced = dict(_key_or_data)
                 self.key = coerced[keyname]
                 del coerced[keyname]
                 self._data = coerced
@@ -68,11 +68,16 @@ class Struct(object):
             except (ValueError, TypeError):
                 pass
 
-        self.key = _key
+        self.key = _key_or_data
         self._data = {}
         with pipeline(pipe, name=self._connection, autocommit=True) as pipe:
             if kwargs:
-                self.change(pipe=pipe, **kwargs)
+                coerced = dict(kwargs)
+                if self.key is None:
+                    self.key = coerced[self.key_name]
+                    del coerced[self.key_name]
+
+                self.change(pipe=pipe, **coerced)
 
             ref = self.core(pipe=pipe).hgetall(self.key)
 
