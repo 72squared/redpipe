@@ -1546,6 +1546,9 @@ class FutureDictTestCase(unittest.TestCase):
         self.assertEqual([k for k in self.future], [k for k in self.result])
         self.assertTrue('a' in self.future)
         self.assertEqual(self.future.json, json.dumps(self.result))
+        self.assertEqual(json.dumps(self.future), json.dumps(self.result))
+        self.assertRaises(TypeError, lambda: json.dumps(object()))
+
         self.assertEqual(self.future.id(), id(self.result))
         self.assertEqual(self.future['a'], self.result['a'])
         self.assertRaises(KeyError, lambda: self.future['xyz'])
