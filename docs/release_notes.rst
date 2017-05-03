@@ -8,6 +8,24 @@ We make no guarantees about backward compatibility.
 Once the api reaches **1.0.0**, all major and minor release notes will be well documented.
 Upgrade notes and any breaking changes will be described here and how to handle them.
 
+0.3.2 (May 3, 2017)
+-------------------
+After experimenting with some things, simplifying Struct back down.
+Some of the methods in Struct will break.
+Easier to explain with fewer methods and can still do everything I need to.
+
+* cleaner support for items and iteritems in struct
+* support for delete in struct
+* fixed a bug with deleting multiple keys in Keyspace objects.
+* simplification on json serialization detection
+* test flake8 on travis
+* test with hiredis
+
+This release also improves the documentation on Struct.
+I hadn't bothered much up until this point.
+The interface was still solidifying.
+Starting to get to a stable place there.
+
 0.3.1 (May 2, 2017)
 -------------------
 Breaking changes in this release as well.
