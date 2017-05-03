@@ -222,12 +222,13 @@ class Struct(object):
             return True
         return item in self._data
 
-    def items(self):
+    def iteritems(self):
         yield self.key_name, self.key
         for k, v in self._data.items():
             yield k, v
 
-    iteritems = items
+    def items(self):
+        return [row for row in self.iteritems()]
 
     def __eq__(self, other):
         if self is other:
