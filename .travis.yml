@@ -11,6 +11,11 @@ python:
   - "pypy3"
 install:
   - pip install -r dev-requirements.txt
+  - "if [[ $HIREDIS == '1' ]]; then pip install hiredis; fi"
+env:
+  - HIREDIS=0
+  - HIREDIS=1
+
 
 script:
   - coverage erase
