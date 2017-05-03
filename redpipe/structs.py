@@ -186,9 +186,15 @@ class Struct(object):
 
         return f
 
-    def _pipe(self, pipe=None):
-        return pipeline(pipe, name=self._connection,
-                        autocommit=True)
+    @classmethod
+    def delete(cls, keys, pipe=None):
+        with cls._pipe(pipe) as pipe:
+            core = cls.core(pipe)
+            core.delete(*keys)
+
+    @classmethod
+    def _pipe(cls, pipe=None):
+        return pipeline(pipe, name=cls._connection, autocommit=True)
 
     def __getitem__(self, item):
         if item == self.key_name:

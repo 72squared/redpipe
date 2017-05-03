@@ -127,7 +127,7 @@ Let's read those two users we created and modify them.
 
     with redpipe.pipeline(autocommit=True) as pipe:
         users = [User('1', pipe=pipe), User('2', pipe=pipe)]
-        users[0].change(name='Bobby', last_seen=int(time()), pipe=pipe)
+        users[0].update({'name':'Bobby', 'last_seen': int(time())}, pipe=pipe)
         users[1].remove(['last_seen'])
 
     print("second batch: %s" % [dict(u1), dict(u2)])
@@ -137,6 +137,7 @@ Then we can change the fields we want at any point.
 Or we can remove fields we no longer want.
 
 Fields that are undefined can still be accessed as basic strings.
+
 
 Using the Underlying Hash
 -------------------------
@@ -149,52 +150,6 @@ From our earlier `User` struct example:
     username = User.core().hget('1', 'name')
 
 More on this later.
-
-Setting Data Elements
----------------------
-We can also set elements of the Struct just like we would a dictionary:
-
-.. code:: python
-
-    user = User('1')
-
-    with user.pipeline():
-        user['first_name'] = 'Jack'
-        user['admin'] = True
-        user['last_seen'] = int(time.time())
-
-    print(dict(user))
-
-You can see we opened up a pipeline object and then set attributes on the struct.
-When we exit the with block, the variables are set on the object and sent to redis.
-If you read the values you change before exiting the with block, the values would reflect the original values.
-Once the data is changed and committed to redis, it is reflected in the local object.
-if you need to bundle the changes with other operations, nest the pipeline.
-
-
-.. code:: python
-
-    user = User('1')
-
-    with redpipe.pipeline(autocommit=True) as pipe:
-        with user.pipeline(pipe):
-            user['first_name'] = 'Jack'
-            del user['admin']
-            user['last_seen'] = int(time.time())
-        pipe.execute()
-
-    print(dict(user))
-
-Notice in this example I remove a member from the hash by deleting it.
-
-And if you just need to modify one key, just do it. No pipeline explicitly needed:
-
-.. code:: python
-
-    user = User('1')
-    user['name'] = 'James'
-
-This will write data to redis as soon as you assign the variable.
 
 
 Deleting Structs
@@ -215,10 +170,14 @@ Of course you can pipeline it:
         user = User('1')
         user.clear(pipe)
 
-I want to create an easy way to delete a Struct without having to read it first.
-I could access the core but that seems kludgy.
-First class support coming.
-Stay tuned.
+If you need to delete a record without loading the record, you can call the Struct class method:
+
+.. code:: python
+
+    with redpipe.pipeline(autocommit=True) as pipe:
+        User.delete(['1', '2', '3'], pipe=pipe)
+
+
 
 
 Extra Fields
@@ -227,5 +186,12 @@ I touched on it briefly before, but you can store arbitrary data in a struct too
 The data will be simple string key-value pairs, but you can add type-casting at any point easily.
 
 
+Still Undocumented
+------------------
 
+Still need to explain these methods.
 
+* pop
+* copy
+* incr
+* decr

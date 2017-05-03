@@ -570,6 +570,20 @@ class StructTestCase(BaseTestCase):
         self.assertEqual(arbitrary_field, 2)
         self.assertEqual(t.get(field), None)
 
+    def test_delete(self):
+        keys = ['1', '2', '3']
+        for k in keys:
+            self.create_user(k)
+
+        for k in keys:
+            u = self.User(k)
+            self.assertTrue(u.persisted)
+
+        self.User.delete(keys)
+        for k in keys:
+            u = self.User(k)
+            self.assertFalse(u.persisted)
+
 
 class ConnectTestCase(unittest.TestCase):
     def tearDown(self):

@@ -86,15 +86,16 @@ class Keyspace(object):
         """
         return pipeline(self._pipe, name=self._connection, autocommit=True)
 
-    def delete(self, name):
+    def delete(self, *names):
         """
         Remove the key from redis
 
         :param name: str     the name of the redis key
         :return: Future()
         """
+        names = [self.redis_key(n) for n in names]
         with self.pipe as pipe:
-            return pipe.delete(self.redis_key(name))
+            return pipe.delete(*names)
 
     def expire(self, name, time):
         """
