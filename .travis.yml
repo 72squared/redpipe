@@ -20,6 +20,8 @@ env:
 script:
   - coverage erase
   - coverage run --source redpipe -p -m py.test test.py
+  - flake8 --exclude=./build,.venv*,.tox,dist
+
 after_success:
   - coverage combine
   - coveralls
