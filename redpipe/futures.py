@@ -211,7 +211,12 @@ class Future(object):
     def __setstate__(self, state):
         self._result = state
 
-    IS_REDPIPE_FUTURE = True
+    # this helps with duck-typing.
+    # when grabbing the property for json encoder,
+    # we can look for this unique attribute which is an alias for result
+    # and we can be reasonably sure it is not accidentally grabbing
+    # some other type of object.
+    redpipe_future_result = result
 
 
 def _json_default_encoder(func):
@@ -238,8 +243,7 @@ def _json_default_encoder(func):
     @wraps(func)
     def inner(self, o):
         try:
-            if o.IS_REDPIPE_FUTURE:
-                return o.result
+            return o.redpipe_future_result
         except AttributeError:
             pass
         return func(self, o)
