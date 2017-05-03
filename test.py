@@ -338,14 +338,24 @@ class StructTestCase(BaseTestCase):
         u.remove(['last_name', 'test_field'])
         self.assertRaises(KeyError, lambda: u['last_name'])
         self.assertRaises(AttributeError, lambda: u.non_existent_field)
-        u.update({'first_name': 'Wilma'})
-        u.change(arbitrary_field='a')
+        u.update({'first_name': 'Wilma', 'arbitrary_field': 'a'})
         self.assertEqual(u['first_name'], 'Wilma')
         u = self.User('1')
         core = self.User.core()
         self.assertTrue(core.exists('1'))
         self.assertEqual(u['first_name'], 'Wilma')
         self.assertEqual('Wilma', u['first_name'])
+
+        def set_first_name():
+            u['first_name'] = 'a'
+
+        self.assertRaises(redpipe.InvalidOperation, set_first_name)
+
+        def delete_first_name():
+            del u['first_name']
+
+        self.assertRaises(redpipe.InvalidOperation, delete_first_name)
+
         u_copy = dict(u)
         u_clone = self.User(u)
         u.clear()
@@ -363,7 +373,7 @@ class StructTestCase(BaseTestCase):
         self.assertEqual(repr(u), json.dumps(dict(u)))
         self.assertEqual(len(u), 3)
         self.assertIn('first_name', u)
-        u['first_name'] = 'Pebbles'
+        u.update({'first_name': 'Pebbles'})
         self.assertEqual(core.hget(u.key, 'first_name'), 'Pebbles')
         self.assertEqual(u['first_name'], 'Pebbles')
         self.assertEqual(dict(u.copy()), dict(u))
@@ -372,7 +382,7 @@ class StructTestCase(BaseTestCase):
         self.assertNotEqual(u, 1)
         self.assertNotEqual(u, u.keys())
         self.assertEqual({k for k in u}, set(u.keys()))
-        del u['arbitrary_field']
+        u.remove(['arbitrary_field'])
         self.assertEqual(u.get('arbitrary_field'), None)
         self.assertEqual(core.hget(u.key, 'arbitrary_field'), None)
 
@@ -469,34 +479,15 @@ class StructTestCase(BaseTestCase):
         u = self.User('1')
         self.assertRaises(KeyError, lambda: u['last_name'])
 
-    def test_context(self):
+    def test_set(self):
         u = self.User('1', first_name='Bob')
-        with u.pipeline():
-            u['first_name'] = 'Cool'
-            u['last_name'] = 'Dude'
+        with redpipe.pipeline(autocommit=True) as pipe:
+            u.update({'first_name': 'Cool', 'last_name': 'Dude'}, pipe=pipe)
+
             self.assertEqual(u['first_name'], 'Bob')
             self.assertRaises(KeyError, lambda: u['last_name'])
         self.assertEqual(u['first_name'], 'Cool')
         self.assertEqual(u['last_name'], 'Dude')
-
-    def test_context_reset(self):
-        u = self.User('1', first_name='Bob')
-        with u.pipeline():
-            u['first_name'] = 'Cool'
-            u['last_name'] = 'Dude'
-            u.reset()
-
-        self.assertEqual(u['first_name'], 'Bob')
-        self.assertRaises(KeyError, lambda: u['last_name'])
-
-    def test_context_no_pipe(self):
-        u = self.User('1', first_name='Bob')
-
-        def fail():
-            with u:
-                pass
-
-        self.assertRaises(redpipe.InvalidPipeline, fail)
 
     def test_remove_pk(self):
         u = self.create_user('1')
@@ -535,8 +526,8 @@ class StructTestCase(BaseTestCase):
         t = T(key)
         t.incr(field)
         self.assertEqual(t[field], '1')
-        with t.pipeline():
-            t.incr(field)
+        with redpipe.pipeline(autocommit=True) as pipe:
+            t.incr(field, pipe=pipe)
             self.assertEqual(t[field], '1')
 
         self.assertEqual(t[field], '2')
@@ -562,8 +553,8 @@ class StructTestCase(BaseTestCase):
         t = T(key)
         t.incr(field)
         self.assertEqual(t[field], 1)
-        with t.pipeline():
-            t.incr(field)
+        with redpipe.pipeline(autocommit=True) as pipe:
+            t.incr(field, pipe=pipe)
             self.assertEqual(t[field], 1)
 
         self.assertEqual(t[field], 2)
@@ -575,6 +566,9 @@ class StructTestCase(BaseTestCase):
         self.assertEqual(t[field], 4)
         t.decr(field, 2)
         self.assertEqual(t[field], 2)
+        arbitrary_field = t.pop(field)
+        self.assertEqual(arbitrary_field, 2)
+        self.assertEqual(t.get(field), None)
 
 
 class ConnectTestCase(unittest.TestCase):

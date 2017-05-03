@@ -9,7 +9,8 @@ from six import add_metaclass
 from .pipelines import pipeline
 from .keyspaces import Hash
 from .fields import TextField
-from .exceptions import InvalidPipeline, InvalidOperation
+from .exceptions import InvalidOperation
+from .futures import Future
 
 __all__ = ['Struct']
 
@@ -44,7 +45,7 @@ class Struct(object):
     """
     load and store structured data in redis using OOP patterns.
     """
-    __slots__ = ['key', '_data', '_pipe']
+    __slots__ = ['key', '_data']
     _keyspace = None
     _connection = None
     _key_name = None
@@ -52,7 +53,6 @@ class Struct(object):
 
     def __init__(self, _key_or_data=None, pipe=None, **kwargs):
 
-        self._pipe = None
         keyname = self.key_name
 
         if pipe is None and not kwargs:
@@ -70,14 +70,14 @@ class Struct(object):
 
         self.key = _key_or_data
         self._data = {}
-        with pipeline(pipe, name=self._connection, autocommit=True) as pipe:
+        with self._pipe(pipe) as pipe:
             if kwargs:
                 coerced = dict(kwargs)
                 if self.key is None:
                     self.key = coerced[self.key_name]
                     del coerced[self.key_name]
 
-                self.change(pipe=pipe, **coerced)
+                self.update(coerced, pipe=pipe)
 
             ref = self.core(pipe=pipe).hgetall(self.key)
 
@@ -95,8 +95,7 @@ class Struct(object):
         return self._key_name or '_key'
 
     def incr(self, field, amount=1, pipe=None):
-        with pipeline(pipe or self._pipe, name=self._connection,
-                      autocommit=True) as pipe:
+        with self._pipe(pipe) as pipe:
             core = self.core(pipe=pipe)
             core.hincrby(self.key, field, amount)
             ref = core.hget(self.key, field)
@@ -107,17 +106,13 @@ class Struct(object):
             pipe.on_execute(cb)
 
     def decr(self, field, amount=1, pipe=None):
-        return self.incr(field, amount * -1, pipe=pipe)
+        self.incr(field, amount * -1, pipe=pipe)
 
     def update(self, changes, pipe=None):
-        return self.change(pipe=pipe, **changes)
-
-    def change(self, pipe=None, **changes):
         if self.key_name in changes:
-            raise InvalidOperation('cannot change the primary key')
+            raise InvalidOperation('cannot update the redis key')
 
-        with pipeline(pipe or self._pipe, name=self._connection,
-                      autocommit=True) as pipe:
+        with self._pipe(pipe) as pipe:
             core = self.core(pipe=pipe)
 
             def build(k, v):
@@ -142,10 +137,9 @@ class Struct(object):
 
     def remove(self, fields, pipe=None):
         if self.key_name in fields:
-            raise InvalidOperation('cannot change the primary key')
+            raise InvalidOperation('cannot remove the redis key')
 
-        with pipeline(pipe or self._pipe, name=self._connection,
-                      autocommit=True) as pipe:
+        with self._pipe(pipe) as pipe:
             core = self.core(pipe=pipe)
             core.hdel(self.key, *fields)
 
@@ -166,8 +160,7 @@ class Struct(object):
         return True if self._data else False
 
     def clear(self, pipe=None):
-        with pipeline(pipe or self._pipe, name=self._connection,
-                      autocommit=True) as pipe:
+        with self._pipe(pipe) as pipe:
             self.core(pipe=pipe).delete(self.key)
 
             def cb():
@@ -178,17 +171,38 @@ class Struct(object):
     def get(self, item, default=None):
         return self._data.get(item, default)
 
+    def pop(self, name, default=None, pipe=None):
+        f = Future()
+        with self._pipe(pipe) as pipe:
+            c = self.core(pipe)
+            ref = c.hget(self.key, name)
+            c.hdel(self.key, name)
+
+            def cb():
+                f.set(default if ref.result is None else ref.result)
+                self._data.pop(name)
+
+            pipe.on_execute(cb)
+
+        return f
+
+    def _pipe(self, pipe=None):
+        return pipeline(pipe, name=self._connection,
+                        autocommit=True)
+
     def __getitem__(self, item):
         if item == self.key_name:
             return self.key
 
         return self._data[item]
 
-    def __setitem__(self, key, value):
-        self.update({key: value})
-
     def __delitem__(self, key):
-        self.remove([key])
+        tpl = 'cannot delete %s from %s indirectly. Use the delete method.'
+        raise InvalidOperation(tpl % (key, self))
+
+    def __setitem__(self, key, value):
+        tpl = 'cannot set %s key on %s indirectly. Use the set method.'
+        raise InvalidOperation(tpl % (key, self))
 
     def __iter__(self):
         for k in self.keys():
@@ -228,27 +242,3 @@ class Struct(object):
 
     def __repr__(self):
         return json.dumps(dict(self))
-
-    def __enter__(self):
-        if not self._pipe:
-            raise InvalidPipeline(
-                'entering a struct context requires a pipeline')
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        try:
-            pipe = self._pipe
-            if exc_type is None and pipe:
-                pipe.execute()
-        finally:
-            self.reset()
-
-    def reset(self):
-        pipe = self._pipe
-        self._pipe = None
-        if pipe is not None:
-            pipe.reset()
-
-    def pipeline(self, pipe=None):
-        self._pipe = pipeline(pipe)
-        return self
