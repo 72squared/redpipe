@@ -14,6 +14,13 @@ Never fear.
 If you have no idea what Redis is or why you should pipeline commands, `look it up <https://redis.io/topics/pipelining>`_ already.
 Really.
 
+Using **RedPipe** requires a paradigm shift.
+Don't wait to pipeline as some late-stage performance optimization.
+That's what usually happens.
+And it makes code ugly and unmaintainable.
+Write your code so you can pipeline anything.
+*Everything.*
+
 
 |BuildStatus| |CoverageStatus| |Version| |Python| |Docs|
 

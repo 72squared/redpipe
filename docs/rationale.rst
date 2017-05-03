@@ -4,9 +4,17 @@ Rationale
 Why do I need this?
 -------------------
 Redis is really fast.
+If you only use redis on your laptop over a unix domain socket, go away.
+You probably do not need to think about pipelining.
 
-Despite this, if you make many calls to redis to satisfy a single request, application latency can be terrible.
-This is because each command needs to make another trip across the network.
+But in production scenarios, redis is usually running on another machine.
+That means the client needs to talk to redis server over a network.
+If you are in AWS Ec2, there's a good chance your redis server is in a different availablity zone.
+
+Your application latency is determined by the speed of your network.
+If you make many calls to redis to satisfy a single request, application latency can be terrible.
+
+Each command needs to make another trip across the network.
 If your network round trip time is one millisecond, that doesn't seem too terrible.
 But if you have dozens or hundreds of redis commands, this adds up quickly.
 
@@ -96,12 +104,27 @@ And it is especially inconvenient when trying to create modular and reusable com
 
 How RedPipe Makes Things Easier
 -------------------------------
-*RedPipe* gives you the tools to break up pipelined calls into modular reusable components.
+*RedPipe* makes things easier by first making it harder.
+It's a paradigm shift.
+You ready?
+Here it comes.
 
-The first step is to make the commands return a reference to the data before execute happens.
+*All redis calls are pipelined.*
+
+On the surface this seems unnecessary.
+But stick with me for a few minutes.
+It will unlock the tools to break up pipelined calls into modular reusable components.
+
+
+The first step is to make the commands return a reference to the data immediately.
 We'll call this reference object a `Future`.
 The `redpipe.Future` object gets populated with data once the pipeline executes.
-It also behaves just like the underlying result.
+
+That makes the code look very much like a non-pipelined call.
+You invoke the redis-py method and you get a response back from that call.
+The response is a `redpipe.Future` object, but you don't ever need to think about that.
+
+Once the pipeline executes, the `Future` behaves just like the underlying result.
 
 *RedPipe* embraces the spirit of `duck-typing <https://en.wikipedia.org/wiki/Duck_typing#In_Python>`_.
 
@@ -111,6 +134,11 @@ Print it out like a string.
 In short, you should be able to use it interchangeably with the underlying `future.result` field.
 
 This gives us the ability to create reusable building blocks.
+
+How, wait what??
+
+Okay, keep reading.
+I'll explain.
 
 
 Reusable Building Blocks
