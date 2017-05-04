@@ -41,3 +41,23 @@ However, I think a good library should fully support proper character encoding.
 And since RedPipe is fully tested on python 3, I am making more of an effort to understand the nuances.
 
 If you find a bug, Please report it.
+
+
+Lua Scripting
+-------------
+Lua scripting is only barely supported in `redis-py-cluster`.
+You can make it work if you don't bother with script registration or evalsha.
+That's because it is too hard to know for sure when running a command whether or not the node in the cluster will have it already.
+And it gets especially complicated in pipeline scenarios and pipelined failover scenarios.
+
+So, we choose to always send the full lua script every time.
+If you use short lua scripts like I do, it's not a big deal.
+the network penalty of bytes over the wire is small compared with the penalty of multiple network round-trips.
+And on the redis server, it keeps an internal hash of the compiled lua script.
+So there's no additional compilation penalty with sending the Lua script every time.
+
+I know it's not quite as nice this way.
+But at least it is functional.
+If you have any ideas on how to make this better, let me know.
+
+
