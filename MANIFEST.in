@@ -5,4 +5,4 @@ include README.rst
 include LICENSE
 include redpipe/VERSION
 include docs/authors.rst
-include docs/release_notes.rst
+include docs/release-notes.rst

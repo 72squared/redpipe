@@ -73,7 +73,7 @@ You can specify an alternate redis connection if you are using multiple redis co
         _connection = 'users'
 
 The string value `users` refers to a connection you have added in application bootstrapping.
-See the `Named Connections <./named_connections.html>`_ section of this documentation.
+See the `Named Connections <./named-connections.html>`_ section of this documentation.
 
 
 Creating New Structs

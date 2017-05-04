@@ -13,7 +13,7 @@ import redpipe.tasks
 import six
 import pickle
 import socket
-import os
+
 
 # Tegalu: I can eat glass ...
 utf8_sample = u'నేను గాజు తినగలను మరియు అలా చేసినా నాకు ఏమి ఇబ్బంది లేదు'
@@ -38,9 +38,6 @@ class SingleNodeRedisCluster(object):
         self.node = redislite.StrictRedis(
             serverconfig={
                 'cluster-enabled': 'yes',
-                'cluster-node-timeout': '1',
-                'cluster-slave-validity-factor': '0',
-                'cluster-migration-barrier': '0',
                 'port': port
             }
         )
@@ -62,8 +59,10 @@ class SingleNodeRedisCluster(object):
     @staticmethod
     def _check_port(port):
         s = socket.socket()
-        s.bind(('', port))
-        s.close()
+        try:
+            s.bind(('', port))
+        finally:
+            s.close()
 
     def shutdown(self):
         if self.client:
@@ -71,7 +70,9 @@ class SingleNodeRedisCluster(object):
             self.client = None
 
         if self.node:
+            self.node.execute_command('CLIENT KILL SKIPME yes')
             self.node._cleanup()  # noqa
+
             self.node = None
 
     def __del__(self):
@@ -888,7 +889,6 @@ class ConnectRedisClusterTestCase(unittest.TestCase):
             self.assertRaises(Exception, pipe.execute)
 
 
-@unittest.skipIf(os.getenv('IS_TRAVIS', False), 'disabled on travis')
 class RedisClusterTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -1750,4 +1750,7 @@ class FutureCallableTestCase(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    unittest.main(verbosity=2)
+    try:
+        unittest.main(verbosity=2, warnings='ignore')
+    except TypeError:
+        unittest.main(verbosity=2)

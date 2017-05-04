@@ -13,7 +13,7 @@ ROOTDIR = path.abspath(os.path.dirname(__file__))
 with open(os.path.join(ROOTDIR, 'README.rst')) as f:
     readme = f.read()
 
-with open(os.path.join(ROOTDIR, 'docs', 'release_notes.rst')) as f:
+with open(os.path.join(ROOTDIR, 'docs', 'release-notes.rst')) as f:
     history = f.read()
 
 with open(os.path.join(ROOTDIR, 'redpipe', 'VERSION')) as f:

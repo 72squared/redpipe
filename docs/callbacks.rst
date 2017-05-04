@@ -5,12 +5,17 @@ What if we want to be able to combine the results of multiple operations inside 
 We need some way to wait until the pipeline executes and then combine the results.
 Callbacks to the rescue!
 
-Let me show you what I mean:
+Let me show you what I mean.
+
+
+(This example uses the `autocommit` flag.
+If you missed that section, `read about it here <autocommit.html>`_.)
 
 .. code:: python
 
     def incr_sum(keys, pipe=None):
         future = redpipe.Future()
+
         with redpipe.pipeline(pipe, autocommit=True) as pipe:
             results = [pipe.incr(key) for key in keys]
 

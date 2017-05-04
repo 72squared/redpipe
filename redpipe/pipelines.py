@@ -3,7 +3,33 @@
 This is where the magic happens.
 The most important components of redpipe are here.
 The Pipeline and NestedPipeline classes and the pipeline function enable
-us to pass pipeline functions into each other and attach redis calls to them.
+Use to pass pipeline functions into each other and attach redis calls to them.
+
+The main function exposed here is the `pipeline` function.
+You will use it everywhere, so get used to this syntax:
+
+.. code-block:: python
+
+    def incr(name, pipe=None):
+        with redpipe.pipeline(pipe=pipe, autocommit=True) as pipe:
+            return pipe.incr(name)
+
+    with redpipe.pipeline(autocommit=True) as pipe:
+        a = incr('a', pipe=pipe)
+        b = incr('b', pipe=pipe)
+
+    print([a, b])
+
+Look at the `incr` function.
+The call to `redpipe.pipeline` will return a `Pipeline` object if None
+is passed in. And if a Pipeline object is passed in, it will return a
+`NestedPipeline` object. Those two objects present the same interface but
+behave very differently.
+
+`Pipeline` objects execute your pipelined calls.
+`NestedPipeline` objects pass their commands up the chain to the parent
+ pipeline they wrap. This could be another `NestedPipeline` object, or
+ a Pipeline() object.
 """
 
 from .futures import Future
@@ -18,7 +44,8 @@ __all__ = [
 
 def _nested_future(r, future):
     """
-    A utility function to
+    A utility function to map one future result into
+    another future via callback.
     :param r:
     :param future:
     :return:
