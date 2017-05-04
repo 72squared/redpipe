@@ -87,7 +87,7 @@ class ConnectionManager(object):
 
     @classmethod
     def connect_redis(cls, redis_client, name=None,
-                      transaction=True, shard_hint=None):
+                      transaction=False, shard_hint=None):
         """
         Store the redis connection in our connector instance.
 
@@ -97,9 +97,24 @@ class ConnectionManager(object):
         and inject it into StrictPipeline.
         That way it doesn't matter if you pass in Redis or StrictRedis.
 
+        The transaction flag is a boolean value we hold on to and
+        pass to the invocation of something equivalent to:
+
+        .. code-block:: python
+
+            redis_client.pipeline(transaction=transation)
+
+        Unlike redis-py, this flag defaults to False.
+        You can configure it to always use the MULTI/EXEC flags,
+        but I don't see much point.
+
+        If you need transactional support I recommend using a LUA script.
+
+        **RedPipe** is about improving network round-trip efficiency.
+
         :param redis_client: redis.StrictRedis() or redis.Redis()
         :param name: identifier for the connection, optional
-        :param transaction:
+        :param transaction: bool, defaults to False
         :param shard_hint:
         :return: None
         """

@@ -344,7 +344,7 @@ Why Struct and not Model?
 I chose the name `Struct` because it implies a single, standalone data structure.
 You clearly define data structure of the struct.
 And you can instantiate the struct with many records.
-A struct has no concept of uniqueness constraints or one-to-many relationships as there often is with a Model object in most ORM solutions.
+The word *Struct* doesn't imply indexes or one-to-many relationships the way the word *Model* does.
 
 
 Why no ORM?

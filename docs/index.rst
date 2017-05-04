@@ -111,6 +111,7 @@ Then it focuses on step-by-step instructions for getting the most out of RedPipe
     latency
     project-status
     redis-cluster
+    errors
     unicode
     license
     faq
