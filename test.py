@@ -14,7 +14,6 @@ import six
 import pickle
 import socket
 
-
 # Tegalu: I can eat glass ...
 utf8_sample = u'నేను గాజు తినగలను మరియు అలా చేసినా నాకు ఏమి ఇబ్బంది లేదు'
 
@@ -369,21 +368,20 @@ class FieldsTestCase(unittest.TestCase):
         self.assertIsNone(field.decode(b''))
 
 
-class StructTestCase(BaseTestCase):
-    class User(redpipe.Struct):
-        _keyspace = 'U'
-        _fields = {
-            'first_name': redpipe.TextField,
-            'last_name': redpipe.TextField,
-        }
+class StructUser(redpipe.Struct):
+    _keyspace = 'U'
+    _fields = {
+        'first_name': redpipe.TextField,
+        'last_name': redpipe.TextField,
+    }
 
-    class UserWithPk(redpipe.Struct):
-        _keyspace = 'U'
+
+class StructTestCase(BaseTestCase):
+
+    User = StructUser
+
+    class UserWithPk(StructUser):
         _key_name = 'user_id'
-        _fields = {
-            'first_name': redpipe.TextField,
-            'last_name': redpipe.TextField,
-        }
 
     def test(self):
         u = self.User('1')
@@ -433,6 +431,9 @@ class StructTestCase(BaseTestCase):
         self.assertEqual(u.key, '1')
         self.assertEqual(u['_key'], '1')
         self.assertEqual(repr(u), repr(dict(u)))
+        self.assertEqual(json.dumps(u), json.dumps(dict(u)))
+        u_pickled = pickle.loads(pickle.dumps(u))
+        self.assertEqual(u_pickled, u)
         self.assertEqual(len(u), 3)
         self.assertIn('first_name', u)
         u.update({'first_name': 'Pebbles'})
@@ -447,6 +448,9 @@ class StructTestCase(BaseTestCase):
         u.remove(['arbitrary_field'])
         self.assertEqual(u.get('arbitrary_field'), None)
         self.assertEqual(core.hget(u.key, 'arbitrary_field'), None)
+        u_pickled.update({'first_name': 'Dummy'})
+        self.assertEqual(u_pickled['first_name'], 'Dummy')
+        self.assertEqual(core.hget(u.key, 'first_name'), 'Dummy')
 
     def create_user(self, k, pipe=None, klass=None, **kwargs):
         if klass is None:

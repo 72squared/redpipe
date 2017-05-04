@@ -216,7 +216,7 @@ class Future(object):
     # we can look for this unique attribute which is an alias for result
     # and we can be reasonably sure it is not accidentally grabbing
     # some other type of object.
-    redpipe_future_result = result
+    _redpipe_future_result = result
 
 
 def _json_default_encoder(func):
@@ -243,7 +243,7 @@ def _json_default_encoder(func):
     @wraps(func)
     def inner(self, o):
         try:
-            return o.redpipe_future_result
+            return o._redpipe_future_result  # noqa
         except AttributeError:
             pass
         return func(self, o)
