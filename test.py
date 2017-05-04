@@ -13,6 +13,7 @@ import redpipe.tasks
 import six
 import pickle
 import socket
+import os
 
 # Tegalu: I can eat glass ...
 utf8_sample = u'నేను గాజు తినగలను మరియు అలా చేసినా నాకు ఏమి ఇబ్బంది లేదు'
@@ -63,6 +64,18 @@ class SingleNodeRedisCluster(object):
         s = socket.socket()
         s.bind(('', port))
         s.close()
+
+    def shutdown(self):
+        if self.client:
+            self.client.connection_pool.disconnect()
+            self.client = None
+
+        if self.node:
+            self.node._cleanup()  # noqa
+            self.node = None
+
+    def __del__(self):
+        self.shutdown()
 
 
 class BaseTestCase(unittest.TestCase):
@@ -858,6 +871,24 @@ class ConnectTestCase(unittest.TestCase):
         self.assertRaises(redpipe.InvalidPipeline, nested_invalid)
 
 
+class ConnectRedisClusterTestCase(unittest.TestCase):
+    def tearDown(self):
+        redpipe.reset()
+
+    def test(self):
+        # i don't need to set up a full cluster to test. this.
+        # it's enough to know I wired it into the code correctly for now.
+        r = rediscluster.StrictRedisCluster(
+            startup_nodes=[{'host': '0', 'port': 999999}],
+            init_slot_cache=False
+        )
+        redpipe.connect_rediscluster(r, 'test')
+        with redpipe.pipeline(name='test') as pipe:
+            pipe.set('foo', 'bar')
+            self.assertRaises(Exception, pipe.execute)
+
+
+@unittest.skipIf(os.getenv('IS_TRAVIS', False), 'disabled on travis')
 class RedisClusterTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -867,9 +898,9 @@ class RedisClusterTestCase(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        getattr(cls.c.node, '_cleanup')()
-        cls.c = None
         cls.r = None
+        cls.c.shutdown()
+        cls.c = None
         redpipe.reset()
 
     def tearDown(self):

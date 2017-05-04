@@ -13,8 +13,11 @@ install:
   - pip install -r dev-requirements.txt
   - "if [[ $HIREDIS == '1' ]]; then pip install hiredis; fi"
 env:
-  - HIREDIS=0
-  - HIREDIS=1
+  global:
+    - IS_TRAVIS=1
+  matrix:
+    - HIREDIS=0
+    - HIREDIS=1
 
 
 script:
@@ -28,5 +31,4 @@ after_success:
 matrix:
   allow_failures:
     - python: "nightly"
-    - python: "pypy"
     - python: "pypy3" # https://bitbucket.org/pypy/pypy/issues/2450/cant-import-psutil-on-pypy3-missing
