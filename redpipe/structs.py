@@ -4,7 +4,6 @@ Experimental code based on patterns I've used elsewhere.
 Makes it possible to load data from redis as an object and access the fields.
 Then store changes back into redis.
 """
-import json
 from six import add_metaclass
 from .pipelines import pipeline
 from .keyspaces import Hash
@@ -248,4 +247,4 @@ class Struct(object):
         return "<%s:%s>" % (self.__class__.__name__, self.key)
 
     def __repr__(self):
-        return json.dumps(dict(self))
+        return repr(dict(self))

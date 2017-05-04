@@ -432,7 +432,7 @@ class StructTestCase(BaseTestCase):
         self.assertIn('_key', u)
         self.assertEqual(u.key, '1')
         self.assertEqual(u['_key'], '1')
-        self.assertEqual(repr(u), json.dumps(dict(u)))
+        self.assertEqual(repr(u), repr(dict(u)))
         self.assertEqual(len(u), 3)
         self.assertIn('first_name', u)
         u.update({'first_name': 'Pebbles'})
