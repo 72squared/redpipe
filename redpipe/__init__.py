@@ -41,6 +41,7 @@ Connections
 * disconnect
 * reset
 * pipeline
+* autoexec
 
 Fields
 ------

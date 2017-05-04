@@ -24,7 +24,7 @@ these keys.
 
 """
 
-from .pipelines import pipeline
+from .pipelines import autoexec
 from .luascripts import lua_restorenx, lua_object_info
 from .exceptions import InvalidOperation
 from .futures import Future
@@ -82,9 +82,9 @@ class Keyspace(object):
         """
         Get a fresh pipeline() to be used in a `with` block.
 
-        :return: pipeline(autocommit=True)
+        :return: Pipeline or NestedPipeline with autoexec set to true.
         """
-        return pipeline(self._pipe, name=self._connection, autocommit=True)
+        return autoexec(self._pipe, name=self._connection)
 
     def delete(self, *names):
         """

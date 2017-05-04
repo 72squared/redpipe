@@ -7,7 +7,7 @@ Then store changes back into redis.
 from six import add_metaclass
 from json.encoder import JSONEncoder
 from functools import wraps
-from .pipelines import pipeline
+from .pipelines import autoexec
 from .keyspaces import Hash
 from .fields import TextField
 from .exceptions import InvalidOperation
@@ -195,7 +195,7 @@ class Struct(object):
 
     @classmethod
     def _pipe(cls, pipe=None):
-        return pipeline(pipe, name=cls._connection, autocommit=True)
+        return autoexec(pipe, name=cls._connection)
 
     def __getitem__(self, item):
         if item == self.key_name:
@@ -284,6 +284,7 @@ def _json_default_encoder(func):
     :param func: the JSONEncoder.default method.
     :return: an object that can be json serialized.
     """
+
     @wraps(func)
     def inner(self, o):
         try:

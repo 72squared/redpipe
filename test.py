@@ -472,7 +472,7 @@ class StructTestCase(BaseTestCase):
 
     def test_pipeline(self):
         user_ids = ["%s" % i for i in range(1, 3)]
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             users = [self.create_user(i, pipe=pipe, a=None, b='123')
                      for i in user_ids]
             self.assertEqual(
@@ -547,7 +547,7 @@ class StructTestCase(BaseTestCase):
 
     def test_set(self):
         u = self.User('1', first_name='Bob')
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             u.update({'first_name': 'Cool', 'last_name': 'Dude'}, pipe=pipe)
 
             self.assertEqual(u['first_name'], 'Bob')
@@ -592,7 +592,7 @@ class StructTestCase(BaseTestCase):
         t = T(key)
         t.incr(field)
         self.assertEqual(t[field], '1')
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             t.incr(field, pipe=pipe)
             self.assertEqual(t[field], '1')
 
@@ -619,7 +619,7 @@ class StructTestCase(BaseTestCase):
         t = T(key)
         t.incr(field)
         self.assertEqual(t[field], 1)
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             t.incr(field, pipe=pipe)
             self.assertEqual(t[field], 1)
 
@@ -656,11 +656,11 @@ class ConnectTestCase(unittest.TestCase):
         redpipe.reset()
 
     def incr_a(self, key, pipe=None):
-        with redpipe.pipeline(pipe, name='a', autocommit=True) as pipe:
+        with redpipe.autoexec(pipe, name='a') as pipe:
             return pipe.incr(key)
 
     def incr_b(self, key, pipe=None):
-        with redpipe.pipeline(pipe, name='b', autocommit=True) as pipe:
+        with redpipe.autoexec(pipe, name='b') as pipe:
             return pipe.incr(key)
 
     def test(self):
@@ -700,14 +700,14 @@ class ConnectTestCase(unittest.TestCase):
         redpipe.connect_redis(redislite.StrictRedis(), 'a')
 
         def mid_level(pipe=None):
-            with redpipe.pipeline(pipe, name='a', autocommit=1) as pipe:
+            with redpipe.autoexec(pipe, name='a') as pipe:
                 return self.incr_a('foo', pipe=pipe)
 
         def top_level(pipe=None):
-            with redpipe.pipeline(pipe, name='a', autocommit=1) as pipe:
+            with redpipe.autoexec(pipe, name='a') as pipe:
                 return mid_level(pipe)
 
-        with redpipe.pipeline(name='a', autocommit=1) as pipe:
+        with redpipe.autoexec(name='a') as pipe:
             ref = top_level(pipe)
             self.assertRaises(redpipe.ResultNotReady, lambda: ref.result)
 
@@ -730,9 +730,9 @@ class ConnectTestCase(unittest.TestCase):
         redpipe.connect_redis(redislite.Redis(), 'a')
         redpipe.connect_redis(redislite.Redis(), 'b')
 
-        with redpipe.pipeline(autocommit=True, name='a') as pipe:
+        with redpipe.autoexec(name='a') as pipe:
             pipe.set('foo', '1')
-            with redpipe.pipeline(pipe=pipe, name='b', autocommit=True) as p:
+            with redpipe.autoexec(pipe=pipe, name='b') as p:
                 ref = p.blpop('1', timeout=1)
 
         self.assertEqual(ref.result, None)
@@ -762,7 +762,7 @@ class ConnectTestCase(unittest.TestCase):
 
         # test failure
         try:
-            with redpipe.pipeline(autocommit=True) as pipe:
+            with redpipe.autoexec() as pipe:
                 a = self.incr_a(key, pipe)
                 raise Exception('boo')
         except Exception:
@@ -780,7 +780,7 @@ class ConnectTestCase(unittest.TestCase):
 
         key = 'foo'
         verify_callback = []
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             a = self.incr_a(key, pipe)
             b = self.incr_b(key, pipe)
 
@@ -869,7 +869,7 @@ class ConnectTestCase(unittest.TestCase):
             self.incr_a(key='foo')
 
         def nested_invalid():
-            with redpipe.pipeline(autocommit=1) as pipe:
+            with redpipe.autoexec() as pipe:
                 self.incr_a(key='foo', pipe=pipe)
 
         self.assertRaises(redpipe.InvalidPipeline, invalid)
@@ -911,7 +911,7 @@ class RedisClusterTestCase(unittest.TestCase):
         self.r.flushall()
 
     def test_basic(self):
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             pipe.set('foo', 'bar')
             res = pipe.get('foo')
         self.assertEqual(res, b'bar')
@@ -920,7 +920,7 @@ class RedisClusterTestCase(unittest.TestCase):
         class Test(redpipe.List):
             _keyspace = 'T'
 
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             t = Test(pipe)
             append = t.append('1', 'a', 'b', 'c')
             lrange = t.lrange('1', 0, -1)
@@ -934,7 +934,7 @@ class RedisClusterTestCase(unittest.TestCase):
         class Test(redpipe.Set):
             _keyspace = 'T'
 
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             t = Test(pipe)
             sadd = t.sadd('1', 'a', 'b', 'c')
             smembers = t.smembers('1')
@@ -951,7 +951,7 @@ class RedisClusterTestCase(unittest.TestCase):
         class Test(redpipe.String):
             _keyspace = 'T'
 
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             t = Test(pipe)
             set_result = t.set('1', 'a')
             get_result = t.get('1')
@@ -965,7 +965,7 @@ class RedisClusterTestCase(unittest.TestCase):
         class Test(redpipe.SortedSet):
             _keyspace = 'T'
 
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             t = Test(pipe)
             t.zadd('1', 'a', 1)
             t.zadd('1', 'b', 2)
@@ -981,7 +981,7 @@ class StringTestCase(BaseTestCase):
         _keyspace = 'STRING'
 
     def test(self):
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             key = '1'
             s = self.Data(pipe=pipe)
             self.assertEqual(s.redis_key(key), b'STRING{1}')
@@ -1001,7 +1001,7 @@ class StringTestCase(BaseTestCase):
         self.assertIsNotNone(serialize.result)
         self.assertFalse(exists.result)
 
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             key = '2'
             s = self.Data(pipe=pipe)
             restore = s.restore(key, serialize.result)
@@ -1034,7 +1034,7 @@ class StringTestCase(BaseTestCase):
         self.assertAlmostEqual(ttl, 60, delta=1)
         self.assertEqual(psetex, 1)
 
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             key = '3'
             s = self.Data(pipe=pipe)
             s.set(key, 'bar')
@@ -1051,7 +1051,7 @@ class StringTestCase(BaseTestCase):
         self.assertEqual(get, 'bazz')
 
     def test_bitwise(self):
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             key = '1'
             s = self.Data(pipe=pipe)
             setbit = s.setbit(key, 2, 1)
@@ -1063,7 +1063,7 @@ class StringTestCase(BaseTestCase):
         self.assertEqual(bitcount, 1)
 
     def test_rename(self):
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             key1 = '1'
             key2 = '2'
             key3 = '3'
@@ -1081,14 +1081,14 @@ class StringTestCase(BaseTestCase):
 
     def test_dict(self):
         key1 = '1'
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             s = self.Data(pipe=pipe)
             s[key1] = 'a'
             get = s[key1]
         self.assertEqual(get, 'a')
 
     def test_bare(self):
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             key = 'foo'
             f = redpipe.String(pipe=pipe)
             self.assertEqual(f.redis_key(key), b'foo')
@@ -1120,7 +1120,7 @@ class SetTestCase(BaseTestCase):
         _keyspace = 'SET'
 
     def test(self):
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             key = '1'
             c = self.Data(pipe=pipe)
             sadd = c.sadd(key, ['a', 'b', 'c'])
@@ -1145,7 +1145,7 @@ class SetTestCase(BaseTestCase):
         self.assertTrue(srandmember.result, b'a')
 
     def test_scan(self):
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             key = '1'
             s = self.Data(pipe=pipe)
             s.sadd(key, 'a1', 'a2', 'b1', 'b2')
@@ -1154,7 +1154,7 @@ class SetTestCase(BaseTestCase):
         self.assertEqual(sscan[0], 0)
         self.assertEqual(set(sscan[1]), {'a1', 'a2'})
 
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             self.assertRaises(
                 redpipe.InvalidOperation,
                 lambda: {k for k in self.Data(pipe=pipe).sscan_iter('1')})
@@ -1166,7 +1166,7 @@ class SetTestCase(BaseTestCase):
         key1 = '1'
         key2 = '2'
         key3 = '3'
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             s = self.Data(pipe=pipe)
             s.add(key1, 'a', 'b', 'c')
             s.add(key2, 'a', 'b', 'd', 'e')
@@ -1198,7 +1198,7 @@ class ListTestCase(BaseTestCase):
         _keyspace = 'LIST'
 
     def test(self):
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             key = '1'
             c = self.Data(pipe=pipe)
             lpush = c.lpush(key, 'a', 'b', 'c', 'd')
@@ -1230,7 +1230,7 @@ class ListTestCase(BaseTestCase):
         self.assertEqual(lpop.result, 'd')
 
     def test_scan(self):
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             d = self.Data(pipe=pipe)
             d.lpush('1a', '1')
             d.lpush('1b', '1')
@@ -1245,13 +1245,13 @@ class ListTestCase(BaseTestCase):
         self.assertEqual({k for k in self.Data().scan_iter()},
                          {'1a', '1b', '2a', '2b'})
 
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             s = self.Data(pipe=pipe)
             self.assertRaises(redpipe.InvalidOperation,
                               lambda: [v for v in s.scan_iter()])
 
     def test_scan_with_no_keyspace(self):
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             l = redpipe.List(pipe=pipe)
             l.lpush('1a', '1')
             l.lpush('1b', '1')
@@ -1266,7 +1266,7 @@ class ListTestCase(BaseTestCase):
         key1 = '1'
         key2 = '2'
         key3 = '3'
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             l = self.Data(pipe=pipe)
             l.append(key1, 'a', 'b')
             l.append(key2, 'c', 'd')
@@ -1292,7 +1292,7 @@ class SortedSetTestCase(BaseTestCase):
         _keyspace = 'SORTEDSET'
 
     def test(self):
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             key = '1'
             s = self.Data(pipe=pipe)
             s.add(key, '2', 2)
@@ -1336,7 +1336,7 @@ class SortedSetTestCase(BaseTestCase):
         self.assertEqual(zrange_withscores, [['2', 2.0], ['3', 3.0]])
         self.assertEqual(zrevrange_withscores, [['5', 7.0], ['4', 4.0]])
 
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             key = '1'
             s = self.Data(pipe=pipe)
             s.zadd(key, 'a', 1)
@@ -1373,7 +1373,7 @@ class SortedSetTestCase(BaseTestCase):
         self.assertEqual(zremrangebylex, 0)
 
     def test_scan(self):
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             key = '1'
             s = self.Data(pipe=pipe)
             s.zadd(key, 'a1', 1.0)
@@ -1389,7 +1389,7 @@ class SortedSetTestCase(BaseTestCase):
         self.assertEqual(sort, ['a1', 'a2', 'b1', 'b2'])
         self.assertEqual(sort_store, 4)
 
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             self.assertRaises(
                 redpipe.InvalidOperation,
                 lambda: {k for k in self.Data(pipe=pipe).zscan_iter(key)})
@@ -1402,7 +1402,7 @@ class SortedSetTestCase(BaseTestCase):
         key1 = '1'
         key2 = '2'
         key3 = '3'
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             s = self.Data(pipe=pipe)
             s.zadd(key1, 'a', 1)
             s.zadd(key1, 'b', 2)
@@ -1420,7 +1420,7 @@ class HashTestCase(BaseTestCase):
         _keyspace = 'HASH'
 
     def test(self):
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             key = '1'
             c = self.Data(pipe=pipe)
             hset = c.hset(key, 'a', '1')
@@ -1453,7 +1453,7 @@ class HashTestCase(BaseTestCase):
 
     def test_scan(self):
         key = '1'
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             s = self.Data(pipe=pipe)
             s.hmset(key, {'a1': '1', 'a2': '2', 'b1': '1', 'b2': '2'})
             hscan = s.hscan(key, 0, match='a*')
@@ -1461,7 +1461,7 @@ class HashTestCase(BaseTestCase):
         self.assertEqual(hscan[0], 0)
         self.assertEqual(hscan[1], {'a1': '1', 'a2': '2'})
 
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             s = self.Data(pipe=pipe)
             self.assertRaises(redpipe.InvalidOperation,
                               lambda: [v for v in s.hscan_iter(key)])
@@ -1485,7 +1485,7 @@ class HashFieldsTestCase(BaseTestCase):
 
     def test(self):
         key = '1'
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             c = self.Data(pipe=pipe)
             hset = c.hset(key, 'i', 1)
             hmset = c.hmset(key, {'b': True, 'f': 3.1, 't': utf8_sample})
@@ -1525,7 +1525,7 @@ class HashFieldsTestCase(BaseTestCase):
 
     def test_dict(self):
         key = 'd'
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             data = {'a': 1, 'b': 'test'}
             c = self.Data(pipe=pipe)
             hset = c.hset(key, 'd', data)
@@ -1540,7 +1540,7 @@ class HashFieldsTestCase(BaseTestCase):
 
     def test_list(self):
         key = '1'
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             data = [1, 'a']
             c = self.Data(pipe=pipe)
             hset = c.hset(key, 'l', data)
@@ -1555,7 +1555,7 @@ class HashFieldsTestCase(BaseTestCase):
 
     def test_string_list(self):
         key = '1'
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             data = ['a', 'b']
             c = self.Data(pipe=pipe)
             hget_pre = c.hget(key, 'sl')
@@ -1579,7 +1579,7 @@ class HyperloglogTestCase(BaseTestCase):
         key1 = '1'
         key2 = '2'
         key3 = '3'
-        with redpipe.pipeline(autocommit=True) as pipe:
+        with redpipe.autoexec() as pipe:
             c = self.Data(pipe=pipe)
             pfadd = c.pfadd(key1, 'a', 'b', 'c')
             pfcount = c.pfcount(key1)

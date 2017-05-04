@@ -84,7 +84,7 @@ The fields will perform basic data validation on the input and correctly seriali
 .. code:: python
 
     key = '1'
-    with redpipe.pipeline(autocommit=True) as pipe:
+    with redpipe.autoexec() as pipe:
         u = User(pipe=pipe)
         data = {
             'first_name': 'Fred',

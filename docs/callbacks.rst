@@ -8,15 +8,15 @@ Callbacks to the rescue!
 Let me show you what I mean.
 
 
-(This example uses the `autocommit` flag.
-If you missed that section, `read about it here <autocommit.html>`_.)
+(This example uses the `autoexec` flag.
+If you missed that section, `read about it here <autoexec.html>`_.)
 
 .. code:: python
 
     def incr_sum(keys, pipe=None):
         future = redpipe.Future()
 
-        with redpipe.pipeline(pipe, autocommit=True) as pipe:
+        with redpipe.pipeline(pipe, autoexec=True) as pipe:
             results = [pipe.incr(key) for key in keys]
 
             def cb():
@@ -36,7 +36,7 @@ But if we need to call it multiple times or in a loop, we can pass a pipeline in
 
 .. code:: python
 
-    with redpipe.pipeline(autocommit=True) as pipe:
+    with redpipe.pipeline(autoexec=True) as pipe:
         first = incr_sum(["key%d" % i for i in range(0, 100)], pipe=pipe)
         second = incr_sum(["key%d" % i for i in range(100, 200)], pipe=pipe)
 
@@ -72,13 +72,13 @@ Here's an example of what I mean:
 .. code-block:: python
 
     def incr_if_gt(key, threshold, pipe=None):
-        with redpipe.pipeline(pipe, autocommit=True) as pipe:
+        with redpipe.pipeline(pipe, autoexec=True) as pipe:
             future = redpipe.Future()
             value = pipe.get(key)
 
             def cb():
                 if value > threshold:
-                    with redpipe.pipeline(autocommit=True) as p:
+                    with redpipe.autoexec() as p:
                         future.set(p.incr(key))
                 else:
                     future.set(int(value))

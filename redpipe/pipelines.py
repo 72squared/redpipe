@@ -11,10 +11,10 @@ You will use it everywhere, so get used to this syntax:
 .. code-block:: python
 
     def incr(name, pipe=None):
-        with redpipe.pipeline(pipe=pipe, autocommit=True) as pipe:
+        with redpipe.autoexec(pipe=pipe) as pipe:
             return pipe.incr(name)
 
-    with redpipe.pipeline(autocommit=True) as pipe:
+    with redpipe.autoexec() as pipe:
         a = incr('a', pipe=pipe)
         b = incr('b', pipe=pipe)
 
@@ -28,8 +28,8 @@ behave very differently.
 
 `Pipeline` objects execute your pipelined calls.
 `NestedPipeline` objects pass their commands up the chain to the parent
- pipeline they wrap. This could be another `NestedPipeline` object, or
- a Pipeline() object.
+pipeline they wrap. This could be another `NestedPipeline` object, or
+a Pipeline() object.
 """
 
 from .futures import Future
@@ -39,6 +39,7 @@ from .exceptions import InvalidPipeline
 
 __all__ = [
     'pipeline',
+    'autoexec',
 ]
 
 
@@ -55,10 +56,10 @@ class Pipeline(object):
     Instead, use the redpipe.pipeline(pipe) function which
     will set up this object correctly.
     """
-    __slots__ = ['connection_name', 'auto', '_stack', '_callbacks',
+    __slots__ = ['connection_name', 'autoexec', '_stack', '_callbacks',
                  '_pipelines']
 
-    def __init__(self, name, autocommit=False):
+    def __init__(self, name, autoexec=False):
         """
         Instantiate a new base pipeline object.
         This pipeline will be responsible for executing all the others that
@@ -66,12 +67,12 @@ class Pipeline(object):
         and any commands from nested pipelines.
 
         :param name: str    The name of the connection
-        :param autocommit: bool, whether or not to implicitly execute the pipe.
+        :param autoexec: bool, whether or not to implicitly execute the pipe.
         """
         self.connection_name = name
         self._stack = []
         self._callbacks = []
-        self.auto = autocommit
+        self.autoexec = autoexec
         self._pipelines = {}
 
     def __getattr__(self, item):
@@ -119,7 +120,7 @@ class Pipeline(object):
         try:
             return self._pipelines[name]
         except KeyError:
-            pipe = Pipeline(name=name, autocommit=True)
+            pipe = Pipeline(name=name, autoexec=True)
             self._pipelines[name] = pipe
             return pipe
 
@@ -208,7 +209,7 @@ class Pipeline(object):
         :return:
         """
         try:
-            if exc_type is None and self.auto:
+            if exc_type is None and self.autoexec:
                 self.execute()
         finally:
             self.reset()
@@ -246,21 +247,22 @@ class NestedPipeline(object):
     Instead, use the redpipe.pipeline(pipe) function which
     will set up this object correctly.
     """
-    __slots__ = ['connection_name', 'parent', 'auto', '_stack', '_callbacks']
+    __slots__ = ['connection_name', 'parent', 'autoexec', '_stack',
+                 '_callbacks']
 
-    def __init__(self, parent, name=None, autocommit=False):
+    def __init__(self, parent, name=None, autoexec=False):
         """
         Similar interface to the Pipeline object, but with the ability
         to also track a parent pipeline object.
         :param parent: Pipeline() or NestedPipeline()
         :param name: str, the name of the connection
-        :param autocommit: bool, implicitly call execute?
+        :param autoexec: bool, implicitly call execute?
         """
         self.connection_name = name
         self.parent = parent
         self._stack = []
         self._callbacks = []
-        self.auto = autocommit
+        self.autoexec = autoexec
 
     @staticmethod
     def supports_redpipe_pipeline():
@@ -373,13 +375,13 @@ class NestedPipeline(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         try:
-            if exc_type is None and self.auto:
+            if exc_type is None and self.autoexec:
                 self.execute()
         finally:
             self.reset()
 
 
-def pipeline(pipe=None, name=None, autocommit=False):
+def pipeline(pipe=None, name=None, autoexec=False):
     """
     This is the foundational function for all of redpipe.
     Everything goes through here.
@@ -402,7 +404,7 @@ def pipeline(pipe=None, name=None, autocommit=False):
     .. code:: python
 
         def process(key, pipe=None):
-            with pipeline(pipe, autocommit=True) as pipe:
+            with pipeline(pipe, autoexec=True) as pipe:
                 return pipe.incr(key)
 
         with pipeline() as pipe:
@@ -417,20 +419,32 @@ def pipeline(pipe=None, name=None, autocommit=False):
 
     :param pipe: a Pipeline() or NestedPipeline() object, or None
     :param name: str, optional. the name of the connection to use.
-    :param autocommit: bool, if true, implicitly execute the pipe
+    :param autoexec: bool, if true, implicitly execute the pipe
     :return: Pipeline or NestedPipeline
     """
     name = resolve_connection_name(name)
     if pipe is None:
-        return Pipeline(name=name, autocommit=autocommit)
+        return Pipeline(name=name, autoexec=autoexec)
 
     try:
         if pipe.supports_redpipe_pipeline():
             return NestedPipeline(
                 parent=pipe,
                 name=name,
-                autocommit=autocommit)
+                autoexec=autoexec)
     except AttributeError:
         pass
 
     raise InvalidPipeline('check your configuration')
+
+
+def autoexec(pipe=None, name=None):
+    """
+    create a pipeline with a context that will automatically execute the
+    pipeline upon leaving the context if no exception was raised.
+
+    :param pipe:
+    :param name:
+    :return:
+    """
+    return pipeline(pipe=pipe, name=name, autoexec=True)

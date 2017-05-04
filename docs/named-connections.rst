@@ -18,10 +18,10 @@ Now I can refer to those named connections inside my functions and throughout my
 
 .. code:: python
 
-    with redpipe.pipeline(name='users', autocommit=True) as users:
+    with redpipe.pipeline(name='users', autoexec=True) as users:
         users.hset('u{1}', 'name', 'joe')
 
-    with redpipe.pipeline(name='messages', autocommit=True) as messages:
+    with redpipe.pipeline(name='messages', autoexec=True) as messages:
         messages.hset('m{1}', 'body', 'hi there')
 
 If you don't specify a name, it assumes a default connection set up like this:

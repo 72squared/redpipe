@@ -49,7 +49,7 @@ Just wrap it all up in `redpipe.pipeline` and do your work.
         }
 
     def get_beer_from_fridge(beer_id, quantity=1, pipe=None):
-        with redpipe.pipeline(pipe, autocommit=True) as pipe:
+        with redpipe.pipeline(pipe, autoexec=True) as pipe:
             b = Beer(pipe)
             b.hincrby(beer_id, 'consumed', quantity)
             return b.hgetall(beer_id)
@@ -63,7 +63,7 @@ And I can do it all in a single network transaction.
 .. code-block:: python
 
     drinks = []
-    with redpipe.pipeline(autocommit=True) as pipe:
+    with redpipe.autoexec() as pipe:
         drinks.append(get_beer_from_fridge('schlitz', pipe=pipe))
         drinks.append(get_beer_from_fridge('guinness', 6, pipe=pipe))
     print(drinks)

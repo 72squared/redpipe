@@ -101,7 +101,7 @@ Then it focuses on step-by-step instructions for getting the most out of RedPipe
     rationale
     getting-started
     futures
-    autocommit
+    autoexec
     callbacks
     named-connections
     nested-pipelines

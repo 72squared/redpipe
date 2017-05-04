@@ -87,7 +87,7 @@ We pass in a pipeline so we can combine the save operation with other network i/
 
 .. code-block:: python
 
-    with redpipe.pipeline(autocommit=True) as pipe:
+    with redpipe.autoexec() as pipe:
         # create a few users
         u1 = User(user_id='1', name='Bob', last_seen=int(time()), pipe=pipe)
         u2 = User(user_id='2', name='Jill', last_seen=int(time()), pipe=pipe)
@@ -226,7 +226,7 @@ Let's read those two users we created and modify them.
 
 .. code-block:: python
 
-    with redpipe.pipeline(autocommit=True) as pipe:
+    with redpipe.autoexec() as pipe:
         users = [User('1', pipe=pipe), User('2', pipe=pipe)]
         users[0].update({'name':'Bobby', 'last_seen': int(time())}, pipe=pipe)
         users[1].remove(['last_seen'])
@@ -243,7 +243,7 @@ We can remove a field and return it like we would popping an item from a dict:
 
 .. code-block:: python
 
-    with redpipe.pipeline(autocommit=True) as pipe:
+    with redpipe.autoexec() as pipe:
         user = User(user_id='1', name='Bob', pipe=pipe)
         name = user.pop('name', pipe=pipe)
 
@@ -274,7 +274,7 @@ You can increment a field:
 
 .. code-block:: python
 
-    with redpipe.pipeline(autocommit=True) as pipe:
+    with redpipe.autoexec() as pipe:
         user = User(user_id='1', name='Bob', pipe=pipe)
         user.incr('page_views', pipe=pipe)
 
@@ -312,7 +312,7 @@ Of course you can pipeline it:
 
 .. code-block:: python
 
-    with redpipe.pipeline(autocommit=True) as pipe:
+    with redpipe.autoexec() as pipe:
         user = User('1')
         user.clear(pipe)
 
@@ -321,7 +321,7 @@ If you need to delete a record without loading the record, you can call the Stru
 
 .. code-block:: python
 
-    with redpipe.pipeline(autocommit=True) as pipe:
+    with redpipe.autoexec() as pipe:
         User.delete(['1', '2', '3'], pipe=pipe)
 
 
