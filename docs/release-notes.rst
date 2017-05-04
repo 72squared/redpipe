@@ -8,7 +8,7 @@ We make no guarantees about backward compatibility.
 Once the api reaches **1.0.0**, all major and minor release notes will be well documented.
 Upgrade notes and any breaking changes will be described here and how to handle them.
 
-0.3.3 (May 4, 2017)
+0.4.0 (May 4, 2017)
 -------------------
 * by default, don't use transactions
 * autocommit flag renamed to autoexec. *Breaking change*.
