@@ -12,9 +12,57 @@ import redpipe
 import redpipe.tasks
 import six
 import pickle
+import socket
 
 # Tegalu: I can eat glass ...
 utf8_sample = u'నేను గాజు తినగలను మరియు అలా చేసినా నాకు ఏమి ఇబ్బంది లేదు'
+
+
+class SingleNodeRedisCluster(object):
+    __slots__ = ['node', 'port', 'client']
+
+    def __init__(self, starting_port=7000):
+        port = starting_port
+        while port < 55535:
+
+            try:
+                self._check_port(port)
+                self._check_port(port + 10000)
+                break
+            except IOError:
+                pass
+            port += 1
+
+        self.port = port
+        self.node = redislite.StrictRedis(
+            serverconfig={
+                'cluster-enabled': 'yes',
+                'cluster-node-timeout': '1',
+                'cluster-slave-validity-factor': '0',
+                'cluster-migration-barrier': '0',
+                'port': port
+            }
+        )
+        self.node.execute_command('CLUSTER ADDSLOTS', *range(0, 16384))
+        for i in range(0, 100):
+            try:
+                self.node.set('__test__', '1')
+                self.node.delete('__test__')
+                break
+            except redis.exceptions.ResponseError:
+                pass
+
+            time.sleep(0.1)
+
+        self.client = rediscluster.StrictRedisCluster(startup_nodes=[
+            {'host': '127.0.0.1', 'port': port}
+        ])
+
+    @staticmethod
+    def _check_port(port):
+        s = socket.socket()
+        s.bind(('', port))
+        s.close()
 
 
 class BaseTestCase(unittest.TestCase):
@@ -810,21 +858,86 @@ class ConnectTestCase(unittest.TestCase):
         self.assertRaises(redpipe.InvalidPipeline, nested_invalid)
 
 
-class ConnectRedisClusterTestCase(unittest.TestCase):
-    def tearDown(self):
+class RedisClusterTestCase(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.c = SingleNodeRedisCluster()
+        cls.r = cls.c.client
+        redpipe.connect_rediscluster(cls.r)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.c = None
+        cls.r = None
         redpipe.reset()
 
-    def test(self):
-        # i don't need to set up a full cluster to test. this.
-        # it's enough to know I wired it into the code correctly for now.
-        r = rediscluster.StrictRedisCluster(
-            startup_nodes=[{'host': '0', 'port': 999999}],
-            init_slot_cache=False
-        )
-        redpipe.connect_rediscluster(r, 'test')
-        with redpipe.pipeline(name='test') as pipe:
+    def tearDown(self):
+        self.r.flushall()
+
+    def test_basic(self):
+        with redpipe.pipeline(autocommit=True) as pipe:
             pipe.set('foo', 'bar')
-            self.assertRaises(Exception, pipe.execute)
+            res = pipe.get('foo')
+        self.assertEqual(res, b'bar')
+
+    def test_list(self):
+        class Test(redpipe.List):
+            _keyspace = 'T'
+
+        with redpipe.pipeline(autocommit=True) as pipe:
+            t = Test(pipe)
+            append = t.append('1', 'a', 'b', 'c')
+            lrange = t.lrange('1', 0, -1)
+            lpop = t.lpop('1')
+
+        self.assertEqual(append, 3)
+        self.assertEqual(lrange, ['a', 'b', 'c'])
+        self.assertEqual(lpop, 'a')
+
+    def test_set(self):
+        class Test(redpipe.Set):
+            _keyspace = 'T'
+
+        with redpipe.pipeline(autocommit=True) as pipe:
+            t = Test(pipe)
+            sadd = t.sadd('1', 'a', 'b', 'c')
+            smembers = t.smembers('1')
+            spop = t.spop('1')
+            scard = t.scard('1')
+
+        expected = {'a', 'b', 'c'}
+        self.assertEqual(sadd, 3)
+        self.assertEqual(smembers, expected)
+        self.assertIn(spop, expected)
+        self.assertEqual(scard, 2)
+
+    def test_string(self):
+        class Test(redpipe.String):
+            _keyspace = 'T'
+
+        with redpipe.pipeline(autocommit=True) as pipe:
+            t = Test(pipe)
+            set_result = t.set('1', 'a')
+            get_result = t.get('1')
+            delete_result = t.delete('1')
+
+        self.assertEqual(set_result, 1)
+        self.assertEqual(get_result, 'a')
+        self.assertEqual(delete_result, 1)
+
+    def test_sorted_sets(self):
+        class Test(redpipe.SortedSet):
+            _keyspace = 'T'
+
+        with redpipe.pipeline(autocommit=True) as pipe:
+            t = Test(pipe)
+            t.zadd('1', 'a', 1)
+            t.zadd('1', 'b', 2)
+            zadd = t.zadd('1', 'c', 3)
+            zrange = t.zrange('1', 0, -1)
+
+        self.assertEqual(zadd, 1)
+        self.assertEqual(zrange, ['a', 'b', 'c'])
 
 
 class StringTestCase(BaseTestCase):
