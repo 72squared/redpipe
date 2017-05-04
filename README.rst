@@ -1,6 +1,6 @@
 RedPipe
 =======
-*Making Redis pipelines easier to use in python.*
+*Pain-Free redis pipelining in python.*
 
 |BuildStatus| |CoverageStatus| |Version| |Python| |Docs|
 
@@ -34,7 +34,7 @@ or from source:
 
 Documentation
 -------------
-Find the latest documentation on `Read the Docs for RedPipe <http://redpipe.readthedocs.io/en/latest/>`_.
+Find **RedPipe** documentation on `Read the Docs <http://redpipe.readthedocs.io/en/latest/>`_.
 
 
 

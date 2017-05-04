@@ -8,6 +8,7 @@ We make no guarantees about backward compatibility.
 Once the api reaches **1.0.0**, all major and minor release notes will be well documented.
 Upgrade notes and any breaking changes will be described here and how to handle them.
 
+
 0.3.2 (May 3, 2017)
 -------------------
 After experimenting with some things, simplifying Struct back down.

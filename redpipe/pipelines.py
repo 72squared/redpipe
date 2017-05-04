@@ -33,28 +33,13 @@ behave very differently.
 """
 
 from .futures import Future
-from .connections import connector, resolve_connection_name
+from .connections import ConnectionManager, resolve_connection_name
 from .tasks import promise, wait
 from .exceptions import InvalidPipeline
 
 __all__ = [
     'pipeline',
 ]
-
-
-def _nested_future(r, future):
-    """
-    A utility function to map one future result into
-    another future via callback.
-    :param r:
-    :param future:
-    :return:
-    """
-
-    def cb():
-        future.set(r.result)
-
-    return cb
 
 
 class Pipeline(object):
@@ -161,7 +146,7 @@ class Pipeline(object):
                 """
 
                 # get the connection to redis
-                pipe = connector.get(self.connection_name)
+                pipe = ConnectionManager.get(self.connection_name)
 
                 # keep track of all the commands
                 call_stack = []
@@ -341,7 +326,7 @@ class NestedPipeline(object):
 
         deferred = []
 
-        build = _nested_future
+        build = self._nested_future
 
         pipe = self._pipeline(self.connection_name)
         for item, args, kwargs, ref in stack:
@@ -363,6 +348,21 @@ class NestedPipeline(object):
 
     def _inject_callbacks(self, callbacks):
         self._callbacks[0:0] = callbacks
+
+    @staticmethod
+    def _nested_future(r, future):
+        """
+        A utility function to map one future result into
+        another future via callback.
+        :param r:
+        :param future:
+        :return:
+        """
+
+        def cb():
+            future.set(r.result)
+
+        return cb
 
     def reset(self):
         self._stack = []

@@ -109,7 +109,7 @@ Then it focuses on step-by-step instructions for getting the most out of RedPipe
     keyspaces
     structs
     latency
-    project_status
+    project-status
     redis-cluster
     unicode
     license

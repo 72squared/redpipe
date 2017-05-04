@@ -3,14 +3,18 @@
 Bind instances of the redis-py or redis-py-cluster client to redpipe.
 Assign named connections to be able to talk to multiple redis servers in your
 project.
+
+The ConnectionManager is a singleton class.
+
+The functions are all you need to call:
+
+*
 """
 
 from redis.client import StrictPipeline
 from .exceptions import AlreadyConnected, InvalidPipeline
 
 __all__ = [
-    'ConnectionManager',
-    'connector',
     'connect_redis',
     'connect_rediscluster',
     'disconnect',
@@ -43,12 +47,10 @@ class ConnectionManager(object):
     * reset
 
     """
-    __slots__ = ['connections']
+    connections = {}
 
-    def __init__(self):
-        self.connections = {}
-
-    def get(self, name=None):
+    @classmethod
+    def get(cls, name=None):
         """
         Get a new redis-py pipeline object or similar object.
         Called by the redpipe.pipelines module.
@@ -59,11 +61,12 @@ class ConnectionManager(object):
         """
         name = resolve_connection_name(name)
         try:
-            return self.connections[name]()
+            return cls.connections[name]()
         except KeyError:
             raise InvalidPipeline('%s is not configured' % name)
 
-    def connect(self, pipeline_method, name=None):
+    @classmethod
+    def connect(cls, pipeline_method, name=None):
         """
         Low level logic to bind a callable method to a name.
         Don't call this directly unless you know what you are doing.
@@ -75,14 +78,15 @@ class ConnectionManager(object):
         name = resolve_connection_name(name)
         new_pool = pipeline_method().connection_pool
         try:
-            if self.get(name).connection_pool != new_pool:
+            if cls.get(name).connection_pool != new_pool:
                 raise AlreadyConnected("can't change connection for %s" % name)
         except InvalidPipeline:
             pass
 
-        self.connections[name] = pipeline_method
+        cls.connections[name] = pipeline_method
 
-    def connect_redis(self, redis_client, name=None,
+    @classmethod
+    def connect_redis(cls, redis_client, name=None,
                       transaction=True, shard_hint=None):
         """
         Store the redis connection in our connector instance.
@@ -119,9 +123,10 @@ class ConnectionManager(object):
             )
 
         # set up the connection.
-        self.connect(pipeline_method=pipeline_method, name=name)
+        cls.connect(pipeline_method=pipeline_method, name=name)
 
-    def connect_rediscluster(self, redis_cluster_client, name=None):
+    @classmethod
+    def connect_rediscluster(cls, redis_cluster_client, name=None):
         """
         Call this during your application bootstrapping to link your instance
         of redis-py-cluster to redpipe.
@@ -143,9 +148,10 @@ class ConnectionManager(object):
             return redis_cluster_client.pipeline()
 
         # set up the connection.
-        self.connect(pipeline_method=pipeline_method, name=name)
+        cls.connect(pipeline_method=pipeline_method, name=name)
 
-    def disconnect(self, name=None):
+    @classmethod
+    def disconnect(cls, name=None):
         """
         remove a connection by name.
         If no name is passed in, it assumes default.
@@ -157,21 +163,19 @@ class ConnectionManager(object):
         """
         name = resolve_connection_name(name)
         try:
-            del self.connections[name]
+            del cls.connections[name]
         except KeyError:
             pass
 
-    def reset(self):
+    @classmethod
+    def reset(cls):
         """
         remove all connections.
         Useful for testing scenarios.
 
         :return: None
         """
-        self.connections = {}
-
-
-connector = ConnectionManager()
+        cls.connections = {}
 
 
 def connect_redis(redis_client, name=None, transaction=True, shard_hint=None):
@@ -193,9 +197,9 @@ def connect_redis(redis_client, name=None, transaction=True, shard_hint=None):
     :param shard_hint:
     :return:
     """
-    return connector.connect_redis(redis_client=redis_client,  name=name,
-                                   transaction=transaction,
-                                   shard_hint=shard_hint)
+    return ConnectionManager.connect_redis(
+        redis_client=redis_client, name=name, transaction=transaction,
+        shard_hint=shard_hint)
 
 
 def connect_rediscluster(redis_cluster_client, name=None):
@@ -215,7 +219,7 @@ def connect_rediscluster(redis_cluster_client, name=None):
 
 
     """
-    return connector.connect_rediscluster(
+    return ConnectionManager.connect_rediscluster(
         redis_cluster_client=redis_cluster_client,
         name=name
     )
@@ -231,7 +235,7 @@ def disconnect(name=None):
     :param name:
     :return: None
     """
-    return connector.disconnect(name=name)
+    return ConnectionManager.disconnect(name=name)
 
 
 def reset():
@@ -241,4 +245,4 @@ def reset():
 
     :return: None
     """
-    return connector.reset()
+    return ConnectionManager.reset()

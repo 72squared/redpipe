@@ -21,13 +21,11 @@ Road Map
 *RedPipe* is close to feature complete.
 Here's what I still have on my list:
 
-* improve struct
 * distributed hash
 * better source-code documentation
 * tutorials and examples
 * simplify autocommit
 * standardize transactions
-* pubsub
 * geo keyspaces
 
 How Long until a Stable Release?
