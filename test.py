@@ -867,6 +867,7 @@ class RedisClusterTestCase(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
+        getattr(cls.c.node, '_cleanup')()
         cls.c = None
         cls.r = None
         redpipe.reset()
