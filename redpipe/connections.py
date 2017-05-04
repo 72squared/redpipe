@@ -6,9 +6,14 @@ project.
 
 The ConnectionManager is a singleton class.
 
-The functions are all you need to call:
+These functions are all you will need to call from your code:
 
-*
+* connect_redis
+* connect_rediscluster
+* disconnect
+* reset
+
+Everything else is for internal use.
 """
 
 from redis.client import StrictPipeline
@@ -20,18 +25,6 @@ __all__ = [
     'disconnect',
     'reset'
 ]
-
-CONNECTION_DEFAULT_NAME = 'default'
-
-
-def resolve_connection_name(name=None):
-    """
-    Utility method for resolving the connection name
-
-    :param name: str or None
-    :return: str
-    """
-    return CONNECTION_DEFAULT_NAME if name is None else name
 
 
 class ConnectionManager(object):
@@ -49,6 +42,18 @@ class ConnectionManager(object):
     """
     connections = {}
 
+    DEFAULT_NAME = 'default'
+
+    @classmethod
+    def resolve(cls, name=None):
+        """
+        Utility method for resolving the connection name
+
+        :param name: str or None
+        :return: str
+        """
+        return cls.DEFAULT_NAME if name is None else name
+
     @classmethod
     def get(cls, name=None):
         """
@@ -59,7 +64,7 @@ class ConnectionManager(object):
         :param name: str
         :return: callable implementing the redis-py pipeline interface.
         """
-        name = resolve_connection_name(name)
+        name = cls.resolve(name)
         try:
             return cls.connections[name]()
         except KeyError:
@@ -75,7 +80,7 @@ class ConnectionManager(object):
         :param name: str optional
         :return: None
         """
-        name = resolve_connection_name(name)
+        name = cls.resolve(name)
         new_pool = pipeline_method().connection_pool
         try:
             if cls.get(name).connection_pool != new_pool:
@@ -176,7 +181,7 @@ class ConnectionManager(object):
         :param name:
         :return:
         """
-        name = resolve_connection_name(name)
+        name = cls.resolve(name)
         try:
             del cls.connections[name]
         except KeyError:

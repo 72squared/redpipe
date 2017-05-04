@@ -33,7 +33,7 @@ a Pipeline() object.
 """
 
 from .futures import Future
-from .connections import ConnectionManager, resolve_connection_name
+from .connections import ConnectionManager
 from .tasks import promise, wait
 from .exceptions import InvalidPipeline
 
@@ -422,7 +422,7 @@ def pipeline(pipe=None, name=None, autoexec=False):
     :param autoexec: bool, if true, implicitly execute the pipe
     :return: Pipeline or NestedPipeline
     """
-    name = resolve_connection_name(name)
+    name = ConnectionManager.resolve(name)
     if pipe is None:
         return Pipeline(name=name, autoexec=autoexec)
 
