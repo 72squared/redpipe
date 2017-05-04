@@ -70,7 +70,7 @@ class Keyspace(object):
         Get the key we pass to redis.
         If no namespace is declared, it will use the class name.
 
-        :param name: str     the name of the redis key
+        :param key: str     the name of the redis key
         :return: str
         """
         keyspace = cls._keyspace
@@ -90,7 +90,7 @@ class Keyspace(object):
         """
         Remove the key from redis
 
-        :param name: str     the name of the redis key
+        :param names: tuple of strings - The keys to remove from redis.
         :return: Future()
         """
         names = [self.redis_key(n) for n in names]

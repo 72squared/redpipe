@@ -8,6 +8,14 @@ We make no guarantees about backward compatibility.
 Once the api reaches **1.0.0**, all major and minor release notes will be well documented.
 Upgrade notes and any breaking changes will be described here and how to handle them.
 
+0.3.3 (May 4, 2017)
+-------------------
+* by default, don't use transactions
+* autocommit flag renamed to autoexec. *Breaking change*.
+* support pickling Struct
+* make repr(Struct) more standard
+* cleaner connection and pipeline interfaces
+* verify redis cluster support with a single-node redis cluster via redislite
 
 0.3.2 (May 3, 2017)
 -------------------

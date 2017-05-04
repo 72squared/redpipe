@@ -271,8 +271,8 @@ def _json_default_encoder(func):
     falls through and can't be encoded normally, we see if it is
     a Future object and return the result to be encoded.
 
-    I set a special attribute on the Future object so I can tell
-    that's what it is, and can grab the result.
+    I set a special attribute on the Struct object so I can tell
+    that's what it is.
 
     If that doesn't work, I fall back to the earlier behavior.
     The nice thing about patching the library this way is that it
