@@ -41,6 +41,7 @@ sys.path.insert(0, ROOTDIR)
 import redpipe  # noqa
 
 extensions = [
+    'alabaster',
     'sphinx.ext.autodoc',
     'sphinx.ext.intersphinx',
     'sphinx.ext.viewcode',
@@ -103,7 +104,25 @@ html_theme = 'alabaster'
 # further.  For a list of options available for each theme, see the
 # documentation.
 #
-# html_theme_options = {}
+html_theme_options = {
+    'logo': 'redpipe-logo.png',
+    'github_banner': True,
+    'github_user': '72squared',
+    'github_repo': 'redpipe',
+    'travis_button': True,
+    'codecov_button': True,
+    'sidebar_collapse': True,
+}
+
+html_sidebars = {
+    '**': [
+        'about.html',
+        'navigation.html',
+        'relations.html',
+        'searchbox.html',
+    ]
+}
+
 
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
