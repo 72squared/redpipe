@@ -70,6 +70,7 @@ Here are some examples if your result is numeric.
 And here is an example if your future is a list:
 
 .. code-block:: python
+
     future = Future()
     future.set([1])
     assert(future == [1])
@@ -108,6 +109,7 @@ def IS(instance, other):  # noqa
     Support the `future is other` use-case.
     Can't override the language so we built a function.
     Will work on non-future objects too.
+
     :param instance: future or any python object
     :param other: object to compare.
     :return:
@@ -131,6 +133,7 @@ def ISINSTANCE(instance, A_tuple):  # noqa
     Really, I discourage this because duck-typing is usually better.
     But this can provide you with a way to use isinstance with futures.
     Works with other objects too.
+
     :param instance:
     :param A_tuple:
     :return:

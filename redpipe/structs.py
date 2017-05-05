@@ -45,6 +45,81 @@ class StructMeta(type):
 class Struct(object):
     """
     load and store structured data in redis using OOP patterns.
+
+    If you pass in a dictionary-like object, redpipe will write all the
+    values you pass in to redis to the key you specify.
+
+    By default, the primary key name is `_key`.
+    But you should override this in your Struct with the `key_name`
+    property.
+
+    .. code-block:: python
+
+        class Beer(redpipe.Struct):
+            fields = {'name': redpipe.StringField}
+            key_name = 'beer_id'
+
+        beer = Beer({'beer_id': '1', 'name': 'Schlitz'})
+
+    This will store the data you pass into redis.
+    It will also load any additional fields to hydrate the object.
+    **RedPipe** does this in the same pipelined call.
+
+    If you need a stub record that neither loads or saves data, do:
+
+    .. code-block:: python
+
+        beer = Beer({'beer_id': '1'}, no_op=True)
+
+    You can later load the fields you want using, load.
+
+    If you pass in a string we assume it is the key of the record.
+    redpipe loads the data from redis:
+
+    .. code-block:: python
+
+        beer = Beer('1')
+        assert(beer['beer_id'] == '1')
+        assert(beer['name'] == 'Schlitz')
+
+    If you need to load a record but only specific fields, you can say so.
+
+    .. code-block:: python
+
+        beer = Beer('1', fields=['name'])
+
+    This will exclude all other fields.
+
+    **RedPipe** cares about pipelining and efficiency, so if you need to
+    bundle a bunch of reads or writes together, by all means do so!
+
+    .. code-block:: python
+
+        beer_ids = ['1', '2', '3']
+        with redpipe.pipeline() as pipe:
+            beers = [Beer(i, pipe=pipe) for i in beer_ids]
+        print(beers)
+
+    This will pipeline all 3 together and load them in a single pass
+    from redis.
+
+    The following methods all accept a pipe:
+
+    * __init__
+    * update
+    * incr
+    * decr
+    * pop
+    * remove
+    * clear
+    * delete
+
+    You can pass a pipeline into them to make sure that the network i/o is
+    combined with another pipeline operation.
+    The other methods on the object are about accessing the data
+    already loaded.
+    So you shouldn't need to pipeline them.
+
     """
     __slots__ = ['key', '_data']
     keyspace = None
@@ -55,49 +130,7 @@ class Struct(object):
 
     def __init__(self, _key_or_data=None, pipe=None, fields=None, no_op=False):
         """
-        If you pass in a dictionary-like object, redpipe will write all the
-        values you pass in to redis to the key you specify.
-
-        By default, the primary key name is `_key`.
-        But you should override this in your Struct with the `key_name`
-        property.
-
-        .. code-block:: python
-
-            class Beer(redpipe.Struct):
-                fields = {'name': redpipe.StringField}
-                key_name = 'beer_id'
-
-            beer = Beer({'beer_id': '1234', 'name': 'Schlitz'})
-
-        This will store the data you pass into redis.
-        It will also load any additional fields to hydrate the object.
-        **RedPipe** does this in the same pipelined call.
-
-        If you need a stub record that neither loads or saves data, do:
-
-        .. code-block:: python
-
-            beer = Beer({'beer_id': '1234'}, no_op=True)
-
-        You can later load the fields you want using, load.
-
-        If you pass in a string we assume it is the key of the record.
-        redpipe loads the data from redis:
-
-        .. code-block:: python
-
-            beer = Beer('1234')
-            assert(beer['beer_id'] == '1234')
-            assert(beer['name'] == 'Schlitz')
-
-        If you need to load a record but only specific fields, you can say so.
-
-        .. code-block:: python
-
-            beer = Beer('1234', fields=['name'])
-
-        This will exclude all other fields.
+        class constructor
 
         :param _key_or_data:
         :param pipe:
@@ -127,10 +160,11 @@ class Struct(object):
     def load(self, fields=None, pipe=None):
         """
         Load data from redis.
-        Use the fields specified.
-        :param fields:
-        :param pipe:
-        :return:
+        restrict to just the fields specified.
+
+        :param fields: 'all', 'defined', or array of field names
+        :param pipe: Pipeline(), NestedPipeline() or None
+        :return: None
         """
         if fields is None:
             fields = self.default_fields
@@ -170,20 +204,57 @@ class Struct(object):
             pipe.on_execute(cb)
 
     def incr(self, field, amount=1, pipe=None):
+        """
+        Increment a field by a given amount.
+        Return the future
+
+        Also update the field.
+
+        :param field:
+        :param amount:
+        :param pipe:
+        :return:
+        """
         with self._pipe(pipe) as pipe:
             core = self.core(pipe=pipe)
-            core.hincrby(self.key, field, amount)
+            new_amount = core.hincrby(self.key, field, amount)
             ref = core.hget(self.key, field)
 
             def cb():
                 self._data[field] = ref.result
 
             pipe.on_execute(cb)
+            return new_amount
 
     def decr(self, field, amount=1, pipe=None):
-        self.incr(field, amount * -1, pipe=pipe)
+        """
+        Inverse of incr function.
+
+        :param field:
+        :param amount:
+        :param pipe:
+        :return: Pipeline, NestedPipeline, or None
+        """
+        return self.incr(field, amount * -1, pipe=pipe)
 
     def update(self, changes, pipe=None):
+        """
+        update the data in the Struct.
+
+        This will update the values in the underlying redis hash.
+        After the pipeline executes, the changes will be reflected here
+        in the local struct.
+
+        If any values in the changes dict are None, those fields will be
+        removed from redis and the instance.
+
+        The changes should be a dictionary representing the fields to change
+        and the values to change them to.
+
+        :param changes: dict
+        :param pipe: Pipeline, NestedPipeline, or None
+        :return: None
+        """
         if not changes:
             return
 
@@ -211,6 +282,16 @@ class Struct(object):
             self.remove(deletes, pipe=pipe)
 
     def remove(self, fields, pipe=None):
+        """
+        remove some fields from the struct.
+        This will remove data from the underlying redis hash object.
+        After the pipe executes successfully, it will also remove it from
+        the current instance of Struct.
+
+        :param fields: list or iterable, names of the fields to remove.
+        :param pipe: Pipeline, NestedPipeline, or None
+        :return: None
+        """
         if not fields:
             return
 
@@ -231,13 +312,30 @@ class Struct(object):
             pipe.on_execute(cb)
 
     def copy(self):
+        """
+        like the dictionary copy method.
+
+        :return:
+        """
         return self.__class__(dict(self))
 
     @property
     def persisted(self):
+        """
+        Not certain I want to keep this around.
+        Is it useful?
+
+        :return:
+        """
         return True if self._data else False
 
     def clear(self, pipe=None):
+        """
+        delete the current redis key.
+
+        :param pipe:
+        :return:
+        """
         with self._pipe(pipe) as pipe:
             self.core(pipe=pipe).delete(self.key)
 
@@ -247,9 +345,30 @@ class Struct(object):
             pipe.on_execute(cb)
 
     def get(self, item, default=None):
+        """
+        works like the dict get method.
+
+        :param item:
+        :param default:
+        :return:
+        """
         return self._data.get(item, default)
 
     def pop(self, name, default=None, pipe=None):
+        """
+        works like the dictionary pop method.
+
+        IMPORTANT!
+
+        This method removes the key from redis.
+        If this is not the behavior you want, first convert your
+        Struct data to a dict.
+
+        :param name:
+        :param default:
+        :param pipe:
+        :return:
+        """
         f = Future()
         with self._pipe(pipe) as pipe:
             c = self.core(pipe)
@@ -266,6 +385,16 @@ class Struct(object):
 
     @classmethod
     def delete(cls, keys, pipe=None):
+        """
+        Delete one or more keys from the Struct namespace.
+
+        This is a class method and unlike the `clear` method,
+        can be invoked without instantiating a Struct.
+
+        :param keys: the names of the keys to remove from the keyspace
+        :param pipe: Pipeline, NestedPipeline, or None
+        :return: None
+        """
         with cls._pipe(pipe) as pipe:
             core = cls.core(pipe)
             core.delete(*keys)
