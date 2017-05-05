@@ -56,7 +56,7 @@ You can override this default behavior by defining `_valueparse`.
         }
         _valueparse = redpipe.AsciiField
 
-This example will force all values to be set as ascii values in redis.
+This example will force all values not listed in `_fields` to be set as ascii values in redis.
 (It does not coerce values already in redis to be ascii tho.
 It will treat them as text.)
 
@@ -80,8 +80,7 @@ Creating New Structs
 --------------------
 
 Let's create a few user objects using our `Struct`.
-The first argument is always the key.
-The other keyword arguments will be assigned as data.
+The first argument is always either the key or the data.
 
 We pass in a pipeline so we can combine the save operation with other network i/o.
 
@@ -105,9 +104,9 @@ We pass in a pipeline so we can combine the save operation with other network i/
 
 
 When we exit the context, all the structs are saved to *Redis* in one pipeline operation.
-It also automatically loads any other data.
-Since the commands are batched together, you can write the keys then read the hash in one pass.
-
+It also automatically loads the other fields in the hash.
+Since the commands are batched together, you can write the fields then read the hash in one pass.
+If you don't want it to read, you can set the fields to an empty array.
 
 Accessing the Data
 ------------------

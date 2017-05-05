@@ -417,7 +417,7 @@ class StructTestCase(BaseTestCase):
         self.assertRaises(redpipe.InvalidOperation, delete_first_name)
 
         u_copy = dict(u)
-        u_clone = self.User(u)
+        u_clone = self.User(u, no_op=True)
         u.clear()
         self.assertFalse(core.exists('1'))
         self.assertRaises(KeyError, lambda: u['first_name'])
@@ -460,6 +460,24 @@ class StructTestCase(BaseTestCase):
         }
         data.update(kwargs)
         return data
+
+    def test_empty_fields_init(self):
+
+        class Test(redpipe.Struct):
+            _key_name = 't'
+            _default_fields = 'all'
+
+        t = Test({'t': '1', 'orig': '1'})
+        self.assertEqual(t, {'t': '1', 'orig': '1'})
+
+        t = Test('1', fields=[])
+        self.assertEqual(t, {'t': '1'})
+
+        t = Test('1')
+        self.assertEqual(t, {'t': '1', 'orig': '1'})
+
+        t = Test({'t': '1', 'new': '1'}, fields=[])
+        self.assertEqual(t, {'t': '1', 'new': '1'})
 
     def test_core(self):
         data = self.fake_user_data(_key='1')
@@ -569,7 +587,7 @@ class StructTestCase(BaseTestCase):
         u = self.UserWithPk(data)
         self.assertEqual(u['user_id'], '1')
         self.assertIn('user_id', u)
-        u_copy = self.UserWithPk(u)
+        u_copy = self.UserWithPk(u, no_op=True)
         self.assertEqual(u_copy, u)
 
         u = self.UserWithPk('1')

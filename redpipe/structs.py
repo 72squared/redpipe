@@ -53,7 +53,7 @@ class Struct(object):
     _fields = {}
     _default_fields = 'all'  # set as 'defined', 'all', or ['a', b', 'c']
 
-    def __init__(self, _key_or_data=None, pipe=None, fields=None):
+    def __init__(self, _key_or_data=None, pipe=None, fields=None, no_op=False):
         """
         If you pass in a dictionary-like object, redpipe will write all the
         values you pass in to redis to the key you specify.
@@ -70,13 +70,15 @@ class Struct(object):
 
             beer = Beer({'beer_id': '1234', 'name': 'Schlitz'})
 
-        This will store the data into redis.
+        This will store the data you pass into redis.
+        It will also load any additional fields to hydrate the object.
+        **RedPipe** does this in the same pipelined call.
 
         If you need a stub record that neither loads or saves data, do:
 
         .. code-block:: python
 
-            beer = Beer({'beer_id': '1234'})
+            beer = Beer({'beer_id': '1234'}, no_op=True)
 
         You can later load the fields you want using, load.
 
@@ -103,21 +105,24 @@ class Struct(object):
         """
         keyname = self.key_name
         self._data = {}
-        try:
-            coerced = dict(_key_or_data)
-            self.key = coerced[keyname]
-            del coerced[keyname]
-            self.update(coerced, pipe=pipe)
-            return
-        except KeyError:
-            raise InvalidOperation(
-                'must specify primary key when cloning a struct')
-        except (ValueError, TypeError):
-            pass
+        with self._pipe(pipe=pipe) as pipe:
+            try:
+                coerced = dict(_key_or_data)
+                self.key = coerced[keyname]
+                del coerced[keyname]
+                if no_op:
+                    self._data = coerced
+                    return
 
-        self.key = _key_or_data
+                self.update(coerced, pipe=pipe)
+            except KeyError:
+                raise InvalidOperation(
+                    'must specify primary key when cloning a struct')
+            except (ValueError, TypeError):
+                self.key = _key_or_data
 
-        self.load(fields=fields, pipe=pipe)
+            if not no_op:
+                self.load(fields=fields, pipe=pipe)
 
     def load(self, fields=None, pipe=None):
         """
@@ -133,8 +138,11 @@ class Struct(object):
         if fields == 'all':
             return self._load_all(pipe=pipe)
 
-        if not fields or fields == 'defined':
+        if fields == 'defined':
             fields = [k for k in self._fields.keys()]
+
+        if not fields:
+            return
 
         with self._pipe(pipe) as pipe:
             ref = self.core(pipe=pipe).hmget(self.key, fields)
@@ -207,7 +215,6 @@ class Struct(object):
             self.remove(deletes, pipe=pipe)
 
     def remove(self, fields, pipe=None):
-
         if not fields:
             return
 
