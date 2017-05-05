@@ -71,8 +71,8 @@ This is not required but it makes life easier.
     class User(redpipe.Hash):
         _keyspace = 'U'
         _fields = {
-            'first_name': redpipe.StringField,
-            'last_name': redpipe.StringField,
+            'first_name': redpipe.TextField,
+            'last_name': redpipe.TextField,
             'admin': redpipe.BooleanField,
             'last_seen': redpipe.FloatField,
         }
