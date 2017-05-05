@@ -663,6 +663,14 @@ class StructTestCase(BaseTestCase):
         self.assertNotIn('user_id', u._data)  # noqa
         self.assertEqual(u.key, key)
 
+    def test_update_with_none_future(self):
+        f = redpipe.Future()
+        f.set(None)
+        u = self.UserWithPk(user_id='1', first_name='Bubba')
+        u.update({'first_name': f})
+        u = self.UserWithPk(user_id='1')
+        self.assertRaises(KeyError, lambda: u['first_name'])
+
 
 class ConnectTestCase(unittest.TestCase):
     def tearDown(self):
@@ -1654,7 +1662,11 @@ class FutureNoneTestCase(unittest.TestCase):
         self.assertEqual(self.future, self.result)
         self.assertEqual(bool(self.future), bool(self.result))
         self.assertTrue(self.future.IS(None))
+        self.assertTrue(redpipe.IS(self.future, None))
+        self.assertTrue(redpipe.IS(self.future, self.future))
         self.assertTrue(self.future.isinstance(None.__class__))
+        self.assertTrue(redpipe.ISINSTANCE(self.future, None.__class__))
+        self.assertTrue(redpipe.ISINSTANCE(None, None.__class__))
 
 
 class FutureIntTestCase(unittest.TestCase):

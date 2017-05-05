@@ -98,7 +98,49 @@ from functools import wraps
 
 __all__ = [
     'Future',
+    'IS',
+    'ISINSTANCE'
 ]
+
+
+def IS(instance, other):  # noqa
+    """
+    Support the `future is other` use-case.
+    Can't override the language so we built a function.
+    Will work on non-future objects too.
+    :param instance: future or any python object
+    :param other: object to compare.
+    :return:
+    """
+    try:
+        instance = instance._redpipe_future_result  # noqa
+    except AttributeError:
+        pass
+
+    try:
+        other = other._redpipe_future_result
+    except AttributeError:
+        pass
+
+    return instance is other
+
+
+def ISINSTANCE(instance, A_tuple):  # noqa
+    """
+    Allows you to do isinstance checks on futures.
+    Really, I discourage this because duck-typing is usually better.
+    But this can provide you with a way to use isinstance with futures.
+    Works with other objects too.
+    :param instance:
+    :param A_tuple:
+    :return:
+    """
+    try:
+        instance = instance._redpipe_future_result
+    except AttributeError:
+        pass
+
+    return isinstance(instance, A_tuple)
 
 
 class Future(object):

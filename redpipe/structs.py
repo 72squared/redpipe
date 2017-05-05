@@ -11,7 +11,7 @@ from .pipelines import autoexec
 from .keyspaces import Hash
 from .fields import TextField
 from .exceptions import InvalidOperation
-from .futures import Future
+from .futures import Future, IS
 
 __all__ = ['Struct']
 
@@ -117,7 +117,7 @@ class Struct(object):
         if self.key_name in changes:
             raise InvalidOperation('cannot update the redis key')
 
-        deletes = {k for k, v in changes.items() if v is None}
+        deletes = {k for k, v in changes.items() if IS(v, None)}
         updates = {k: v for k, v in changes.items() if k not in deletes}
 
         with self._pipe(pipe) as pipe:
