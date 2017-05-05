@@ -89,14 +89,15 @@ We pass in a pipeline so we can combine the save operation with other network i/
 
     with redpipe.autoexec() as pipe:
         # create a few users
-        u1 = User(user_id='1', name='Bob', last_seen=int(time()), pipe=pipe)
-        u2 = User(user_id='2', name='Jill', last_seen=int(time()), pipe=pipe)
+        ts = int(time.time())
+        u1 = User({'user_id': '1', 'name': 'Jack', 'last_seen': ts}, pipe=pipe)
+        u2 = User({'user_id': '2', 'name': 'Jill', 'last_seen': ts}, pipe=pipe)
 
     # these model objects print out a json dump representation of the data.
     print("first batch: %s" % [u1, u2])
 
     # we can access the data like we would dictionary keys
-    assert(u1['name'] == 'Bob')
+    assert(u1['name'] == 'Jack')
     assert(u2['name'] == 'Jill')
     assert(isinstance(u1['last_seen'], int))
     assert(u1['user_id'] == '1')
@@ -114,8 +115,8 @@ Accessing the Data
 
 .. code-block:: python
 
-    user = User(user_id='1', name='Bob')
-    assert(user['name'] == 'Bob')
+    user = User({'user_id': '1', 'name': 'Jack'})
+    assert(user['name'] == 'Jack')
 
 
 Here, we accessed the name field of the redis hash as a dictionary element on the user object.
@@ -127,7 +128,7 @@ You can coerce the objects into dictionaries.
 
 .. code-block:: python
 
-    user = User(user_id='1', name='Bob')
+    user = User({'user_id': '1', 'name': 'Jack'})
     assert(dict(user) == user)
 
 This just takes all the internal data and returns it as a dictionary.
@@ -142,7 +143,7 @@ You can compare the user `Struct` to a dictionary for equality.
 
 .. code-block:: python
 
-    user = User(user_id='1', name='Bob')
+    user = User({'user_id': '1', 'name': 'Jack'})
     assert(dict(user) == user)
 
 There is an `__eq__` magic method on `Struct` that allows this comparison.
@@ -152,7 +153,7 @@ You can iterate on the object like a dictionary:
 
 .. code-block:: python
 
-    user = User(user_id='1', name='Bob')
+    user = User({'user_id': '1', 'name': 'Jack'})
     assert({k: v for k, v in user.items()} == user)
 
 
@@ -165,8 +166,8 @@ You can access an unknown data element like you would a dictionary:
 
 .. code-block:: python
 
-    user = User(user_id='1', name='Bob')
-    assert(user.get('name', 'unknown') == 'Bob')
+    user = User({'user_id': '1', 'name': 'Jack'})
+    assert(user.get('name', 'unknown') == 'Jack')
 
 The `get` method allows you to pass in a default if no key is found.
 It defaults to `None`.
@@ -175,7 +176,7 @@ You can check for key existence:
 
 .. code-block:: python
 
-    user = User(user_id='1', name='Bob')
+    user = User({'user_id': '1', 'name': 'Jack'})
     assert('name' in user)
     assert('non-existent-name' not in user)
 
@@ -186,7 +187,7 @@ You can check the length of a struct:
 
 .. code-block:: python
 
-    user = User(user_id='1', name='Bob')
+    user = User({'user_id': '1', 'name': 'Jack'})
     assert(len(user) == 2)
 
 
@@ -197,7 +198,7 @@ You can get the keys of a struct:
 
 .. code-block:: python
 
-    user = User(user_id='1', name='Bob')
+    user = User({'user_id': '1', 'name': 'Jack'})
     # returns a list but we don't know the order
     # coerce to a set for comparison
     assert(set(user.keys()) == {'user_id', 'name'})
@@ -228,7 +229,8 @@ Let's read those two users we created and modify them.
 
     with redpipe.autoexec() as pipe:
         users = [User('1', pipe=pipe), User('2', pipe=pipe)]
-        users[0].update({'name':'Bobby', 'last_seen': int(time())}, pipe=pipe)
+        ts = int(time.time())
+        users[0].update({'name':'Bobby', 'last_seen': ts}, pipe=pipe)
         users[1].remove(['last_seen'])
 
     print([dict(u1), dict(u2)])
@@ -244,10 +246,10 @@ We can remove a field and return it like we would popping an item from a dict:
 .. code-block:: python
 
     with redpipe.autoexec() as pipe:
-        user = User(user_id='1', name='Bob', pipe=pipe)
+        user = User({'user_id': '1', 'name': 'Jack'}, pipe=pipe)
         name = user.pop('name', pipe=pipe)
 
-    assert(name == 'Bob')
+    assert(name == 'Jack')
     assert(user.get('name', None) is None)
 
 
@@ -259,10 +261,10 @@ You don't have to use a pipeline if you don't want to:
 
 .. code-block:: python
 
-    user = User(user_id='1', name='Bob')
+    user = User({'user_id': '1', 'name': 'Jack'})
     name = user.pop('name')
 
-    assert(name == 'Bob')
+    assert(name == 'Jack')
     assert(user.get('name', None) is None)
 
 
@@ -275,7 +277,7 @@ You can increment a field:
 .. code-block:: python
 
     with redpipe.autoexec() as pipe:
-        user = User(user_id='1', name='Bob', pipe=pipe)
+        user = User({'user_id': '1', 'name': 'Jack'}, pipe=pipe)
         user.incr('page_views', pipe=pipe)
 
     assert(user['page_views'], 1)
@@ -333,7 +335,7 @@ I touched on it briefly before, but you can store arbitrary data in a struct too
 
 .. code-block:: python
 
-    user = User(user_id='1', arbitrary_field_name='foo')
+    user = User({'user_id': '1', 'arbitrary_field': 'foo'})
     assert(user['arbitrary_field'] == 'foo')
 
 The data will be simple string key-value pairs by default.

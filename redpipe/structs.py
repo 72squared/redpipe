@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Experimental code based on patterns I've used elsewhere.
+The Struct is a convenient way to access data in a hash.
 Makes it possible to load data from redis as an object and access the fields.
 Then store changes back into redis.
 """
@@ -51,35 +51,104 @@ class Struct(object):
     _connection = None
     _key_name = None
     _fields = {}
+    _default_fields = 'all'  # set as 'defined', 'all', or ['a', b', 'c']
 
-    def __init__(self, _key_or_data=None, pipe=None, **kwargs):
+    def __init__(self, _key_or_data=None, pipe=None, fields=None):
+        """
+        If you pass in a dictionary-like object, redpipe will write all the
+        values you pass in to redis to the key you specify.
 
+        By default, the primary key name is `_key`.
+        But you should override this in your Struct with the `_key_name`
+        property.
+
+        .. code-block:: python
+
+            class Beer(redpipe.Struct):
+                _fields = {'name': redpipe.StringField}
+                _key_name = 'beer_id'
+
+            beer = Beer({'beer_id': '1234', 'name': 'Schlitz'})
+
+        This will store the data into redis.
+
+        If you need a stub record that neither loads or saves data, do:
+
+        .. code-block:: python
+
+            beer = Beer({'beer_id': '1234'})
+
+        You can later load the fields you want using, load.
+
+        If you pass in a string we assume it is the key of the record.
+        redpipe loads the data from redis:
+
+        .. code-block:: python
+
+            beer = Beer('1234')
+            assert(beer['beer_id'] == '1234')
+            assert(beer['name'] == 'Schlitz')
+
+        If you need to load a record but only specific fields, you can say so.
+
+        .. code-block:: python
+
+            beer = Beer('1234', fields=['name'])
+
+        This will exclude all other fields.
+
+        :param _key_or_data:
+        :param pipe:
+        :param fields:
+        """
         keyname = self.key_name
-
-        if pipe is None and not kwargs:
-            try:
-                coerced = dict(_key_or_data)
-                self.key = coerced[keyname]
-                del coerced[keyname]
-                self._data = coerced
-                return
-            except KeyError:
-                raise InvalidOperation(
-                    'must specify primary key when copying a struct')
-            except (ValueError, TypeError):
-                pass
+        self._data = {}
+        try:
+            coerced = dict(_key_or_data)
+            self.key = coerced[keyname]
+            del coerced[keyname]
+            self.update(coerced, pipe=pipe)
+            return
+        except KeyError:
+            raise InvalidOperation(
+                'must specify primary key when cloning a struct')
+        except (ValueError, TypeError):
+            pass
 
         self.key = _key_or_data
-        self._data = {}
+
+        self.load(fields=fields, pipe=pipe)
+
+    def load(self, fields=None, pipe=None):
+        """
+        Load data from redis.
+        Use the fields specified.
+        :param fields:
+        :param pipe:
+        :return:
+        """
+        if fields is None:
+            fields = self._default_fields
+
+        if fields == 'all':
+            return self._load_all(pipe=pipe)
+
+        if not fields or fields == 'defined':
+            fields = [k for k in self._fields.keys()]
+
         with self._pipe(pipe) as pipe:
-            if kwargs:
-                coerced = dict(kwargs)
-                if self.key is None:
-                    self.key = coerced[self.key_name]
-                    del coerced[self.key_name]
+            ref = self.core(pipe=pipe).hmget(self.key, fields)
 
-                self.update(coerced, pipe=pipe)
+            def cb():
+                for i, v in enumerate(ref.result):
+                    k = fields[i]
+                    if k != self.key_name:
+                        self._data[k] = v
 
+            pipe.on_execute(cb)
+
+    def _load_all(self, pipe=None):
+        with self._pipe(pipe) as pipe:
             ref = self.core(pipe=pipe).hgetall(self.key)
 
             def cb():
@@ -87,7 +156,7 @@ class Struct(object):
                     return
 
                 for k, v in ref.result.items():
-                    if k != keyname:
+                    if k != self.key_name:
                         self._data[k] = v
 
             pipe.on_execute(cb)
