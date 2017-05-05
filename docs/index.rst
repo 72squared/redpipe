@@ -16,7 +16,7 @@ Never fear.
 If you have no idea what Redis is or why you should pipeline commands, `look it up <https://redis.io/topics/pipelining>`_ already.
 
 
-|BuildStatus| |CoverageStatus| |Version| |Python| |Docs|
+|BuildStatus| |CoverageStatus| |Version| |Python|
 
 This project is beta software.
 The interface may change.
@@ -157,8 +157,4 @@ You can see everything.
 
 .. |Python| image:: https://img.shields.io/badge/python-2.7,3.4,pypy-blue.svg
     :target:  https://pypi.python.org/pypi/redpipe/
-
-.. |Docs| image:: https://readthedocs.org/projects/redpipe/badge/?version=latest
-    :target: http://redpipe.readthedocs.org/en/latest/
-    :alt: Documentation Status
 
