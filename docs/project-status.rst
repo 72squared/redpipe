@@ -15,6 +15,18 @@ I believe in well tested code.
 If you find issues, `let me know <https://github.com/72squared/redpipe/issues>`_ right away.
 I'll fix it and write a regression test.
 
+Road Map
+--------
+Here's my current backlog:
+
+* required fields in Struct
+* flag to restrict a Struct to only get and set defined fields
+* distributed hash, so we can spread an index out over multiple keys
+* better support for iterating through keys when on redis-py-cluster
+
+The last one may best be fixed by patching redis-py-cluster to support scan.
+
+
 
 How Long until a Stable Release?
 --------------------------------
