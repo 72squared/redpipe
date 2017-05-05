@@ -111,33 +111,37 @@ class Struct(object):
         self.incr(field, amount * -1, pipe=pipe)
 
     def update(self, changes, pipe=None):
+        if not changes:
+            return
+
         if self.key_name in changes:
             raise InvalidOperation('cannot update the redis key')
 
+        deletes = {k for k, v in changes.items() if v is None}
+        updates = {k: v for k, v in changes.items() if k not in deletes}
+
         with self._pipe(pipe) as pipe:
+
             core = self.core(pipe=pipe)
 
             def build(k, v):
-                if v is None:
-                    core.hdel(self.key, k)
-                else:
-                    core.hset(self.key, k, v)
+                core.hset(self.key, k, v)
 
                 def cb():
-                    if v is None:
-                        try:
-                            del self._data[k]
-                        except KeyError:
-                            pass
-                    else:
-                        self._data[k] = v
+                    self._data[k] = v
 
                 pipe.on_execute(cb)
 
-            for k, v in changes.items():
+            for k, v in updates.items():
                 build(k, v)
 
+            self.remove(deletes, pipe=pipe)
+
     def remove(self, fields, pipe=None):
+
+        if not fields:
+            return
+
         if self.key_name in fields:
             raise InvalidOperation('cannot remove the redis key')
 

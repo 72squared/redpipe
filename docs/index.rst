@@ -34,8 +34,8 @@ It also requires `redis-py <https://redis-py.readthedocs.io>`_ or `redis-py-clus
 
 What is RedPipe?
 ----------------
-*RedPipe* is a python package designed to help reduce network round trips when talking to redis.
-It is a wrapper around `redis-py <https://redis-py.readthedocs.io>`_ or `redis-py-cluster <https://redis-py-cluster.readthedocs.io>`_.
+*RedPipe* is a python package that makes it easy to reduce network round trips when talking to redis.
+It is a wrapper around the pipeline component of `redis-py <https://redis-py.readthedocs.io>`_ or `redis-py-cluster <https://redis-py-cluster.readthedocs.io>`_.
 
 For more general information about redis pipelining, see the `official redis documentation <https://redis.io/topics/pipelining>`_.
 

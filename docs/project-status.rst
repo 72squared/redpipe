@@ -19,13 +19,28 @@ Road Map
 --------
 Here's my current backlog:
 
-* required fields in Struct
 * flag to restrict a Struct to only get and set defined fields
 * distributed hash, so we can spread an index out over multiple keys
 * better support for iterating through keys when on redis-py-cluster
 
 The last one may best be fixed by patching redis-py-cluster to support scan.
 
+Another way of defining the roadmap is listing what I expect **NOT** to be supported:
+
+* Unique Constraints on Struct
+* one-to-many indexes on Struct
+* many-to-many indexes on Struct
+* required fields on Struct
+
+All of these start forcing me down the road of requiring network i/o in ways that you can't control.
+These operations are best left up to your application logic to handle.
+
+You can still build indexes and unique constraints using redpipe SortedSets, Lists, Sets, Hashes etc.
+But you do so separately from Struct as their own first-class objects.
+
+This allows you to access and control the indexes separately from the objects.
+Don't see this as a deficiency in the framework.
+See it as a feature.
 
 
 How Long until a Stable Release?
