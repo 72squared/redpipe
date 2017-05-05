@@ -20,7 +20,7 @@ class StructMeta(type):
     """
     Data binding of a redpipe.Hash to the core of the Struct object.
     Creates it dynamically on class construction.
-    uses the _keyspace and _connection fields
+    uses the keyspace and connection fields
     Meta Classes are strange beasts.
     """
 
@@ -29,12 +29,12 @@ class StructMeta(type):
             return type.__new__(mcs, name, bases, d)
 
         class StructHash(Hash):
-            _keyspace = d.get('_keyspace', name)
-            _connection = d.get('_connection', None)
-            _fields = d.get('_fields', {})
-            _keyparse = d.get('_keyparse', TextField)
-            _valueparse = d.get('_valueparse', TextField)
-            _memberparse = d.get('_memberparse', TextField)
+            keyspace = d.get('keyspace', name)
+            connection = d.get('connection', None)
+            fields = d.get('fields', {})
+            keyparse = d.get('keyparse', TextField)
+            valueparse = d.get('valueparse', TextField)
+            memberparse = d.get('memberparse', TextField)
 
         d['core'] = StructHash
 
@@ -47,11 +47,11 @@ class Struct(object):
     load and store structured data in redis using OOP patterns.
     """
     __slots__ = ['key', '_data']
-    _keyspace = None
-    _connection = None
-    _key_name = None
-    _fields = {}
-    _default_fields = 'all'  # set as 'defined', 'all', or ['a', b', 'c']
+    keyspace = None
+    connection = None
+    key_name = '_key'
+    fields = {}
+    default_fields = 'all'  # set as 'defined', 'all', or ['a', b', 'c']
 
     def __init__(self, _key_or_data=None, pipe=None, fields=None, no_op=False):
         """
@@ -59,14 +59,14 @@ class Struct(object):
         values you pass in to redis to the key you specify.
 
         By default, the primary key name is `_key`.
-        But you should override this in your Struct with the `_key_name`
+        But you should override this in your Struct with the `key_name`
         property.
 
         .. code-block:: python
 
             class Beer(redpipe.Struct):
-                _fields = {'name': redpipe.StringField}
-                _key_name = 'beer_id'
+                fields = {'name': redpipe.StringField}
+                key_name = 'beer_id'
 
             beer = Beer({'beer_id': '1234', 'name': 'Schlitz'})
 
@@ -133,13 +133,13 @@ class Struct(object):
         :return:
         """
         if fields is None:
-            fields = self._default_fields
+            fields = self.default_fields
 
         if fields == 'all':
             return self._load_all(pipe=pipe)
 
         if fields == 'defined':
-            fields = [k for k in self._fields.keys()]
+            fields = [k for k in self.fields.keys()]
 
         if not fields:
             return
@@ -168,10 +168,6 @@ class Struct(object):
                         self._data[k] = v
 
             pipe.on_execute(cb)
-
-    @property
-    def key_name(self):
-        return self._key_name or '_key'
 
     def incr(self, field, amount=1, pipe=None):
         with self._pipe(pipe) as pipe:
@@ -276,7 +272,7 @@ class Struct(object):
 
     @classmethod
     def _pipe(cls, pipe=None):
-        return autoexec(pipe, name=cls._connection)
+        return autoexec(pipe, name=cls.connection)
 
     def __getitem__(self, item):
         if item == self.key_name:

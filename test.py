@@ -369,8 +369,8 @@ class FieldsTestCase(unittest.TestCase):
 
 
 class StructUser(redpipe.Struct):
-    _keyspace = 'U'
-    _fields = {
+    keyspace = 'U'
+    fields = {
         'first_name': redpipe.TextField,
         'last_name': redpipe.TextField,
     }
@@ -380,7 +380,7 @@ class StructTestCase(BaseTestCase):
     User = StructUser
 
     class UserWithPk(StructUser):
-        _key_name = 'user_id'
+        key_name = 'user_id'
 
     def test(self):
         u = self.User('1')
@@ -464,8 +464,8 @@ class StructTestCase(BaseTestCase):
     def test_empty_fields_init(self):
 
         class Test(redpipe.Struct):
-            _key_name = 't'
-            _default_fields = 'all'
+            key_name = 't'
+            default_fields = 'all'
 
         t = Test({'t': '1', 'orig': '1'})
         self.assertEqual(t, {'t': '1', 'orig': '1'})
@@ -507,8 +507,8 @@ class StructTestCase(BaseTestCase):
 
     def test_fields(self):
         class Multi(redpipe.Struct):
-            _keyspace = 'M'
-            _fields = {
+            keyspace = 'M'
+            fields = {
                 'boolean': redpipe.BooleanField,
                 'integer': redpipe.IntegerField,
                 'float': redpipe.FloatField,
@@ -604,8 +604,8 @@ class StructTestCase(BaseTestCase):
         key = '1'
 
         class T(redpipe.Struct):
-            _keyspace = 'T'
-            _fields = {
+            keyspace = 'T'
+            fields = {
 
             }
 
@@ -631,8 +631,8 @@ class StructTestCase(BaseTestCase):
         key = '1'
 
         class T(redpipe.Struct):
-            _keyspace = 'T'
-            _fields = {
+            keyspace = 'T'
+            fields = {
                 'counter': redpipe.IntegerField
             }
 
@@ -694,11 +694,11 @@ class StructTestCase(BaseTestCase):
 
     def test_with_empty_update(self):
         class Test(redpipe.Struct):
-            _keyspace = 'U'
-            _fields = {
+            keyspace = 'U'
+            fields = {
                 'a': redpipe.TextField,
             }
-            _key_name = 'k'
+            key_name = 'k'
 
         data = {'k': '1', 'a': 'foo', 'b': 'bar'}
         t = Test(data)
@@ -707,13 +707,13 @@ class StructTestCase(BaseTestCase):
 
     def test_fields_custom_default(self):
         class Test(redpipe.Struct):
-            _keyspace = 'U'
-            _fields = {
+            keyspace = 'U'
+            fields = {
                 'a': redpipe.TextField,
                 'b': redpipe.TextField,
             }
-            _default_fields = ['a']
-            _key_name = 'k'
+            default_fields = ['a']
+            key_name = 'k'
 
         data = {'k': '1', 'a': 'foo', 'b': 'bar'}
         t = Test(data)
@@ -727,13 +727,13 @@ class StructTestCase(BaseTestCase):
 
     def test_fields_custom_default_defined_only(self):
         class Test(redpipe.Struct):
-            _keyspace = 'U'
-            _fields = {
+            keyspace = 'U'
+            fields = {
                 'a': redpipe.TextField,
                 'b': redpipe.TextField,
             }
-            _default_fields = 'defined'
-            _key_name = 'k'
+            default_fields = 'defined'
+            key_name = 'k'
 
         data = {'k': '1', 'a': 'foo', 'b': 'bar', 'c': 'bazz'}
         t = Test(data)
@@ -1013,7 +1013,7 @@ class RedisClusterTestCase(unittest.TestCase):
 
     def test_list(self):
         class Test(redpipe.List):
-            _keyspace = 'T'
+            keyspace = 'T'
 
         with redpipe.autoexec() as pipe:
             t = Test(pipe)
@@ -1027,7 +1027,7 @@ class RedisClusterTestCase(unittest.TestCase):
 
     def test_set(self):
         class Test(redpipe.Set):
-            _keyspace = 'T'
+            keyspace = 'T'
 
         with redpipe.autoexec() as pipe:
             t = Test(pipe)
@@ -1044,7 +1044,7 @@ class RedisClusterTestCase(unittest.TestCase):
 
     def test_string(self):
         class Test(redpipe.String):
-            _keyspace = 'T'
+            keyspace = 'T'
 
         with redpipe.autoexec() as pipe:
             t = Test(pipe)
@@ -1058,7 +1058,7 @@ class RedisClusterTestCase(unittest.TestCase):
 
     def test_sorted_sets(self):
         class Test(redpipe.SortedSet):
-            _keyspace = 'T'
+            keyspace = 'T'
 
         with redpipe.autoexec() as pipe:
             t = Test(pipe)
@@ -1073,7 +1073,7 @@ class RedisClusterTestCase(unittest.TestCase):
 
 class StringTestCase(BaseTestCase):
     class Data(redpipe.String):
-        _keyspace = 'STRING'
+        keyspace = 'STRING'
 
     def test(self):
         with redpipe.autoexec() as pipe:
@@ -1212,7 +1212,7 @@ class StringTestCase(BaseTestCase):
 
 class SetTestCase(BaseTestCase):
     class Data(redpipe.Set):
-        _keyspace = 'SET'
+        keyspace = 'SET'
 
     def test(self):
         with redpipe.autoexec() as pipe:
@@ -1290,7 +1290,7 @@ class SetTestCase(BaseTestCase):
 
 class ListTestCase(BaseTestCase):
     class Data(redpipe.List):
-        _keyspace = 'LIST'
+        keyspace = 'LIST'
 
     def test(self):
         with redpipe.autoexec() as pipe:
@@ -1384,7 +1384,7 @@ class ListTestCase(BaseTestCase):
 
 class SortedSetTestCase(BaseTestCase):
     class Data(redpipe.SortedSet):
-        _keyspace = 'SORTEDSET'
+        keyspace = 'SORTEDSET'
 
     def test(self):
         with redpipe.autoexec() as pipe:
@@ -1512,7 +1512,7 @@ class SortedSetTestCase(BaseTestCase):
 
 class HashTestCase(BaseTestCase):
     class Data(redpipe.Hash):
-        _keyspace = 'HASH'
+        keyspace = 'HASH'
 
     def test(self):
         with redpipe.autoexec() as pipe:
@@ -1567,8 +1567,8 @@ class HashTestCase(BaseTestCase):
 
 class HashFieldsTestCase(BaseTestCase):
     class Data(redpipe.Hash):
-        _keyspace = 'HASH'
-        _fields = {
+        keyspace = 'HASH'
+        fields = {
             'b': redpipe.BooleanField,
             'i': redpipe.IntegerField,
             'f': redpipe.FloatField,
@@ -1668,7 +1668,7 @@ class HashFieldsTestCase(BaseTestCase):
 
 class HyperloglogTestCase(BaseTestCase):
     class Data(redpipe.HyperLogLog):
-        _keyspace = 'HYPERLOGLOG'
+        keyspace = 'HYPERLOGLOG'
 
     def test(self):
         key1 = '1'

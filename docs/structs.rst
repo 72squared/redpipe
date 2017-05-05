@@ -23,9 +23,9 @@ Here's an example of how to define a *Struct*.
 
     # set up a struct object.
     class User(redpipe.Struct):
-        _keyspace = 'U'
-        _key_name = 'user_id'
-        _fields = {
+        keyspace = 'U'
+        key_name = 'user_id'
+        fields = {
             'name': redpipe.TextField,
             'last_seen': redpipe.IntegerField,
             'admin': redpipe.BooleanField,
@@ -41,22 +41,22 @@ The `Struct` does not enforce required fields on any of this data.
 Just as a redis hash object does not.
 It is up to your application logic to enforce these constraints.
 
-The rule is that if the element is in the hash, it will be coerced into the appropriate data type by the `_fields` definition.
-If an element in the hash is not mentioned in the `_fields` it is coerced into a `TextField`.
+The rule is that if the element is in the hash, it will be coerced into the appropriate data type by the `fields` definition.
+If an element in the hash is not mentioned in the `fields` it is coerced into a `TextField`.
 
-You can override this default behavior by defining `_valueparse`.
+You can override this default behavior by defining `valueparse`.
 
 .. code-block:: python
 
     class User(redpipe.Struct):
-        _keyspace = 'U'
-        _key_name = 'user_id'
-        _fields = {
+        keyspace = 'U'
+        key_name = 'user_id'
+        fields = {
             # ...
         }
-        _valueparse = redpipe.AsciiField
+        valueparse = redpipe.AsciiField
 
-This example will force all values not listed in `_fields` to be set as ascii values in redis.
+This example will force all values not listed in `fields` to be set as ascii values in redis.
 (It does not coerce values already in redis to be ascii tho.
 It will treat them as text.)
 
@@ -65,12 +65,12 @@ You can specify an alternate redis connection if you are using multiple redis co
 .. code-block:: python
 
     class User(redpipe.Struct):
-        _keyspace = 'U'
-        _key_name = 'user_id'
-        _fields = {
+        keyspace = 'U'
+        key_name = 'user_id'
+        fields = {
             # ...
         }
-        _connection = 'users'
+        connection = 'users'
 
 The string value `users` refers to a connection you have added in application bootstrapping.
 See the `Named Connections <./named-connections.html>`_ section of this documentation.
@@ -338,7 +338,7 @@ I touched on it briefly before, but you can store arbitrary data in a struct too
     assert(user['arbitrary_field'] == 'foo')
 
 The data will be simple string key-value pairs by default.
-But you can add type-casting at any point easily in the `_fields` dictionary.
+But you can add type-casting at any point easily in the `fields` dictionary.
 
 Why Struct and not Model?
 -------------------------
