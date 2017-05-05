@@ -650,6 +650,19 @@ class StructTestCase(BaseTestCase):
             u = self.User(k)
             self.assertFalse(u.persisted)
 
+    def test_indirect_overlap_of_pk(self):
+        key = '1'
+        other_key = '2'
+        u = self.UserWithPk(
+            user_id=key,
+            first_name='first%s' % key,
+        )
+        u.core().hset(key, 'user_id', other_key)
+        u = self.UserWithPk(key)
+        self.assertEqual(dict(u)['user_id'], key)
+        self.assertNotIn('user_id', u._data)  # noqa
+        self.assertEqual(u.key, key)
+
 
 class ConnectTestCase(unittest.TestCase):
     def tearDown(self):

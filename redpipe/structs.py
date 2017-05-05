@@ -87,7 +87,8 @@ class Struct(object):
                     return
 
                 for k, v in ref.result.items():
-                    self._data[k] = v
+                    if k != keyname:
+                        self._data[k] = v
 
             pipe.on_execute(cb)
 
