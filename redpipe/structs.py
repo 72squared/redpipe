@@ -56,7 +56,7 @@ class Struct(object):
     .. code-block:: python
 
         class Beer(redpipe.Struct):
-            fields = {'name': redpipe.StringField}
+            fields = {'name': redpipe.TextField}
             key_name = 'beer_id'
 
         beer = Beer({'beer_id': '1', 'name': 'Schlitz'})
