@@ -3,6 +3,11 @@
 When sending commands to multiple redis backends in one redpipe.pipeline,
 this module gives us an api to allow threaded async communication to those
 different backends, improving parallelism.
+
+Out of an abundance of caution, the SynchronousTask is the default.
+I've used these patterns in my own applications before.
+The threads were not true threads because I was using gevent.
+But the AsynchronousTask is well tested and should work well.
 """
 import sys
 from six import reraise
@@ -126,7 +131,3 @@ def disable_threads():
     :return: None
     """
     TaskManager.set_task_type(AsynchronousTask)
-
-
-promise = TaskManager.promise
-wait = TaskManager.wait

@@ -34,7 +34,7 @@ a Pipeline() object.
 
 from .futures import Future
 from .connections import ConnectionManager
-from .tasks import promise, wait
+from .tasks import TaskManager
 from .exceptions import InvalidPipeline
 
 __all__ = [
@@ -182,7 +182,7 @@ class Pipeline(object):
             promises[0]()
         else:
             # if there are no promises, this is basically a no-op.
-            wait(*[promise(p) for p in promises])
+            TaskManager.wait(*[TaskManager.promise(p) for p in promises])
 
         for cb in callbacks:
             cb()
