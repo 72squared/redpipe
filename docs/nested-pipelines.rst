@@ -44,7 +44,7 @@ Just wrap it all up in `redpipe.pipeline` and do your work.
     class Beer(redpipe.Hash):
         keyspace = 'B'
         fields = {
-            'beer_name': redpipe.StringField,
+            'beer_name': redpipe.TextField,
             'consumed' redpipe.Integer,
         }
 
