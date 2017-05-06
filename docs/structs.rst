@@ -23,9 +23,9 @@ Here's an example of how to define a *Struct*.
 
     # set up a struct object.
     class User(redpipe.Struct):
-        _keyspace = 'U'
-        _key_name = 'user_id'
-        _fields = {
+        keyspace = 'U'
+        key_name = 'user_id'
+        fields = {
             'name': redpipe.TextField,
             'last_seen': redpipe.IntegerField,
             'admin': redpipe.BooleanField,
@@ -41,22 +41,22 @@ The `Struct` does not enforce required fields on any of this data.
 Just as a redis hash object does not.
 It is up to your application logic to enforce these constraints.
 
-The rule is that if the element is in the hash, it will be coerced into the appropriate data type by the `_fields` definition.
-If an element in the hash is not mentioned in the `_fields` it is coerced into a `TextField`.
+The rule is that if the element is in the hash, it will be coerced into the appropriate data type by the `fields` definition.
+If an element in the hash is not mentioned in the `fields` it is coerced into a `TextField`.
 
-You can override this default behavior by defining `_valueparse`.
+You can override this default behavior by defining `valueparse`.
 
 .. code-block:: python
 
     class User(redpipe.Struct):
-        _keyspace = 'U'
-        _key_name = 'user_id'
-        _fields = {
+        keyspace = 'U'
+        key_name = 'user_id'
+        fields = {
             # ...
         }
-        _valueparse = redpipe.AsciiField
+        valueparse = redpipe.AsciiField
 
-This example will force all values to be set as ascii values in redis.
+This example will force all values not listed in `fields` to be set as ascii values in redis.
 (It does not coerce values already in redis to be ascii tho.
 It will treat them as text.)
 
@@ -65,12 +65,12 @@ You can specify an alternate redis connection if you are using multiple redis co
 .. code-block:: python
 
     class User(redpipe.Struct):
-        _keyspace = 'U'
-        _key_name = 'user_id'
-        _fields = {
+        keyspace = 'U'
+        key_name = 'user_id'
+        fields = {
             # ...
         }
-        _connection = 'users'
+        connection = 'users'
 
 The string value `users` refers to a connection you have added in application bootstrapping.
 See the `Named Connections <./named-connections.html>`_ section of this documentation.
@@ -80,8 +80,7 @@ Creating New Structs
 --------------------
 
 Let's create a few user objects using our `Struct`.
-The first argument is always the key.
-The other keyword arguments will be assigned as data.
+The first argument is always either the key or the data.
 
 We pass in a pipeline so we can combine the save operation with other network i/o.
 
@@ -89,14 +88,15 @@ We pass in a pipeline so we can combine the save operation with other network i/
 
     with redpipe.autoexec() as pipe:
         # create a few users
-        u1 = User(user_id='1', name='Bob', last_seen=int(time()), pipe=pipe)
-        u2 = User(user_id='2', name='Jill', last_seen=int(time()), pipe=pipe)
+        ts = int(time.time())
+        u1 = User({'user_id': '1', 'name': 'Jack', 'last_seen': ts}, pipe=pipe)
+        u2 = User({'user_id': '2', 'name': 'Jill', 'last_seen': ts}, pipe=pipe)
 
     # these model objects print out a json dump representation of the data.
     print("first batch: %s" % [u1, u2])
 
     # we can access the data like we would dictionary keys
-    assert(u1['name'] == 'Bob')
+    assert(u1['name'] == 'Jack')
     assert(u2['name'] == 'Jill')
     assert(isinstance(u1['last_seen'], int))
     assert(u1['user_id'] == '1')
@@ -104,9 +104,9 @@ We pass in a pipeline so we can combine the save operation with other network i/
 
 
 When we exit the context, all the structs are saved to *Redis* in one pipeline operation.
-It also automatically loads any other data.
-Since the commands are batched together, you can write the keys then read the hash in one pass.
-
+It also automatically loads the other fields in the hash.
+Since the commands are batched together, you can write the fields then read the hash in one pass.
+If you don't want it to read, you can set the fields to an empty array.
 
 Accessing the Data
 ------------------
@@ -114,8 +114,8 @@ Accessing the Data
 
 .. code-block:: python
 
-    user = User(user_id='1', name='Bob')
-    assert(user['name'] == 'Bob')
+    user = User({'user_id': '1', 'name': 'Jack'})
+    assert(user['name'] == 'Jack')
 
 
 Here, we accessed the name field of the redis hash as a dictionary element on the user object.
@@ -127,7 +127,7 @@ You can coerce the objects into dictionaries.
 
 .. code-block:: python
 
-    user = User(user_id='1', name='Bob')
+    user = User({'user_id': '1', 'name': 'Jack'})
     assert(dict(user) == user)
 
 This just takes all the internal data and returns it as a dictionary.
@@ -142,7 +142,7 @@ You can compare the user `Struct` to a dictionary for equality.
 
 .. code-block:: python
 
-    user = User(user_id='1', name='Bob')
+    user = User({'user_id': '1', 'name': 'Jack'})
     assert(dict(user) == user)
 
 There is an `__eq__` magic method on `Struct` that allows this comparison.
@@ -152,7 +152,7 @@ You can iterate on the object like a dictionary:
 
 .. code-block:: python
 
-    user = User(user_id='1', name='Bob')
+    user = User({'user_id': '1', 'name': 'Jack'})
     assert({k: v for k, v in user.items()} == user)
 
 
@@ -165,8 +165,8 @@ You can access an unknown data element like you would a dictionary:
 
 .. code-block:: python
 
-    user = User(user_id='1', name='Bob')
-    assert(user.get('name', 'unknown') == 'Bob')
+    user = User({'user_id': '1', 'name': 'Jack'})
+    assert(user.get('name', 'unknown') == 'Jack')
 
 The `get` method allows you to pass in a default if no key is found.
 It defaults to `None`.
@@ -175,7 +175,7 @@ You can check for key existence:
 
 .. code-block:: python
 
-    user = User(user_id='1', name='Bob')
+    user = User({'user_id': '1', 'name': 'Jack'})
     assert('name' in user)
     assert('non-existent-name' not in user)
 
@@ -186,7 +186,7 @@ You can check the length of a struct:
 
 .. code-block:: python
 
-    user = User(user_id='1', name='Bob')
+    user = User({'user_id': '1', 'name': 'Jack'})
     assert(len(user) == 2)
 
 
@@ -197,7 +197,7 @@ You can get the keys of a struct:
 
 .. code-block:: python
 
-    user = User(user_id='1', name='Bob')
+    user = User({'user_id': '1', 'name': 'Jack'})
     # returns a list but we don't know the order
     # coerce to a set for comparison
     assert(set(user.keys()) == {'user_id', 'name'})
@@ -228,7 +228,8 @@ Let's read those two users we created and modify them.
 
     with redpipe.autoexec() as pipe:
         users = [User('1', pipe=pipe), User('2', pipe=pipe)]
-        users[0].update({'name':'Bobby', 'last_seen': int(time())}, pipe=pipe)
+        ts = int(time.time())
+        users[0].update({'name':'Bobby', 'last_seen': ts}, pipe=pipe)
         users[1].remove(['last_seen'])
 
     print([dict(u1), dict(u2)])
@@ -244,10 +245,10 @@ We can remove a field and return it like we would popping an item from a dict:
 .. code-block:: python
 
     with redpipe.autoexec() as pipe:
-        user = User(user_id='1', name='Bob', pipe=pipe)
+        user = User({'user_id': '1', 'name': 'Jack'}, pipe=pipe)
         name = user.pop('name', pipe=pipe)
 
-    assert(name == 'Bob')
+    assert(name == 'Jack')
     assert(user.get('name', None) is None)
 
 
@@ -259,10 +260,10 @@ You don't have to use a pipeline if you don't want to:
 
 .. code-block:: python
 
-    user = User(user_id='1', name='Bob')
+    user = User({'user_id': '1', 'name': 'Jack'})
     name = user.pop('name')
 
-    assert(name == 'Bob')
+    assert(name == 'Jack')
     assert(user.get('name', None) is None)
 
 
@@ -275,7 +276,7 @@ You can increment a field:
 .. code-block:: python
 
     with redpipe.autoexec() as pipe:
-        user = User(user_id='1', name='Bob', pipe=pipe)
+        user = User({'user_id': '1', 'name': 'Jack'}, pipe=pipe)
         user.incr('page_views', pipe=pipe)
 
     assert(user['page_views'], 1)
@@ -333,11 +334,11 @@ I touched on it briefly before, but you can store arbitrary data in a struct too
 
 .. code-block:: python
 
-    user = User(user_id='1', arbitrary_field_name='foo')
+    user = User({'user_id': '1', 'arbitrary_field': 'foo'})
     assert(user['arbitrary_field'] == 'foo')
 
 The data will be simple string key-value pairs by default.
-But you can add type-casting at any point easily in the `_fields` dictionary.
+But you can add type-casting at any point easily in the `fields` dictionary.
 
 Why Struct and not Model?
 -------------------------

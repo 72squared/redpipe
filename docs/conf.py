@@ -105,13 +105,11 @@ html_theme = 'alabaster'
 # documentation.
 #
 html_theme_options = {
-    'logo': 'redpipe-logo.png',
+    'logo': 'redpipe-logo.gif',
     'github_banner': True,
     'github_user': '72squared',
     'github_repo': 'redpipe',
     'travis_button': True,
-    'codecov_button': True,
-    'sidebar_collapse': True,
 }
 
 html_sidebars = {

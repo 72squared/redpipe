@@ -18,8 +18,8 @@ Here's an example of a sorted set:
 .. code:: python
 
     class Followers(redpipe.SortedSet):
-        _keyspace = 'F'
-        _connection = 'default'
+        keyspace = 'F'
+        connection = 'default'
 
     key1 = '1'
     key2 = '2'
@@ -34,7 +34,7 @@ Here's an example of a sorted set:
     print(f1_members)
     print(f2_members)
 
-We can specify what named connection we want to use with the `_connection` variable.
+We can specify what named connection we want to use with the `connection` variable.
 Or you can omit it if you are using just one default connection to redis.
 
 You will notice the interface provided by the keyspace object `redpipe.SortedSet` looks just like `redis-py` functions.
@@ -69,8 +69,8 @@ This is not required but it makes life easier.
 .. code:: python
 
     class User(redpipe.Hash):
-        _keyspace = 'U'
-        _fields = {
+        keyspace = 'U'
+        fields = {
             'first_name': redpipe.TextField,
             'last_name': redpipe.TextField,
             'admin': redpipe.BooleanField,

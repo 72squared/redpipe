@@ -369,25 +369,25 @@ class FieldsTestCase(unittest.TestCase):
 
 
 class StructUser(redpipe.Struct):
-    _keyspace = 'U'
-    _fields = {
+    keyspace = 'U'
+    fields = {
         'first_name': redpipe.TextField,
         'last_name': redpipe.TextField,
     }
 
 
 class StructTestCase(BaseTestCase):
-
     User = StructUser
 
     class UserWithPk(StructUser):
-        _key_name = 'user_id'
+        key_name = 'user_id'
 
     def test(self):
         u = self.User('1')
         self.assertFalse(u.persisted)
         self.assertEqual(dict(u), {'_key': '1'})
-        u = self.User('1', first_name='Fred', last_name='Flintstone')
+        u = self.User({'_key': '1'})
+        u.update({'first_name': 'Fred', 'last_name': 'Flintstone'})
         self.assertTrue(u.persisted)
         u = self.User('1')
         self.assertTrue(u.persisted)
@@ -417,13 +417,13 @@ class StructTestCase(BaseTestCase):
         self.assertRaises(redpipe.InvalidOperation, delete_first_name)
 
         u_copy = dict(u)
-        u_clone = self.User(u)
+        u_clone = self.User(u, no_op=True)
         u.clear()
         self.assertFalse(core.exists('1'))
         self.assertRaises(KeyError, lambda: u['first_name'])
         self.assertEqual(u_clone['first_name'], 'Wilma')
         self.assertFalse(u.persisted)
-        u = self.User(**u_copy)
+        u = self.User(u_copy)
         self.assertTrue(core.exists('1'))
         self.assertEqual(u['first_name'], 'Wilma')
         self.assertEqual(u['arbitrary_field'], 'a')
@@ -452,32 +452,46 @@ class StructTestCase(BaseTestCase):
         self.assertEqual(u_pickled['first_name'], 'Dummy')
         self.assertEqual(core.hget(u.key, 'first_name'), 'Dummy')
 
-    def create_user(self, k, pipe=None, klass=None, **kwargs):
-        if klass is None:
-            klass = self.User
-        u = klass(
-            "%s" % k,
-            pipe=pipe,
-            first_name='first%s' % k,
-            last_name='last%s' % k,
-            email='user%s@test.com' % k,
-            **kwargs
-        )
-        return u
+    def fake_user_data(self, **kwargs):
+        data = {
+            'first_name': 'Bubba',
+            'last_name': 'Jones',
+            'email': 'bubbajones@fake.com',
+        }
+        data.update(kwargs)
+        return data
+
+    def test_empty_fields_init(self):
+
+        class Test(redpipe.Struct):
+            key_name = 't'
+            default_fields = 'all'
+
+        t = Test({'t': '1', 'orig': '1'})
+        self.assertEqual(t, {'t': '1', 'orig': '1'})
+
+        t = Test('1', fields=[])
+        self.assertEqual(t, {'t': '1'})
+
+        t = Test('1')
+        self.assertEqual(t, {'t': '1', 'orig': '1'})
+
+        t = Test({'t': '1', 'new': '1'}, fields=[])
+        self.assertEqual(t, {'t': '1', 'new': '1'})
 
     def test_core(self):
-        self.create_user('1')
+        data = self.fake_user_data(_key='1')
+        self.User(data)
         ref = self.User.core().hgetall('1')
-        self.assertEqual(ref.result['first_name'], 'first1')
+        self.assertEqual(ref.result['first_name'], data['first_name'])
 
     def test_pipeline(self):
         user_ids = ["%s" % i for i in range(1, 3)]
         with redpipe.autoexec() as pipe:
-            users = [self.create_user(i, pipe=pipe, a=None, b='123')
+            users = [self.User(self.fake_user_data(_key=i, b='123'), pipe=pipe)
                      for i in user_ids]
-            self.assertEqual(
-                [u.persisted for u in users],
-                [False for _ in user_ids])
+            self.assertEqual([u.persisted for u in users],
+                             [False for _ in user_ids])
             retrieved_users = [self.User(i, pipe=pipe) for i in user_ids]
 
         # before executing the pipe (exiting the with block),
@@ -493,8 +507,8 @@ class StructTestCase(BaseTestCase):
 
     def test_fields(self):
         class Multi(redpipe.Struct):
-            _keyspace = 'M'
-            _fields = {
+            keyspace = 'M'
+            fields = {
                 'boolean': redpipe.BooleanField,
                 'integer': redpipe.IntegerField,
                 'float': redpipe.FloatField,
@@ -502,12 +516,13 @@ class StructTestCase(BaseTestCase):
             }
 
         data = {
+            '_key': 'm1',
             'text': 'xyz',
             'integer': 5,
             'boolean': False,
             'float': 2.123}
 
-        m = Multi('m1', **data)
+        m = Multi(data)
         expected = {'_key': 'm1'}
         expected.update(data)
         self.assertEqual(dict(m), expected)
@@ -515,24 +530,24 @@ class StructTestCase(BaseTestCase):
         self.assertEqual(m.get('boolean'), data['boolean'])
         self.assertEqual(m.get('non_existent', 'foo'), 'foo')
         self.assertEqual(m.get('non_existent'), None)
-        expected = {'_key': 'm2'}
-        expected.update(data)
-        m = Multi('m2', **data)
-        self.assertEqual(dict(m), expected)
+        data.update({'_key': 'm2'})
+        m = Multi(data)
+        self.assertEqual(dict(m), data)
         m = Multi('m2')
-        self.assertEqual(dict(m), expected)
+        self.assertEqual(dict(m), data)
 
         self.assertRaises(
             redpipe.InvalidValue,
-            lambda: Multi('m3', text=123))
+            lambda: Multi({'_key': 'm3', 'text': 123}))
 
         self.assertRaises(
             redpipe.InvalidValue,
-            lambda: Multi('m3', boolean='abc'))
+            lambda: Multi({'_key': 'm3', 'boolean': 'abc'}))
 
     def test_extra_fields(self):
-        u = self.User('1', first_name='Bob', last_name='smith',
-                      nickname='BUBBA')
+        data = self.fake_user_data(_key='1', first_name='Bob',
+                                   last_name='smith', nickname='BUBBA')
+        u = self.User(data)
         u = self.User('1')
         self.assertEqual(u['_key'], '1')
         self.assertEqual(u['nickname'], 'BUBBA')
@@ -541,12 +556,16 @@ class StructTestCase(BaseTestCase):
         self.assertRaises(KeyError, lambda: u['nonexistent'])
 
     def test_missing_fields(self):
-        u = self.User('1', first_name='Bob')
+        data = self.fake_user_data(_key='1', first_name='Bob')
+        del data['last_name']
+        u = self.User(data)
         u = self.User('1')
         self.assertRaises(KeyError, lambda: u['last_name'])
 
     def test_set(self):
-        u = self.User('1', first_name='Bob')
+        data = self.fake_user_data(_key='1', first_name='Bob')
+        del data['last_name']
+        u = self.User(data)
         with redpipe.autoexec() as pipe:
             u.update({'first_name': 'Cool', 'last_name': 'Dude'}, pipe=pipe)
 
@@ -556,20 +575,22 @@ class StructTestCase(BaseTestCase):
         self.assertEqual(u['last_name'], 'Dude')
 
     def test_remove_pk(self):
-        u = self.create_user('1')
+        data = self.fake_user_data(_key='1')
+        u = self.User(data)
         self.assertRaises(redpipe.InvalidOperation,
                           lambda: u.remove(['_key']))
         self.assertRaises(redpipe.InvalidOperation,
                           lambda: u.update({'_key': '2'}))
 
     def test_custom_pk(self):
-        u = self.create_user('1', klass=self.UserWithPk)
+        data = self.fake_user_data(user_id='1')
+        u = self.UserWithPk(data)
         self.assertEqual(u['user_id'], '1')
         self.assertIn('user_id', u)
-        u_copy = self.UserWithPk(u)
+        u_copy = self.UserWithPk(u, no_op=True)
         self.assertEqual(u_copy, u)
 
-        u = self.UserWithPk(user_id='1')
+        u = self.UserWithPk('1')
         self.assertEqual(u_copy, u)
 
     def test_copy_with_no_pk(self):
@@ -583,8 +604,8 @@ class StructTestCase(BaseTestCase):
         key = '1'
 
         class T(redpipe.Struct):
-            _keyspace = 'T'
-            _fields = {
+            keyspace = 'T'
+            fields = {
 
             }
 
@@ -610,8 +631,8 @@ class StructTestCase(BaseTestCase):
         key = '1'
 
         class T(redpipe.Struct):
-            _keyspace = 'T'
-            _fields = {
+            keyspace = 'T'
+            fields = {
                 'counter': redpipe.IntegerField
             }
 
@@ -639,7 +660,8 @@ class StructTestCase(BaseTestCase):
     def test_delete(self):
         keys = ['1', '2', '3']
         for k in keys:
-            self.create_user(k)
+            data = self.fake_user_data(_key=k)
+            self.User(data)
 
         for k in keys:
             u = self.User(k)
@@ -649,6 +671,79 @@ class StructTestCase(BaseTestCase):
         for k in keys:
             u = self.User(k)
             self.assertFalse(u.persisted)
+
+    def test_indirect_overlap_of_pk(self):
+        key = '1'
+        other_key = '2'
+        data = self.fake_user_data(user_id=key)
+        u = self.UserWithPk(data)
+        u.core().hset(key, 'user_id', other_key)
+        u = self.UserWithPk(key)
+        self.assertEqual(dict(u)['user_id'], key)
+        self.assertNotIn('user_id', u._data)  # noqa
+        self.assertEqual(u.key, key)
+
+    def test_update_with_none_future(self):
+        f = redpipe.Future()
+        f.set(None)
+        data = self.fake_user_data(user_id='1')
+        u = self.UserWithPk(data)
+        u.update({'first_name': f})
+        u = self.UserWithPk('1')
+        self.assertRaises(KeyError, lambda: u['first_name'])
+
+    def test_with_empty_update(self):
+        class Test(redpipe.Struct):
+            keyspace = 'U'
+            fields = {
+                'a': redpipe.TextField,
+            }
+            key_name = 'k'
+
+        data = {'k': '1', 'a': 'foo', 'b': 'bar'}
+        t = Test(data)
+        t.update({})
+        self.assertEqual(t, data)
+
+    def test_fields_custom_default(self):
+        class Test(redpipe.Struct):
+            keyspace = 'U'
+            fields = {
+                'a': redpipe.TextField,
+                'b': redpipe.TextField,
+            }
+            default_fields = ['a']
+            key_name = 'k'
+
+        data = {'k': '1', 'a': 'foo', 'b': 'bar'}
+        t = Test(data)
+        self.assertEqual(t, data)
+        t = Test(data['k'])
+        self.assertEqual(t, {'k': '1', 'a': 'foo'})
+        t.load(['b'])
+        self.assertEqual(t, data)
+        t = Test(data['k'], fields='all')
+        self.assertEqual(t, data)
+
+    def test_fields_custom_default_defined_only(self):
+        class Test(redpipe.Struct):
+            keyspace = 'U'
+            fields = {
+                'a': redpipe.TextField,
+                'b': redpipe.TextField,
+            }
+            default_fields = 'defined'
+            key_name = 'k'
+
+        data = {'k': '1', 'a': 'foo', 'b': 'bar', 'c': 'bazz'}
+        t = Test(data)
+        self.assertEqual(t, data)
+        t = Test(data['k'])
+        self.assertEqual(t, {'k': '1', 'a': 'foo', 'b': 'bar'})
+        t.load(['c'])
+        self.assertEqual(t, data)
+        t = Test(data['k'], fields='all')
+        self.assertEqual(t, data)
 
 
 class ConnectTestCase(unittest.TestCase):
@@ -918,7 +1013,7 @@ class RedisClusterTestCase(unittest.TestCase):
 
     def test_list(self):
         class Test(redpipe.List):
-            _keyspace = 'T'
+            keyspace = 'T'
 
         with redpipe.autoexec() as pipe:
             t = Test(pipe)
@@ -932,7 +1027,7 @@ class RedisClusterTestCase(unittest.TestCase):
 
     def test_set(self):
         class Test(redpipe.Set):
-            _keyspace = 'T'
+            keyspace = 'T'
 
         with redpipe.autoexec() as pipe:
             t = Test(pipe)
@@ -949,7 +1044,7 @@ class RedisClusterTestCase(unittest.TestCase):
 
     def test_string(self):
         class Test(redpipe.String):
-            _keyspace = 'T'
+            keyspace = 'T'
 
         with redpipe.autoexec() as pipe:
             t = Test(pipe)
@@ -963,7 +1058,7 @@ class RedisClusterTestCase(unittest.TestCase):
 
     def test_sorted_sets(self):
         class Test(redpipe.SortedSet):
-            _keyspace = 'T'
+            keyspace = 'T'
 
         with redpipe.autoexec() as pipe:
             t = Test(pipe)
@@ -978,7 +1073,7 @@ class RedisClusterTestCase(unittest.TestCase):
 
 class StringTestCase(BaseTestCase):
     class Data(redpipe.String):
-        _keyspace = 'STRING'
+        keyspace = 'STRING'
 
     def test(self):
         with redpipe.autoexec() as pipe:
@@ -1117,7 +1212,7 @@ class StringTestCase(BaseTestCase):
 
 class SetTestCase(BaseTestCase):
     class Data(redpipe.Set):
-        _keyspace = 'SET'
+        keyspace = 'SET'
 
     def test(self):
         with redpipe.autoexec() as pipe:
@@ -1195,7 +1290,7 @@ class SetTestCase(BaseTestCase):
 
 class ListTestCase(BaseTestCase):
     class Data(redpipe.List):
-        _keyspace = 'LIST'
+        keyspace = 'LIST'
 
     def test(self):
         with redpipe.autoexec() as pipe:
@@ -1289,7 +1384,7 @@ class ListTestCase(BaseTestCase):
 
 class SortedSetTestCase(BaseTestCase):
     class Data(redpipe.SortedSet):
-        _keyspace = 'SORTEDSET'
+        keyspace = 'SORTEDSET'
 
     def test(self):
         with redpipe.autoexec() as pipe:
@@ -1417,7 +1512,7 @@ class SortedSetTestCase(BaseTestCase):
 
 class HashTestCase(BaseTestCase):
     class Data(redpipe.Hash):
-        _keyspace = 'HASH'
+        keyspace = 'HASH'
 
     def test(self):
         with redpipe.autoexec() as pipe:
@@ -1472,8 +1567,8 @@ class HashTestCase(BaseTestCase):
 
 class HashFieldsTestCase(BaseTestCase):
     class Data(redpipe.Hash):
-        _keyspace = 'HASH'
-        _fields = {
+        keyspace = 'HASH'
+        fields = {
             'b': redpipe.BooleanField,
             'i': redpipe.IntegerField,
             'f': redpipe.FloatField,
@@ -1573,7 +1668,7 @@ class HashFieldsTestCase(BaseTestCase):
 
 class HyperloglogTestCase(BaseTestCase):
     class Data(redpipe.HyperLogLog):
-        _keyspace = 'HYPERLOGLOG'
+        keyspace = 'HYPERLOGLOG'
 
     def test(self):
         key1 = '1'
@@ -1641,7 +1736,11 @@ class FutureNoneTestCase(unittest.TestCase):
         self.assertEqual(self.future, self.result)
         self.assertEqual(bool(self.future), bool(self.result))
         self.assertTrue(self.future.IS(None))
+        self.assertTrue(redpipe.IS(self.future, None))
+        self.assertTrue(redpipe.IS(self.future, self.future))
         self.assertTrue(self.future.isinstance(None.__class__))
+        self.assertTrue(redpipe.ISINSTANCE(self.future, None.__class__))
+        self.assertTrue(redpipe.ISINSTANCE(None, None.__class__))
 
 
 class FutureIntTestCase(unittest.TestCase):
@@ -1706,7 +1805,6 @@ class FutureDictTestCase(unittest.TestCase):
         self.assertEqual(dict(self.future), dict(self.result))
         self.assertEqual([k for k in self.future], [k for k in self.result])
         self.assertTrue('a' in self.future)
-        self.assertEqual(self.future.json, json.dumps(self.result))
         self.assertEqual(json.dumps(self.future), json.dumps(self.result))
         self.assertRaises(TypeError, lambda: json.dumps(object()))
 
@@ -1727,7 +1825,7 @@ class FutureListTestCase(unittest.TestCase):
         self.assertEqual(list(self.future), list(self.result))
         self.assertEqual([k for k in self.future], [k for k in self.result])
         self.assertTrue('a' in self.future)
-        self.assertEqual(self.future.json, json.dumps(self.result))
+        self.assertEqual(json.dumps(self.future), json.dumps(self.result))
         self.assertEqual(self.future.id(), id(self.result))
         self.assertEqual(self.future[1:-1], self.result[1:-1])
         self.assertTrue(self.future.isinstance(self.result.__class__))
