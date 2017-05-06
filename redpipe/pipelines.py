@@ -422,7 +422,6 @@ def pipeline(pipe=None, name=None, autoexec=False):
     :param autoexec: bool, if true, implicitly execute the pipe
     :return: Pipeline or NestedPipeline
     """
-    name = ConnectionManager.resolve(name)
     if pipe is None:
         return Pipeline(name=name, autoexec=autoexec)
 

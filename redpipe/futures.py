@@ -31,7 +31,7 @@ if you need this behavior.
     f.set(1)
 
     # f is 1 fails
-    assert(int(1) is 1)
+    assert(int(f) is 1)
 
 This doesn't work so well for is None checks.
 You can use equality checks though.
@@ -86,7 +86,6 @@ And here is a dictionary:
     assert(future == {'a': 1})
     assert(dict(future) == {'a': 1})
     assert({k: v for k, v in future.items()} == {'a': 1})
-    assert(
 
 There are many more operations supported but these are the most common.
 `Let me know <https://github.com/72squared/redpipe/issues>`_ if you need

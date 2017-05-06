@@ -21,7 +21,7 @@ utf8_sample = u'నేను గాజు తినగలను మరియు 
 class SingleNodeRedisCluster(object):
     __slots__ = ['node', 'port', 'client']
 
-    def __init__(self, starting_port=7000):
+    def __init__(self, starting_port=7000, strict=True):
         port = starting_port
         while port < 55535:
 
@@ -51,7 +51,9 @@ class SingleNodeRedisCluster(object):
 
             time.sleep(0.1)
 
-        self.client = rediscluster.StrictRedisCluster(startup_nodes=[
+        klass = rediscluster.StrictRedisCluster if strict \
+            else rediscluster.RedisCluster
+        self.client = klass(startup_nodes=[
             {'host': '127.0.0.1', 'port': port}
         ])
 
@@ -982,7 +984,7 @@ class ConnectRedisClusterTestCase(unittest.TestCase):
             startup_nodes=[{'host': '0', 'port': 999999}],
             init_slot_cache=False
         )
-        redpipe.connect_rediscluster(r, 'test')
+        redpipe.connect_redis(r, 'test')
         with redpipe.pipeline(name='test') as pipe:
             pipe.set('foo', 'bar')
             self.assertRaises(Exception, pipe.execute)
@@ -991,9 +993,9 @@ class ConnectRedisClusterTestCase(unittest.TestCase):
 class RedisClusterTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.c = SingleNodeRedisCluster()
+        cls.c = SingleNodeRedisCluster(strict=False)
         cls.r = cls.c.client
-        redpipe.connect_rediscluster(cls.r)
+        redpipe.connect_redis(cls.r)
 
     @classmethod
     def tearDownClass(cls):
@@ -1017,7 +1019,7 @@ class RedisClusterTestCase(unittest.TestCase):
 
         with redpipe.autoexec() as pipe:
             t = Test(pipe)
-            append = t.append('1', 'a', 'b', 'c')
+            append = t.rpush('1', 'a', 'b', 'c')
             lrange = t.lrange('1', 0, -1)
             lpop = t.lpop('1')
 
@@ -1066,12 +1068,29 @@ class RedisClusterTestCase(unittest.TestCase):
             t.zadd('1', 'b', 2)
             zadd = t.zadd('1', 'c', 3)
             zrange = t.zrange('1', 0, -1)
+            zincrby = t.zincrby('1', 'a', 1)
 
         self.assertEqual(zadd, 1)
         self.assertEqual(zrange, ['a', 'b', 'c'])
+        self.assertEqual(zincrby, 2)
 
 
-class StringTestCase(BaseTestCase):
+class StrictRedisClusterTestCase(RedisClusterTestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.c = SingleNodeRedisCluster(strict=True)
+        cls.r = cls.c.client
+        redpipe.connect_redis(cls.r)
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.r = None
+        cls.c.shutdown()
+        cls.c = None
+        redpipe.reset()
+
+
+class StrictStringTestCase(BaseTestCase):
     class Data(redpipe.String):
         keyspace = 'STRING'
 
@@ -1210,7 +1229,14 @@ class StringTestCase(BaseTestCase):
         self.assertFalse(exists.result)
 
 
-class SetTestCase(BaseTestCase):
+class StringTestCase(StrictStringTestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.r = redislite.Redis()
+        redpipe.connect_redis(cls.r)
+
+
+class StrictSetTestCase(BaseTestCase):
     class Data(redpipe.Set):
         keyspace = 'SET'
 
@@ -1227,6 +1253,7 @@ class SetTestCase(BaseTestCase):
             c.srem(key, 'b')
             ismember_b = c.sismember(key, 'b')
             srandmember = c.srandmember(key)
+            srandmembers = c.srandmember(key, number=2)
             spop = c.spop(key)
 
         self.assertEqual(sadd.result, 3)
@@ -1238,6 +1265,7 @@ class SetTestCase(BaseTestCase):
         self.assertTrue(ismember_a.result)
         self.assertFalse(ismember_b.result)
         self.assertTrue(srandmember.result, b'a')
+        self.assertTrue(srandmembers.result, [b'a'])
 
     def test_scan(self):
         with redpipe.autoexec() as pipe:
@@ -1263,8 +1291,8 @@ class SetTestCase(BaseTestCase):
         key3 = '3'
         with redpipe.autoexec() as pipe:
             s = self.Data(pipe=pipe)
-            s.add(key1, 'a', 'b', 'c')
-            s.add(key2, 'a', 'b', 'd', 'e')
+            s.sadd(key1, 'a', 'b', 'c')
+            s.sadd(key2, 'a', 'b', 'd', 'e')
             sdiff = s.sdiff(key2, key1)
             sinter = s.sinter(key1, key2)
             sinter_missing = s.sinter(key3, key2)
@@ -1288,7 +1316,14 @@ class SetTestCase(BaseTestCase):
         self.assertEqual(sunionstore_get, {'a', 'b', 'c', 'd', 'e'})
 
 
-class ListTestCase(BaseTestCase):
+class SetTestCase(StrictSetTestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.r = redislite.Redis()
+        redpipe.connect_redis(cls.r)
+
+
+class StrictListTestCase(BaseTestCase):
     class Data(redpipe.List):
         keyspace = 'LIST'
 
@@ -1363,8 +1398,8 @@ class ListTestCase(BaseTestCase):
         key3 = '3'
         with redpipe.autoexec() as pipe:
             l = self.Data(pipe=pipe)
-            l.append(key1, 'a', 'b')
-            l.append(key2, 'c', 'd')
+            l.rpush(key1, 'a', 'b')
+            l.rpush(key2, 'c', 'd')
             blpop = l.blpop([key1])
             brpop = l.brpop([key1])
             blpop_missing = l.blpop(['4', '5'], timeout=1)
@@ -1382,7 +1417,14 @@ class ListTestCase(BaseTestCase):
         self.assertEqual(members, ['c', 'd'])
 
 
-class SortedSetTestCase(BaseTestCase):
+class ListTestCase(StrictListTestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.r = redislite.Redis()
+        redpipe.connect_redis(cls.r)
+
+
+class StrictSortedSetTestCase(BaseTestCase):
     class Data(redpipe.SortedSet):
         keyspace = 'SORTEDSET'
 
@@ -1390,16 +1432,16 @@ class SortedSetTestCase(BaseTestCase):
         with redpipe.autoexec() as pipe:
             key = '1'
             s = self.Data(pipe=pipe)
-            s.add(key, '2', 2)
-            s.add(key, '3', 3)
-            add = s.add(key, '4', 4)
+            s.zadd(key, '2', 2)
+            s.zadd(key, '3', 3)
+            add = s.zadd(key, '4', 4)
             zaddincr = s.zadd(key, '4', 1, incr=True)
             zscore_after_incr = s.zscore(key, '4')
             zaddnx = s.zadd(key, '4', 4.1, nx=True)
             zaddxx = s.zadd(key, '4', 4.2, xx=True)
             zaddch = s.zadd(key, '4', 4.3, ch=True)
             zscore = s.zscore(key, '4')
-            remove = s.remove(key, '4')
+            remove = s.zrem(key, '4')
             members = s.zrange(key, 0, -1)
             zaddmulti = s.zadd(key, {'4': 4, '5': 5})
             zincrby = s.zincrby(key, '5', 2)
@@ -1510,7 +1552,14 @@ class SortedSetTestCase(BaseTestCase):
         self.assertEqual(zrange, ['a', 'b', 'c', 'd'])
 
 
-class HashTestCase(BaseTestCase):
+class SortedSetTestCase(StrictSortedSetTestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.r = redislite.Redis()
+        redpipe.connect_redis(cls.r)
+
+
+class StrictHashTestCase(BaseTestCase):
     class Data(redpipe.Hash):
         keyspace = 'HASH'
 
@@ -1563,6 +1612,13 @@ class HashTestCase(BaseTestCase):
 
         data = {k: v for k, v in self.Data().hscan_iter(key)}
         self.assertEqual(data, {'b2': '2', 'b1': '1', 'a1': '1', 'a2': '2'})
+
+
+class HashTestCase(StrictHashTestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.r = redislite.Redis()
+        redpipe.connect_redis(cls.r)
 
 
 class HashFieldsTestCase(BaseTestCase):

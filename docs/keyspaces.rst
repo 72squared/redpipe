@@ -99,3 +99,21 @@ The fields will perform basic data validation on the input and correctly seriali
 
 You can see this allows us to set booleans, ints and other data types into the hash and get the same values back.
 
+Strict or No?
+-------------
+Redis-py gives you two different interfaces:
+
+* Redis
+* StrictRedis
+
+They provide the same functionality.
+`Redis` rewrites the the order of arguments to be more intuitive since the server order of arguments can be confusing in some cases.
+Whereas `StrictRedis` gives an interface that conforms to the same argument order that the server presents.
+
+The interface that *Keyspace* classes provide conform to the `Redis` interface.
+It doesn't matter which type of object you pass into `redpipe.connect_redis`.
+The Keyspace object knows the right thing to do and will pass the arguments through correctly.
+It does this by using keyword arguments when it can do so and when there is ambiguity about the order of the command arguments.
+In some cases, keyword arguments cannot be used because `Redis` and `StrictRedis` used different keyword arguments.
+In those rare cases, the Keyspace classes bypass the issue and invoke `execute_command` directly.
+

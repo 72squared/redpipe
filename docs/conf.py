@@ -71,6 +71,7 @@ author = u'John Loehrer'
 #
 # The short X.Y version.
 version = redpipe.__version__
+
 # The full version, including alpha/beta/rc tags.
 release = redpipe.__version__
 

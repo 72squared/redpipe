@@ -12,17 +12,17 @@ Open Source Redis Cluster Support
         startup_nodes=[{'host': '0', 'port': 7000}],
     )
 
-    redpipe.connect_rediscluster(r, name='my-cluster')
+    redpipe.connect_redis(r, name='my-cluster')
 
+The reason you can do this is because **RedPipe** wraps the interface.
 
-This api isn't quite as clean as the one for `connect_redis`.
-I'm not able to easily instantiate the StrictRedisPipeline with only a connection pool.
-It's possible in the 1.3.0 or greater version, but older versions present a challenge.
-I am relying on you to always pass StrictRedisCluster.
-In future versions, I may be able to correctly detect the version of `redis-py-cluster` you are using.
-We'll see.
-For now, this should work well enough.
+If it quacks like a duck ...
 
-If it doesn't work for your use case, you can build your own connector by passing a callable function to `redpipe.connect`.
-It expects something that creates a pipeline object with a similar interface as that offered by the `redis-py` pipeline.
-Use at your own risk.
+**RedPipe** can support both the strict and normal interfaces.
+Because it is a wrapper, the commands buffer just as you send them.
+So if you wrap a StrictRedisCluster, the commands will be sent through as strict commands.
+If you wrap `RedisCluster` it follows that interface.
+
+When you get to `Keyspaces`, **RedPipe** is more opinionated.
+You can use either StrictRedisCluster or RedisCluster.
+But it will present an interface more like the non-strict version.

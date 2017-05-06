@@ -164,7 +164,7 @@ class Keyspace(object):
         :return:
         """
         with self.pipe as pipe:
-            res = pipe.restore(self.redis_key(name), pttl, value)
+            res = pipe.restore(self.redis_key(name), ttl=pttl, value=value)
             f = Future()
 
             def cb():
@@ -395,7 +395,6 @@ class String(Keyspace):
         ``xx`` if set to True, set the value at key ``name`` to ``value`` if it
         already exists.
 
-        :param name: str     the name of the redis key
         :return: Future()
         """
         with self.pipe as pipe:
@@ -427,8 +426,9 @@ class String(Keyspace):
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.setex(self.redis_key(name), time,
-                              self.valueparse.encode(value))
+            return pipe.setex(self.redis_key(name),
+                              value=self.valueparse.encode(value),
+                              time=time)
 
     def psetex(self, name, value, time_ms):
         """
@@ -437,7 +437,8 @@ class String(Keyspace):
         timedelta object
         """
         with self.pipe as pipe:
-            return pipe.psetex(self.redis_key(name), time_ms, value)
+            return pipe.psetex(self.redis_key(name), time_ms=time_ms,
+                               value=self.valueparse.encode(value=value))
 
     def append(self, name, value):
         """
@@ -566,7 +567,7 @@ class String(Keyspace):
         increment the value for key by value: float
 
         :param name: str     the name of the redis key
-        :param value: int
+        :param amount: int
         :return: Future()
         """
         with self.pipe as pipe:
@@ -796,7 +797,7 @@ class Set(Keyspace):
             return pipe.sismember(self.redis_key(name),
                                   self.valueparse.encode(value))
 
-    def srandmember(self, name):
+    def srandmember(self, name, number=None):
         """
         Return a random member of the set.
 
@@ -805,10 +806,13 @@ class Set(Keyspace):
         """
         with self.pipe as pipe:
             f = Future()
-            res = pipe.srandmember(self.redis_key(name))
+            res = pipe.srandmember(self.redis_key(name), number=number)
 
             def cb():
-                f.set(self.valueparse.decode(res.result))
+                if number is None:
+                    f.set(self.valueparse.decode(res.result))
+                else:
+                    f.set([self.valueparse.decode(v) for v in res.result])
 
             pipe.on_execute(cb)
             return f
@@ -860,10 +864,6 @@ class Set(Keyspace):
                                       match=match, count=count)
             for item in data:
                 yield item
-
-    add = sadd
-    pop = spop
-    remove = srem
 
 
 class List(Keyspace):
@@ -1060,6 +1060,10 @@ class List(Keyspace):
         """
         Remove first occurrence of value.
 
+        Can't use redis-py interface. It's inconstistent between
+        redis.Redis and redis.StrictRedis in terms of the kwargs.
+        Better to use the underlying execute_command instead.
+
         :param name: str     the name of the redis key
         :param num:
         :param value:
@@ -1067,7 +1071,8 @@ class List(Keyspace):
         """
         with self.pipe as pipe:
             value = self.valueparse.encode(value)
-            return pipe.lrem(self.redis_key(name), num, value)
+            return pipe.execute_command('LREM', self.redis_key(name),
+                                        num, value)
 
     def ltrim(self, name, start, end):
         """
@@ -1081,17 +1086,17 @@ class List(Keyspace):
         with self.pipe as pipe:
             return pipe.ltrim(self.redis_key(name), start, end)
 
-    def lindex(self, name, idx):
+    def lindex(self, name, index):
         """
         Return the value at the index *idx*
 
         :param name: str     the name of the redis key
-        :param idx: the index to fetch the value.
+        :param index: the index to fetch the value.
         :return: Future()
         """
         with self.pipe as pipe:
             f = Future()
-            res = pipe.lindex(self.redis_key(name), idx)
+            res = pipe.lindex(self.redis_key(name), index)
 
             def cb():
                 f.set(self.valueparse.decode(res.result))
@@ -1099,27 +1104,18 @@ class List(Keyspace):
             pipe.on_execute(cb)
             return f
 
-    def lset(self, name, idx, value):
+    def lset(self, name, index, value):
         """
         Set the value in the list at index *idx*
 
         :param name: str     the name of the redis key
         :param value:
-        :param idx:
+        :param index:
         :return: Future()
         """
         with self.pipe as pipe:
             value = self.valueparse.encode(value)
-            return pipe.lset(self.redis_key(name), idx, value)
-
-    # noinspection PyRedeclaration
-    remove = lrem
-    trim = ltrim
-    shift = lpop
-    unshift = lpush
-    pop = rpop
-    push = rpush
-    append = rpush
+            return pipe.lset(self.redis_key(name), index, value)
 
 
 class SortedSet(Keyspace):
@@ -1180,20 +1176,21 @@ class SortedSet(Keyspace):
             values = [v_encode(v) for v in _parse_values(values)]
             return pipe.zrem(self.redis_key(name), *values)
 
-    def zincrby(self, name, member, increment):
+    def zincrby(self, name, value, amount=1):
         """
         Increment the score of the item by `value`
 
         :param name: str     the name of the redis key
-        :param member:
-        :param increment:
+        :param value:
+        :param amount:
         :return:
         """
         with self.pipe as pipe:
             return pipe.zincrby(self.redis_key(name),
-                                self.valueparse.encode(member), increment)
+                                value=self.valueparse.encode(value),
+                                amount=amount)
 
-    def zrevrank(self, name, member):
+    def zrevrank(self, name, value):
         """
         Returns the ranking in reverse order for the member
 
@@ -1202,7 +1199,7 @@ class SortedSet(Keyspace):
         """
         with self.pipe as pipe:
             return pipe.zrevrank(self.redis_key(name),
-                                 self.valueparse.encode(member))
+                                 self.valueparse.encode(value))
 
     def zrange(self, name, start, end, desc=False, withscores=False,
                score_cast_func=float):
@@ -1345,54 +1342,55 @@ class SortedSet(Keyspace):
         with self.pipe as pipe:
             return pipe.zcard(self.redis_key(name))
 
-    def zscore(self, name, elem):
+    def zscore(self, name, value):
         """
         Return the score of an element
 
         :param name: str     the name of the redis key
-        :param elem:
+        :param value: the element in the sorted set key
         :return: Future()
         """
         with self.pipe as pipe:
             return pipe.zscore(self.redis_key(name),
-                               self.valueparse.encode(elem))
+                               self.valueparse.encode(value))
 
-    def zremrangebyrank(self, name, start, stop):
+    def zremrangebyrank(self, name, min, max):
         """
         Remove a range of element between the rank ``start`` and
         ``stop`` both included.
 
         :param name: str     the name of the redis key
-        :param stop:
-        :param start:
+        :param min:
+        :param max:
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.zremrangebyrank(self.redis_key(name), start, stop)
+            return pipe.zremrangebyrank(self.redis_key(name), min, max)
 
-    def zremrangebyscore(self, name, min_value, max_value):
+    # noinspection PyShadowingBuiltins
+    def zremrangebyscore(self, name, min, max):
         """
         Remove a range of element by between score ``min_value`` and
         ``max_value`` both included.
 
         :param name: str     the name of the redis key
-        :param max_value:
-        :param min_value:
+        :param min:
+        :param max:
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.zremrangebyscore(self.redis_key(name),
-                                         min_value, max_value)
+            return pipe.zremrangebyscore(self.redis_key(name), min, max)
 
-    def zrank(self, name, elem):
+    def zrank(self, name, value):
         """
         Returns the rank of the element.
 
         :param name: str     the name of the redis key
-        :param elem:
+        :param value: the element in the sorted set
         """
         with self.pipe as pipe:
-            return pipe.zrank(self.redis_key(name), elem)
+            value = self.valueparse.encode(value)
+            return pipe.zrank(self.redis_key(name), value)
 
     # noinspection PyShadowingBuiltins
     def zlexcount(self, name, min, max):
@@ -1535,13 +1533,6 @@ class SortedSet(Keyspace):
             for item in data:
                 yield item
 
-    revrank = zrevrank
-    score = zscore
-    rank = zrank
-    incr_by = zincrby
-    add = zadd
-    remove = zrem
-
 
 class Hash(Keyspace):
     """
@@ -1594,33 +1585,33 @@ class Hash(Keyspace):
         with self.pipe as pipe:
             return pipe.hlen(self.redis_key(name))
 
-    def hset(self, name, member, value):
+    def hset(self, name, key, value):
         """
         Set ``member`` in the Hash at ``value``.
 
         :param name: str     the name of the redis key
         :param value:
-        :param member:
+        :param key: the member of the hash key
         :return: Future()
         """
         with self.pipe as pipe:
-            value = self._value_encode(member, value)
-            member = self._memberparse.encode(member)
-            return pipe.hset(self.redis_key(name), member, value)
+            value = self._value_encode(key, value)
+            key = self._memberparse.encode(key)
+            return pipe.hset(self.redis_key(name), key, value)
 
-    def hsetnx(self, name, member, value):
+    def hsetnx(self, name, key, value):
         """
         Set ``member`` in the Hash at ``value``.
 
         :param name: str     the name of the redis key
         :param value:
-        :param member:
+        :param key:
         :return: Future()
         """
         with self.pipe as pipe:
-            value = self._value_encode(member, value)
-            member = self._memberparse.encode(member)
-            return pipe.hsetnx(self.redis_key(name), member, value)
+            value = self._value_encode(key, value)
+            key = self._memberparse.encode(key)
+            return pipe.hsetnx(self.redis_key(name), key, value)
 
     def hdel(self, name, *keys):
         """
@@ -1696,38 +1687,38 @@ class Hash(Keyspace):
             pipe.on_execute(cb)
             return f
 
-    def hget(self, name, field):
+    def hget(self, name, key):
         """
         Returns the value stored in the field, None if the field doesn't exist.
 
         :param name: str     the name of the redis key
-        :param field:
+        :param key: the member of the hash
         :return: Future()
         """
         with self.pipe as pipe:
             f = Future()
             res = pipe.hget(self.redis_key(name),
-                            self._memberparse.encode(field))
+                            self._memberparse.encode(key))
 
             def cb():
-                f.set(self._value_decode(field, res.result))
+                f.set(self._value_decode(key, res.result))
 
             pipe.on_execute(cb)
             return f
 
-    def hexists(self, name, field):
+    def hexists(self, name, key):
         """
         Returns ``True`` if the field exists, ``False`` otherwise.
 
         :param name: str     the name of the redis key
-        :param field:
+        :param key: the member of the hash
         :return: Future()
         """
         with self.pipe as pipe:
             return pipe.hexists(self.redis_key(name),
-                                self._memberparse.encode(field))
+                                self._memberparse.encode(key))
 
-    def hincrby(self, name, field, increment=1):
+    def hincrby(self, name, key, amount=1):
         """
         Increment the value of the field.
 
@@ -1738,24 +1729,24 @@ class Hash(Keyspace):
         """
         with self.pipe as pipe:
             return pipe.hincrby(self.redis_key(name),
-                                self._memberparse.encode(field),
-                                increment)
+                                self._memberparse.encode(key),
+                                amount)
 
-    def hincrbyfloat(self, name, field, increment=1):
+    def hincrbyfloat(self, name, key, amount=1.0):
         """
         Increment the value of the field.
 
         :param name: str     the name of the redis key
-        :param increment:
-        :param field:
+        :param key: the name of the emement in the hash
+        :param amount: float
         :return: Future()
         """
         with self.pipe as pipe:
             return pipe.hincrbyfloat(self.redis_key(name),
-                                     self._memberparse.encode(field),
-                                     increment)
+                                     self._memberparse.encode(key),
+                                     amount)
 
-    def hmget(self, name, keys):
+    def hmget(self, name, keys, *args):
         """
         Returns the values stored in the fields.
 
@@ -1763,10 +1754,12 @@ class Hash(Keyspace):
         :param fields:
         :return: Future()
         """
+        member_encode = self._memberparse.encode
+        keys = [k for k in _parse_values(keys, args)]
         with self.pipe as pipe:
             f = Future()
             res = pipe.hmget(self.redis_key(name),
-                             [self._memberparse.encode(k) for k in keys])
+                             [member_encode(k) for k in keys])
 
             def cb():
                 f.set([self._value_decode(keys[i], v)
@@ -1852,15 +1845,16 @@ class HyperLogLog(Keyspace):
             values = [v_encode(v) for v in _parse_values(values)]
             return pipe.pfadd(self.redis_key(name), *values)
 
-    def pfcount(self, name):
+    def pfcount(self, *sources):
         """
         Return the approximated cardinality of
         the set observed by the HyperLogLog at key(s).
 
         :param name: str     the name of the redis key
         """
+        sources = [self.redis_key(s) for s in sources]
         with self.pipe as pipe:
-            return pipe.pfcount(self.redis_key(name))
+            return pipe.pfcount(*sources)
 
     def pfmerge(self, dest, *sources):
         """
@@ -1870,6 +1864,6 @@ class HyperLogLog(Keyspace):
         :param sources:
         :return:
         """
+        sources = [self.redis_key(k) for k in sources]
         with self.pipe as pipe:
-            sources = [self.redis_key(k) for k in sources]
             return pipe.pfmerge(self.redis_key(dest), *sources)

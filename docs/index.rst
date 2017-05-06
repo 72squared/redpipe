@@ -6,85 +6,86 @@
 RedPipe: Pain-Free Pipelining
 =============================
 Did you try to use Redis pipelines?
-Did you give up after an hour of trying?
 Did you get a pounding headache?
 Did you throw your laptop in frustration?
-
 Never fear.
 **RedPipe** will make you feel better almost immediately.
-
-If you have no idea what Redis is or why you should pipeline commands, `look it up <https://redis.io/topics/pipelining>`_ already.
+If you have no idea what Redis is or why you should pipeline commands, `look it up`_ already.
 
 
 |BuildStatus| |CoverageStatus| |Version| |Python|
 
-This project is beta software.
-The interface may change.
-
+**RedPipe** is fast approaching a stable release.
 The code is well tested and rapidly stabilizing.
-Check back soon.
+I am in the progress of creating a release-candidate build.
+
+Please `report any issues`_ you find.
 
 Requirements
 ------------
 
 The *redpipe* module requires Python 2.7 or higher.
 
-It also requires `redis-py <https://redis-py.readthedocs.io>`_ or `redis-py-cluster <https://redis-py-cluster.readthedocs.io>`_.
+It also requires `redis-py`_ or `redis-py-cluster`_.
 
 
 What is RedPipe?
 ----------------
-*RedPipe* is a python package that makes it easy to reduce network round trips when talking to redis.
-It is a wrapper around the pipeline component of `redis-py <https://redis-py.readthedocs.io>`_ or `redis-py-cluster <https://redis-py-cluster.readthedocs.io>`_.
+**RedPipe** is a wrapper around the pipeline component of `redis-py`_ or `redis-py-cluster`_.
+It makes it easy to reduce network round trips when talking to *Redis*.
 
-For more general information about redis pipelining, see the `official redis documentation <https://redis.io/topics/pipelining>`_.
+For more general information about redis pipelining, see the `official redis documentation`_.
 
-Use *redpipe* to build pipelined redis calls in a modular reusable way.
-Rewrite your existing application calls via redis-py into efficient batches with only minimal changes.
+Use **RedPipe** to build pipelined redis calls in a modular reusable way.
+Rewrite your existing application calls via *redis-py* into efficient batches with only minimal changes.
 
 
 How Does it Work?
 -----------------
-RedPipe gives you the ability to pipeline commands in a more natural way than the interface provided via `redis-py`.
+RedPipe makes pipeline commands work almost like un-pipelined commands in *redis-py*.
+You may have used pipelines before in a few spots as a last-minute performance optimization.
+**Redpipe** operates with a different paradigm.
+It assumes every call will be pipelined.
+And it gives you the tools to do it.
 
 Some concepts sound complicated:
 
-* `nested pipelines <nested-pipelines.html>`_
-* `callbacks on pipeline execution <callbacks.html>`_
 * `futures for data prior to pipeline execution <futures.html>`_
+* `callbacks on pipeline execution <callbacks.html>`_
+* `nested pipelines <nested-pipelines.html>`_
 
 
 This documentation will explain all of these concepts and why they are important.
-
 All of these things together allow you to build modular functions that can be combined with other pipelined functions.
-
 You will be able to pass a pipeline into multiple functions, collect the results from each function, and then execute the pipeline to hydrate those result objects with data.
 
-What do I Need to Know?
------------------------
-If you've used redis-py, you know most of what you need already to start using RedPipe.
+What do I Need to Know to Start?
+--------------------------------
+If you've used *redis-py*, you know most of what you need already to start using **RedPipe**.
 
-If not, head over there and play with `redis-py <https://redis-py.readthedocs.io>`_ first.
-Or check out this very easy tutorial on redis-py basics:
+If not, head over there and play with `redis-py`_ first.
+Or check out this very easy tutorial on *redis-py* basics:
 
 http://agiliq.com/blog/2015/03/getting-started-with-redis-py/
 
 You'll find the redpipe api looks nearly identical.
-That's because RedPipe is a wrapper around redis-py.
+That's because **RedPipe** is a wrapper around *redis-py*.
 
 RedPipe adds the ability to pipeline commands in a more natural way.
 
 What Else Can it do?
 --------------------
-You can use just the core of the *redpipe* module.
-That's the wrapper part.
 
+You can use just the core of the **RedPipe**.
+Wrap your existing *redis-py* commands with **RedPipe** and profit.
+But the library unlocks a few other cool things too:
 
-But there's a lot of other cool things included.
-Be sure to check out the keyspaced data-types.
-And the Struct objects are cool too.
+* `Keyspaces`_ allow you to work more easily with collections of Redis keys.
+* `Structs`_ give you an object-oriented interface to working with Redis hashes.
 
-More on this later.
+Both components will make it easier to manipulate data in your application.
+And they are optimized for maximum network efficiency.
+You can pipeline *Keyspaces* and *Structs* just like you can with the core of **RedPipe**.
 
 
 -------------------------------------
@@ -158,3 +159,16 @@ You can see everything.
 .. |Python| image:: https://img.shields.io/badge/python-2.7,3.4,pypy-blue.svg
     :target:  https://pypi.python.org/pypi/redpipe/
 
+.. _report any issues: https://github.com/72squared/redpipe/issues
+
+.. _look it up: https://redis.io/topics/pipelining
+
+.. _official redis documentation: https://redis.io/topics/pipelining
+
+.. _redis-py: https://redis-py.readthedocs.io
+
+.. _redis-py-cluster: https://redis-py-cluster.readthedocs.io
+
+.. _Keyspaces: keyspaces.html
+
+.. _Structs: structs.html
