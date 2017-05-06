@@ -8,6 +8,24 @@ We make no guarantees about backward compatibility.
 Once the api reaches **1.0.0**, all major and minor release notes will be well documented.
 Upgrade notes and any breaking changes will be described here and how to handle them.
 
+0.5.0 (May 5, 2017)
+-------------------
+More breaking changes to Struct.
+Solidifying the api.
+Making important simplifications.
+This will make it easier to explain and document.
+
+* Struct and Keyspace: simplifying some variable names
+* Struct: support a no_op flag to prevent read/write from redis
+* Struct: no kwargs as properties of struct. a dict models it better
+* Struct: specify fields to load when instantiating
+* Struct: reuse remove logic in the update function for elements set to None
+* Simplifying task wait and promise to use the TaskManager directly
+* Future: better isinstance and is comparison checks
+* make it easier to build docs
+* adding Docker support for testing many versions of python
+
+
 0.4.0 (May 4, 2017)
 -------------------
 * by default, don't use transactions
