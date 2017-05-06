@@ -110,6 +110,7 @@ html_theme_options = {
     'github_user': '72squared',
     'github_repo': 'redpipe',
     'travis_button': True,
+    'analytics_id': 'UA-98626018-1',
 }
 
 html_sidebars = {
