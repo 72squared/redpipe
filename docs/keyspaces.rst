@@ -55,7 +55,33 @@ In a similar way, we support the other *Redis* primitives:
     * hyperloglog
     * geo (in progress)
 
-The supported commands are limited to single key operations.
+All the commands associated with each data type are exposed for each.
+See the `official redis documentation`_ for more information, or refer to `redis-py`_.
+
+
+Character Encoding in Keyspaces
+-------------------------------
+When you use `redpipe.pipeline()` directly, **RedPipe** disables automatic character decoding.
+That's because there's no way to know how to decode responses for every single request that goes through redis.
+The dump/restore commands, for example, never should automatically decode the binary data.
+It's not utf-8.
+And if you are pickling python objects and storing them in redis, character encoding makes no sense.
+
+With a Keyspace, though, it's entirely appropriate to map the binary data in redis to appropriate encodings.
+That's because you are defining some application
+
+There are some defaults you can tune per keyspace that you define:
+
+* keyparse
+* valueparse
+
+We treat these as utf-8 encoded unicode strings, controlled by the formatter `redpipe.TextField`.
+There are many other data types you can use.
+
+They control how to encode the key and the values in the redis data structures.
+
+In addition, `redpipe.Hash` gives you additional ways to encode and decode data for each individual member of the Hash.
+
 
 
 Fields in Hashes
@@ -63,7 +89,8 @@ Fields in Hashes
 Often you want to store data in Hashes that maps to a particular data type.
 For example, a boolean flag, an integer, or a float.
 Redis stores all the values as byte strings and doesn't interpret.
-We can set up explicit mappings for these data types in `redpipe.Hash`.
+In the Keyspace, we default to treating all fields as unicode that is stored in redis as utf-8 binary strings.
+If you need something different, you can set up explicit mappings for other data types in `redpipe.Hash`.
 This is not required but it makes life easier.
 
 .. code:: python
@@ -75,6 +102,7 @@ This is not required but it makes life easier.
             'last_name': redpipe.TextField,
             'admin': redpipe.BooleanField,
             'last_seen': redpipe.FloatField,
+            'encrypted_secret': redpipe.BinaryField,
         }
 
 
@@ -99,6 +127,31 @@ The fields will perform basic data validation on the input and correctly seriali
 
 You can see this allows us to set booleans, ints and other data types into the hash and get the same values back.
 
+Data Types defined for Keyspaces
+--------------------------------
+
+Here's a list of all the different data types you can represent so far:
+
+* BooleanField
+* FloatField
+* IntegerField
+* TextField
+* AsciiField
+* BinaryField
+* ListField
+* DictField
+* StringListField
+
+If you don't see the one you want, you can always write your own.
+It's pretty easy.
+You just need an object that provides two methods:
+
+* encode
+* decode
+
+The encode method that converts your python data structure into binary string.
+And the decode method to will convert it back consistently into your original python structure.
+
 Strict or No?
 -------------
 Redis-py gives you two different interfaces:
@@ -110,10 +163,25 @@ They provide the same functionality.
 `Redis` rewrites the the order of arguments to be more intuitive since the server order of arguments can be confusing in some cases.
 Whereas `StrictRedis` gives an interface that conforms to the same argument order that the server presents.
 
-The interface that *Keyspace* classes provide conform to the `Redis` interface.
+*Keyspace* classes conform to the `Redis` interface.
 It doesn't matter which type of object you pass into `redpipe.connect_redis`.
 The Keyspace object knows the right thing to do and will pass the arguments through correctly.
 It does this by using keyword arguments when it can do so and when there is ambiguity about the order of the command arguments.
 In some cases, keyword arguments cannot be used because `Redis` and `StrictRedis` used different keyword arguments.
 In those rare cases, the Keyspace classes bypass the issue and invoke `execute_command` directly.
+
+
+Scanning the Keys in a Keyspace
+-------------------------------
+When you use the `scan` command on a keyspace, **RedPipe** automatically builds a pattern that matches the keyspace you are using.
+Any additional patterns you pass in are searched for inside of that pattern.
+So you should be able easily iterate through a list of all keys in the keyspace.
+
+The scan commands don't seem to work quite right in redis-py-cluster.
+I'm working with the package maintainer to try to get that squared away.
+
+
+
+.. _official redis documentation: https://redis.io/commands
+.. _redis-py: https://redis-py.readthedocs.io/en/latest/index.html#module-redis
 
