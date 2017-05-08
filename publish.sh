@@ -7,6 +7,9 @@ then
     repo="pypi"
 fi
 
-python setup.py register -r "$repo" && \
-    python setup.py sdist upload -r "$repo"
+make cleanall || exit 1
+
+python setup.py sdist bdist_wheel || exit 1
+
+twine upload -r "$repo" dist/* || exit 1
 
