@@ -8,6 +8,18 @@ We make no guarantees about backward compatibility.
 Once the api reaches **1.0.0**, all major and minor release notes will be well documented.
 Upgrade notes and any breaking changes will be described here and how to handle them.
 
+1.0.0rc1 (May 7, 2017)
+----------------------
+This marks the first RC.
+There are a few breaking changes, mostly easily fixed.
+
+* better handling of Nones returned from hmget in Struct
+* testing with toxiproxy to simulate slower networks in benchmarks
+* using pytest-benchmark tool for benchmark comparisons
+* simplifying connections so we can pass in redis or rediscluster
+* fixing some compat issues with redis-py interface
+
+
 0.5.0 (May 5, 2017)
 -------------------
 More breaking changes to Struct.

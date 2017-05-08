@@ -19,11 +19,9 @@ Road Map
 --------
 Here's my current backlog:
 
-* flag to restrict a Struct to only get and set defined fields
 * distributed hash, so we can spread an index out over multiple keys
-* better support for iterating through keys when on redis-py-cluster
-
-The last one may best be fixed by patching redis-py-cluster to support scan.
+* better benchmarking
+* Tutorials and Examples
 
 Another way of defining the roadmap is listing what I expect **NOT** to be supported:
 
@@ -46,3 +44,5 @@ See it as a feature.
 How Long until a Stable Release?
 --------------------------------
 Target for a stable release is late May, 2017.
+This code represents an RC release and should be fully functional.
+Try it out in your projects and let me know how it goes.
