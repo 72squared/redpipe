@@ -128,7 +128,7 @@ class Struct(object):
     fields = {}
     default_fields = 'all'  # set as 'defined', 'all', or ['a', b', 'c']
 
-    def __init__(self, _key_or_data=None, pipe=None, fields=None, no_op=False):
+    def __init__(self, _key_or_data, pipe=None, fields=None, no_op=False):
         """
         class constructor
 
@@ -136,31 +136,63 @@ class Struct(object):
         :param pipe:
         :param fields:
         """
-        keyname = self.key_name
+
         self._data = {}
         with self._pipe(pipe=pipe) as pipe:
+            # first we try treat the first arg as a dictionary.
+            # this is if we are passing in data to be set into the redis hash.
+            # if that doesn't work, we assume it must be the name of the key.
             try:
+                # force type to dict.
+                # this blows up if it's a string.
                 coerced = dict(_key_or_data)
+
+                # look for the primary key in the data
+                # won't work if we don't have this.
+                keyname = self.key_name
+
+                # track the primary key
+                # it's the name of the key only.
+                # the keyspace we defined will transform it into the full
+                # name of the key.
                 self.key = coerced[keyname]
+
+                # remove it from our data set.
+                # we don't write this value into redis.
                 del coerced[keyname]
+
+                # no op flag means don't write or read from the db.
+                # if so, we just set the dictionary.
+                # this is useful if we are cloning the object
+                # or rehydrating it somehow.
                 if no_op:
                     self._data = coerced
                     return
 
                 self.update(coerced, pipe=pipe)
+
+            # we wind up here if a dictionary was passed in, but it
+            # didn't contain the primary key
             except KeyError:
+                # can't go any further, blow up.
                 raise InvalidOperation(
                     'must specify primary key when cloning a struct')
+
+            # this is a normal case, not really exceptional.
+            # If you pass in the name of the key, you wind up here.
             except (ValueError, TypeError):
                 self.key = _key_or_data
 
+            # normally we ask redis for the data from redis.
+            # if the no_op flag was passed we skip it.
             if not no_op:
                 self.load(fields=fields, pipe=pipe)
 
     def load(self, fields=None, pipe=None):
         """
         Load data from redis.
-        restrict to just the fields specified.
+        Allows you to specify what fields to load.
+        This method is also called implicitly from the constructor.
 
         :param fields: 'all', 'defined', or array of field names
         :param pipe: Pipeline(), NestedPipeline() or None
@@ -179,17 +211,44 @@ class Struct(object):
             return
 
         with self._pipe(pipe) as pipe:
+            # get the list of fields.
+            # it returns a numerically keyed array.
+            # when that happens we match up the results
+            # to the keys we requested.
             ref = self.core(pipe=pipe).hmget(self.key, fields)
 
             def cb():
+                """
+                This callback fires when the root pipeline executes.
+                At that point, we hydrate the response into this object.
+
+                :return: None
+                """
                 for i, v in enumerate(ref.result):
                     k = fields[i]
-                    if k != self.key_name:
+
+                    # redis will return all of the fields we requested
+                    # regardless of whether or not they are set.
+                    # if the value is None, it's not set in redis.
+                    # Use that as a signal to remove that value from local.
+                    if v is None:
+                        self._data.pop(k, None)
+
+                    # as long as the field is not the primary key,
+                    # map it into the local data strucure
+                    elif k != self.key_name:
                         self._data[k] = v
 
+            # attach the callback to the pipeline.
             pipe.on_execute(cb)
 
     def _load_all(self, pipe=None):
+        """
+        Load all data from the redis hash key into this local object.
+
+        :param pipe: optional pipeline
+        :return: None
+        """
         with self._pipe(pipe) as pipe:
             ref = self.core(pipe=pipe).hgetall(self.key)
 
@@ -217,10 +276,22 @@ class Struct(object):
         """
         with self._pipe(pipe) as pipe:
             core = self.core(pipe=pipe)
+            # increment the key
             new_amount = core.hincrby(self.key, field, amount)
+
+            # we also read the value of the field.
+            # this is a little redundant, but otherwise we don't know exactly
+            # how to format the field.
+            # I suppose we could pass the new_amount through the formatter?
             ref = core.hget(self.key, field)
 
             def cb():
+                """
+                Once we hear back from redis, set the value locally
+                in the object.
+
+                :return:
+                """
                 self._data[field] = ref.result
 
             pipe.on_execute(cb)
@@ -258,9 +329,15 @@ class Struct(object):
         if not changes:
             return
 
+        # can't remove the primary key.
+        # maybe you meant to delete the object?
+        # look at delete method.
         if self.key_name in changes:
             raise InvalidOperation('cannot update the redis key')
 
+        # sort the change set into updates and deletes.
+        # the deletes are entries with None as the value.
+        # updates are everything else.
         deletes = {k for k, v in changes.items() if IS(v, None)}
         updates = {k: v for k, v in changes.items() if k not in deletes}
 
@@ -269,16 +346,39 @@ class Struct(object):
             core = self.core(pipe=pipe)
 
             def build(k, v):
+                """
+                Internal closure so we can set the field in redis and
+                set up a callback to write the data into the local instance
+                data once we hear back from redis.
+
+                :param k: the member of the hash key
+                :param v: the value we want to set
+                :return: None
+                """
                 core.hset(self.key, k, v)
 
                 def cb():
+                    """
+                    Here's the callback.
+                    Now that the data has been written to redis, we can
+                    update the local state.
+
+                    :return: None
+                    """
                     self._data[k] = v
 
+                # attach the callback.
                 pipe.on_execute(cb)
 
+            # all the other stuff so far was just setup for this part
+            # iterate through the updates and set up the calls to redis
+            # along with the callbacks to update local state once the
+            # changes come back from redis.
             for k, v in updates.items():
                 build(k, v)
 
+            # pass off all the delete operations to the remove call.
+            # happens in the same pipeline.
             self.remove(deletes, pipe=pipe)
 
     def remove(self, fields, pipe=None):
@@ -292,23 +392,32 @@ class Struct(object):
         :param pipe: Pipeline, NestedPipeline, or None
         :return: None
         """
+        # no fields specified? It's a no op.
         if not fields:
             return
 
+        # can't remove the primary key.
+        # maybe you meant to call the delete method?
         if self.key_name in fields:
             raise InvalidOperation('cannot remove the redis key')
 
         with self._pipe(pipe) as pipe:
+            # remove all the fields specified from redis.
             core = self.core(pipe=pipe)
             core.hdel(self.key, *fields)
 
+            # set up a callback to remove the fields from this local object.
             def cb():
-                for k in fields:
-                    try:
-                        del self._data[k]
-                    except KeyError:
-                        pass
+                """
+                once the data has been removed from redis,
+                Remove the data here.
 
+                :return:
+                """
+                for k in fields:
+                    self._data.pop(k, None)
+
+            # attach the callback.
             pipe.on_execute(cb)
 
     def copy(self):

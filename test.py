@@ -564,6 +564,15 @@ class StructTestCase(BaseTestCase):
         u = self.User('1')
         self.assertRaises(KeyError, lambda: u['last_name'])
 
+    def test_load_fields(self):
+        data = self.fake_user_data(_key='1', first_name='Bob')
+        u = self.User(data)
+        u = self.User('1', fields=['first_name', 'non_existent_field'])
+
+        self.assertEqual(u['first_name'], data['first_name'])
+        self.assertRaises(KeyError, lambda: u['last_name'])
+        self.assertRaises(KeyError, lambda: u['non_existent_field'])
+
     def test_set(self):
         data = self.fake_user_data(_key='1', first_name='Bob')
         del data['last_name']

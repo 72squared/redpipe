@@ -22,6 +22,30 @@ And we know that it has certain fields that have different data types.
 These keyspace classes in this module allow you to easily manipulate
 these keys.
 
+.. code-block:: python
+
+    redpipe.connect_redis(redis.Redis(
+            # connection params go here.
+        ), name='user_redis_db')
+
+    class User(redpipe.Hash):
+        keyspace = 'user'
+        fields = {
+            'name': redpipe.TextField,
+            'created_at': redpipe.TextField,
+        }
+        connection = 'user_redis_db'
+
+
+    user_a = User().hgetall('A')
+
+This Keyspace object exposes all the hash-related redis commands as normal.
+Internally, it rewrites the key name to be 'user{A}' for you automatically.
+You can pass in a pipeline to the constructor.
+No matter what pipeline you pass in, it routes your commands to the
+`user_redis_db` that you set up.
+
+There's also support for character encoding and complex data types.
 """
 
 from .pipelines import autoexec
