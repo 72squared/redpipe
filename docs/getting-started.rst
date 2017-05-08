@@ -16,6 +16,29 @@ or from source:
 
     python setup.py install
 
+Get the Source Code
+-------------------
+**RedPipe** is actively developed on GitHub.
+
+You can either clone the public repository:
+
+.. code-block:: bash
+
+    git clone git://github.com/72squared/redpipe.git
+
+Or, download the tarball:
+
+.. code-block:: bash
+
+    curl -OL https://github.com/72squared/redpipe/tarball/master
+
+
+Once you have a copy of the source, install it into your site-packages easily:
+
+.. code-block:: bash
+
+    python setup.py install
+
 
 Connect redis-py to RedPipe
 ---------------------------
@@ -72,6 +95,52 @@ Once we complete the `execute()` call we can consume the pipeline results.
 These variables, `foo` and `bar`, behave just like the underlying result once the pipeline executes.
 You can iterate of it, add it, multiply it, etc.
 
-This has far reaching implications.
 
-Don't understand? Read on!
+Reusable Functions
+------------------
+You can write a function that takes in a pipeline, and returns a result before the pipeline even executes.
+
+Here's a quick example of what I mean:
+
+.. code-block:: python
+
+    def get_foo(pipe=None):
+         with redpipe.pipeline(pipe=pipe) as pipe:
+            pipe.setnx('foo', 'bar')
+            foo = pipe.get('foo')
+            pipe.execute()
+            return foo
+
+Now I can invoke my function.
+I can call it in isolation:
+
+.. code-block:: python
+
+    print(get_foo())
+
+This will pipeline the following commands to redis:
+
+* SETNX foo bar
+* GET foo
+
+Or I can pipeline it with other things:
+
+.. code-block:: python
+
+    with redpipe.pipeline() as pipe:
+        foo = get_foo(pipe)
+        bar = pipe.get('bar')
+        pipe.execute()
+
+This example will pipeline these three commands together:
+
+* SETNX foo bar
+* GET foo
+* GET bar
+
+In this example, the `foo` and `bar` variables are both `redpipe.Future` objects.
+They are empty until the `pipe.execute()` happens outside of the function.
+The `pipe.execute()`  called inside the `get_foo` function in this case is a `NestedPipeline`.
+It passes it's stack of commands to the parent pipeline.
+That's because we passed a pipeline object into the `get_foo` function.
+The function passed that into `redpipe.pipeline` and it returned a NestedPipeline to wrap the one passed in.
