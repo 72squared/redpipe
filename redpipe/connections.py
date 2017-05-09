@@ -196,6 +196,12 @@ def disconnect(name=None):
     remove a connection by name.
     If no name is passed in, it assumes default.
 
+    .. code-block:: python
+
+        redpipe.disconnect('users')
+        redpipe.disconnect()
+
+
     Useful for testing.
 
     :param name:
@@ -207,7 +213,17 @@ def disconnect(name=None):
 def reset():
     """
     remove all connections.
+
+    .. code-block:: python
+
+        redpipe.reset()
+
     Useful for testing scenarios.
+
+    Not sure when you'd want to call this explicitly
+    unless you need an explicit teardown of your application.
+    In most cases, python garbage collection will do the right thing
+    on shutdown and close all the redis connections.
 
     :return: None
     """

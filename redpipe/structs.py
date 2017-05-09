@@ -510,27 +510,109 @@ class Struct(object):
 
     @classmethod
     def _pipe(cls, pipe=None):
+        """
+        Internal method for automatically wrapping a pipeline and
+        turning it into a nested pipeline with the correct connection
+        and one that automatically executes as it exits the context.
+
+        :param pipe: Pipeline, NestedPipeline or None
+        :return: Pipeline or NestedPipeline
+        """
         return autoexec(pipe, name=cls.connection)
 
     def __getitem__(self, item):
+        """
+        magic python method to make the object behave like a dictionary.
+        You can access data like so:
+
+        .. code-block:: python
+
+            user = User('1')
+            assert(user['name'] == 'bill')
+            assert(user['_key'] == '1')
+
+        The primary key is also included in this.
+        If you have defined the name of the primary key, you use that name.
+        Otherwise it defaults to `_key`.
+
+        If the data doesn't exist in redis, it will raise a KeyError.
+        I thought about making it return None, but if you want that
+        behavior, use the `get` method.
+
+        :param item: the name of the element in the dictionary
+        :return: the value of the element.
+        """
         if item == self.key_name:
             return self.key
 
         return self._data[item]
 
     def __delitem__(self, key):
+        """
+        Explicitly prevent deleting data from the object via the `del`
+        command.
+
+        .. code-block:: python
+
+            del user['name']  # raises InvalidOperation exception!
+
+        The reason is because I want you to use the `remove` method instead.
+        That way you can pipeline the removal of the redis field with
+        something else.
+
+        Also, you probably want to avoid a scenario where you accidentally
+        delete data from redis without meaning to.
+
+        :param key: the name of the element to remove from the dict.
+        :raise: InvalidOperation
+        """
         tpl = 'cannot delete %s from %s indirectly. Use the delete method.'
         raise InvalidOperation(tpl % (key, self))
 
     def __setitem__(self, key, value):
+        """
+        Explicitly prevent setting data into this dictionary-like object.
+
+        Example:
+
+        .. code-block:: python
+
+            user = User('1')
+            user['name'] = 'Bob' # raises InvalidOperation exception
+
+        RedPipe does not support this because you should be using the
+        `update` method to change properties on the object where you can
+        pipeline the operation with other calls to redis.
+
+        It also avoids the problem where you accidentally change data
+        if you were confused and thought you were just manipulating a
+        regular dictionary.
+
+        :param key: the name of the element in this pseudo dict.
+        :param value: the value to set it to
+        :raise: InvalidOperation
+        """
         tpl = 'cannot set %s key on %s indirectly. Use the set method.'
         raise InvalidOperation(tpl % (key, self))
 
     def __iter__(self):
+        """
+        Make the `Struct` iterable, like a dictionary.
+        When you iterate on a dict, it yields the keys of the dictionary.
+        Emulating the same behavior here.
+
+        :return: generator, a list of key names in the Struct
+        """
         for k in self.keys():
             yield k
 
     def __len__(self):
+        """
+        How many elements in the Struct?
+        This includes all the fields returned from redis + the key.
+
+        :return: int
+        """
         return len(dict(self))
 
     def __contains__(self, item):
@@ -539,14 +621,79 @@ class Struct(object):
         return item in self._data
 
     def iteritems(self):
+        """
+        Support for the python 2 iterator of key/value pairs.
+        This includes the primary key name and value.
+
+        Example:
+
+        .. code-block:: python
+
+            u = User('1')
+            data = {k: v for k, v in u.iteritems()}
+
+        Or:
+
+        .. code-block:: python
+
+            u = User('1')
+            for k, v in u.iteritems():
+                print("%s: %s" % (k, v)
+
+
+        :return: generator, a list of key/value pair tuples
+        """
         yield self.key_name, self.key
         for k, v in self._data.items():
             yield k, v
 
     def items(self):
+        """
+        We return the list of key/value pair tuples.
+        Similar to iteritems but in list form instead of as
+        a generator.
+        The reason we do this is because python2 code probably expects this to
+        be a list. Not sure if I could care, but just covering my bases.
+
+        Example:
+
+        .. code-block:: python
+
+            u = User('1')
+            data = {k: v for k, v in u.items()}
+
+        Or:
+
+        .. code-block:: python
+
+            u = User('1')
+            for k, v in u.items():
+                print("%s: %s" % (k, v)
+
+
+        :return: list, containing key/value pair tuples.
+        """
         return [row for row in self.iteritems()]
 
     def __eq__(self, other):
+        """
+        Test for equality with another python object.
+
+        Example:
+
+        ..code-block:: python
+
+            u = User('1')
+            assert(u == {'_key': '1', 'name': 'Bob'})
+            assert(u == User('1'))
+
+        The object you pass in should be a dict or an object that can
+        be coerced into a dict, like another Struct.
+        Returns True if all the keys and values match up.
+
+        :param other: can be another dictionary, or a Struct.
+        :return: bool
+        """
         if self is other:
             return True
         try:
@@ -558,23 +705,75 @@ class Struct(object):
         return False
 
     def keys(self):
+        """
+        Get a list of all the keys in the Struct.
+        This includes the primary key name, and all the elements
+        that are set into redis.
+
+        Note: even if you define fields on the Struct, those keys won't
+        be returned unless the fields are actually written into the redis
+        hash.
+
+        .. code-block:: python
+
+            u = User('1')
+            assert(u.keys() == ['_key', 'name'])
+
+
+        :return: list
+        """
         return [row[0] for row in self.items()]
 
     def __str__(self):
+        """
+        A simple string representation of the object.
+        Contins the class name, and the primary key.
+        Doesn't print out all the data.
+        The reason is because there could be some really
+        complex data types in there or some really big values.
+        Printing that out, especially in the context of an exception
+        seems like a bad idea.
+
+        :return: str
+        """
         return "<%s:%s>" % (self.__class__.__name__, self.key)
 
     def __repr__(self):
+        """
+        Emulate the behavior of a dict when it is passed to repr.
+
+        :return: str
+        """
         return repr(dict(self))
 
     def __getstate__(self):
+        """
+        Used for pickling the Struct.
+
+        :return: tuple of key, and internal `_data`
+        """
         return self.key, self._data,
 
     def __setstate__(self, state):
+        """
+        used for unplickling the Struct.
+
+        :param state:
+        :return:
+        """
         self.key = state[0]
         self._data = state[1]
 
     @property
     def _redpipe_struct_as_dict(self):
+        """
+        A special namespaced property used for json encoding.
+        We use duck-typing and look for this property (which no other
+        type of object should have) so that we can try to json
+        serialize it by coercing it into a dict.
+
+        :return: dict
+        """
         return dict(self)
 
 
