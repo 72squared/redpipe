@@ -17,9 +17,3 @@ else
     return 0
 end
 """
-
-lua_object_info = """
-local key = KEYS[1]
-local subcommand = ARGV[1]
-return redis.call('object', subcommand, key)
-"""

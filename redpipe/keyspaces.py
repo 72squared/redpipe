@@ -49,7 +49,7 @@ There's also support for character encoding and complex data types.
 """
 
 from .pipelines import autoexec
-from .luascripts import lua_restorenx, lua_object_info
+from .luascripts import lua_restorenx
 from .exceptions import InvalidOperation
 from .futures import Future
 from .fields import TextField
@@ -261,7 +261,7 @@ class Keyspace(object):
         with self.pipe as pipe:
             return pipe.renamenx(self.redis_key(src), self.redis_key(dst))
 
-    def object(self, name, subcommand):
+    def object(self, infotype, key):
         """
         get the key's info stats
 
@@ -269,7 +269,8 @@ class Keyspace(object):
         :param subcommand: REFCOUNT | ENCODING | IDLETIME
         :return: Future()
         """
-        return self.eval(name, lua_object_info, subcommand)
+        with self.pipe as pipe:
+            return pipe.object(infotype, self.redis_key(key))
 
     @classmethod
     def __str__(cls):

@@ -1130,7 +1130,7 @@ class StrictStringTestCase(BaseTestCase):
             restore = s.restore(key, serialize.result)
             restorenx = s.restorenx(key, serialize.result)
             ref = s.get(key)
-            idle = s.object(key, 'IDLETIME')
+            idle = s.object('IDLETIME', key)
             persist = s.persist(key)
             incr = s.incr(key)
             incrby = s.incrby(key, 2)

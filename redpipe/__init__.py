@@ -37,7 +37,6 @@ This is the structure of the top level of the package, grouped by category.
 Connections
 -----------
 * connect_redis
-* connect_redis_cluster
 * disconnect
 * reset
 * pipeline
