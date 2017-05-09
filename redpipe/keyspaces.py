@@ -382,6 +382,32 @@ class Keyspace(object):
             pipe.on_execute(cb)
             return f
 
+    @classmethod
+    def _parse_values(cls, values, extra=None):
+        """
+        Utility function to flatten out args.
+
+        For internal use only.
+
+        :param values: list, tuple, or str
+        :param extra: list or None
+        :return: list
+        """
+        coerced = list(values)
+
+        if coerced == values:
+            values = coerced
+        else:
+            coerced = tuple(values)
+            if coerced == values:
+                values = list(values)
+            else:
+                values = [values]
+
+        if extra:
+            values.extend(extra)
+        return values
+
 
 class String(Keyspace):
     """
@@ -622,32 +648,6 @@ class String(Keyspace):
         self.set(name, value)
 
 
-def _parse_values(values, extra=None):
-    """
-    Utility function to flatten out args.
-
-    For internal use only.
-
-    :param values: list, tuple, or str
-    :param extra: list or None
-    :return: list
-    """
-    coerced = list(values)
-
-    if coerced == values:
-        values = coerced
-    else:
-        coerced = tuple(values)
-        if coerced == values:
-            values = list(values)
-        else:
-            values = [values]
-
-    if extra:
-        values.extend(extra)
-    return values
-
-
 class Set(Keyspace):
     """
     Manipulate a Set key in redis.
@@ -661,7 +661,7 @@ class Set(Keyspace):
         :param args: tuple
         :return: Future()
         """
-        keys = [self.redis_key(k) for k in _parse_values(keys, args)]
+        keys = [self.redis_key(k) for k in self._parse_values(keys, args)]
 
         with self.pipe as pipe:
             res = pipe.sdiff(*keys)
@@ -678,7 +678,7 @@ class Set(Keyspace):
         Store the difference of sets specified by ``keys`` into a new
         set named ``dest``.  Returns the number of keys in the new set.
         """
-        keys = [self.redis_key(k) for k in _parse_values(keys)]
+        keys = [self.redis_key(k) for k in self._parse_values(keys)]
 
         with self.pipe as pipe:
             return pipe.sdiffstore(self.redis_key(dest), *keys)
@@ -692,7 +692,7 @@ class Set(Keyspace):
         :return: Future
         """
 
-        keys = [self.redis_key(k) for k in _parse_values(keys, args)]
+        keys = [self.redis_key(k) for k in self._parse_values(keys, args)]
         with self.pipe as pipe:
             res = pipe.sinter(*keys)
             f = Future()
@@ -708,7 +708,7 @@ class Set(Keyspace):
         Store the intersection of sets specified by ``keys`` into a new
         set named ``dest``.  Returns the number of keys in the new set.
         """
-        keys = [self.redis_key(k) for k in _parse_values(keys, args)]
+        keys = [self.redis_key(k) for k in self._parse_values(keys, args)]
         with self.pipe as pipe:
             return pipe.sinterstore(self.redis_key(dest), keys)
 
@@ -720,7 +720,7 @@ class Set(Keyspace):
         :param args: tuple
         :return: Future()
         """
-        keys = [self.redis_key(k) for k in _parse_values(keys, args)]
+        keys = [self.redis_key(k) for k in self._parse_values(keys, args)]
         with self.pipe as pipe:
             res = pipe.sunion(*keys)
             f = Future()
@@ -736,7 +736,7 @@ class Set(Keyspace):
         Store the union of sets specified by ``keys`` into a new
         set named ``dest``.  Returns the number of members in the new set.
         """
-        keys = [self.redis_key(k) for k in _parse_values(keys, args)]
+        keys = [self.redis_key(k) for k in self._parse_values(keys, args)]
         with self.pipe as pipe:
             return pipe.sunionstore(self.redis_key(dest), *keys)
 
@@ -750,7 +750,7 @@ class Set(Keyspace):
         """
         with self.pipe as pipe:
             values = [self.valueparse.encode(v) for v in
-                      _parse_values(values, args)]
+                      self._parse_values(values, args)]
             return pipe.sadd(self.redis_key(name), *values)
 
     def srem(self, name, *values):
@@ -763,7 +763,7 @@ class Set(Keyspace):
         """
         with self.pipe as pipe:
             v_encode = self.valueparse.encode
-            values = [v_encode(v) for v in _parse_values(values)]
+            values = [v_encode(v) for v in self._parse_values(values)]
             return pipe.srem(self.redis_key(name), *values)
 
     def spop(self, name):
@@ -907,7 +907,7 @@ class List(Keyspace):
 
         If timeout is 0, then block indefinitely.
         """
-        map = {self.redis_key(k): k for k in _parse_values(keys)}
+        map = {self.redis_key(k): k for k in self._parse_values(keys)}
         keys = map.keys()
 
         with self.pipe as pipe:
@@ -937,7 +937,7 @@ class List(Keyspace):
 
         If timeout is 0, then block indefinitely.
         """
-        map = {self.redis_key(k): k for k in _parse_values(keys)}
+        map = {self.redis_key(k): k for k in self._parse_values(keys)}
         keys = map.keys()
 
         with self.pipe as pipe:
@@ -1015,7 +1015,7 @@ class List(Keyspace):
         """
         with self.pipe as pipe:
             v_encode = self.valueparse.encode
-            values = [v_encode(v) for v in _parse_values(values)]
+            values = [v_encode(v) for v in self._parse_values(values)]
             return pipe.lpush(self.redis_key(name), *values)
 
     def rpush(self, name, *values):
@@ -1028,7 +1028,7 @@ class List(Keyspace):
         """
         with self.pipe as pipe:
             v_encode = self.valueparse.encode
-            values = [v_encode(v) for v in _parse_values(values)]
+            values = [v_encode(v) for v in self._parse_values(values)]
             return pipe.rpush(self.redis_key(name), *values)
 
     def lpop(self, name):
@@ -1198,7 +1198,7 @@ class SortedSet(Keyspace):
         """
         with self.pipe as pipe:
             v_encode = self.valueparse.encode
-            values = [v_encode(v) for v in _parse_values(values)]
+            values = [v_encode(v) for v in self._parse_values(values)]
             return pipe.zrem(self.redis_key(name), *values)
 
     def zincrby(self, name, value, amount=1):
@@ -1568,7 +1568,8 @@ class Hash(Keyspace):
 
     _memberparse = TextField
 
-    def _value_encode(self, member, value):
+    @classmethod
+    def _value_encode(cls, member, value):
         """
         Internal method used to encode values into the hash.
 
@@ -1577,13 +1578,14 @@ class Hash(Keyspace):
         :return: bytes
         """
         try:
-            field_validator = self.fields[member]
+            field_validator = cls.fields[member]
         except KeyError:
-            return self.valueparse.encode(value)
+            return cls.valueparse.encode(value)
 
         return field_validator.encode(value)
 
-    def _value_decode(self, member, value):
+    @classmethod
+    def _value_decode(cls, member, value):
         """
         Internal method used to decode values from redis hash
 
@@ -1594,9 +1596,9 @@ class Hash(Keyspace):
         if value is None:
             return None
         try:
-            field_validator = self.fields[member]
+            field_validator = cls.fields[member]
         except KeyError:
-            return self.valueparse.decode(value)
+            return cls.valueparse.decode(value)
 
         return field_validator.decode(value)
 
@@ -1648,7 +1650,7 @@ class Hash(Keyspace):
         """
         with self.pipe as pipe:
             m_encode = self._memberparse.encode
-            keys = [m_encode(m) for m in _parse_values(keys)]
+            keys = [m_encode(m) for m in self._parse_values(keys)]
             return pipe.hdel(self.redis_key(name), *keys)
 
     def hkeys(self, name):
@@ -1780,7 +1782,7 @@ class Hash(Keyspace):
         :return: Future()
         """
         member_encode = self._memberparse.encode
-        keys = [k for k in _parse_values(keys, args)]
+        keys = [k for k in self._parse_values(keys, args)]
         with self.pipe as pipe:
             f = Future()
             res = pipe.hmget(self.redis_key(name),
@@ -1867,7 +1869,7 @@ class HyperLogLog(Keyspace):
         """
         with self.pipe as pipe:
             v_encode = self.valueparse.encode
-            values = [v_encode(v) for v in _parse_values(values)]
+            values = [v_encode(v) for v in self._parse_values(values)]
             return pipe.pfadd(self.redis_key(name), *values)
 
     def pfcount(self, *sources):
