@@ -8,6 +8,12 @@ We make no guarantees about backward compatibility.
 Once the api reaches **1.0.0**, all major and minor release notes will be well documented.
 Upgrade notes and any breaking changes will be described here and how to handle them.
 
+1.0.0rc3 (May 10, 2017)
+-----------------------
+Use threads by default when talking to multiple backends in the same pipeline.
+You can disable this behavior with `redpipe.disable_threads()`.
+
+
 1.0.0rc2 (May 9, 2017)
 ----------------------
 Minor changes.
@@ -15,6 +21,7 @@ Minor changes.
 * make the keyspace object call conform to redis-py
 * use twine to publish to pypi
 * publish wheels
+
 
 1.0.0rc1 (May 7, 2017)
 ----------------------

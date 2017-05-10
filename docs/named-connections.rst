@@ -47,26 +47,24 @@ By specifying the connection you want to use with a named connection, you can ma
 
 Talking to Multiple Servers in Parallel
 ---------------------------------------
-When it's time to send those commands to the servers, redpipe currently batches all commands for each server and sends them out.
-By default, the batches sent to each redis server are performed in serial order.
+When it's time to send those commands to the servers, redpipe batches all commands for each server and sends them out.
 *RedPipe* supports asynchronous execution of commands to multiple redis servers via threads.
-By default it is disabled.
+You can disable this so that the batches sent to each redis server are performed in serial order.
 
 If you talk to only one redis backend connection at a time, *RedPipe* doesn't have to worry about parallel execution.
-But if you execute a pipeline that combines commands to multiple backends, it can benefit from asynchronous execution.
+If you execute a pipeline that combines commands to multiple backends, redpipe will use threads to talk to all backends in parallel.
 
-To enable this behavior, do:
-
-.. code-block:: python
-
-    redpipe.enable_threads()
-
-You can turn it off at any time via:
+If you are uncomfortable using threads in your application, you can turn it off at any time via:
 
 .. code-block:: python
 
     redpipe.disable_threads()
 
-In the near future, asynchronous execution will be the default.
-I want to give it time to stabilize.
+To re-enable this behavior, do:
+
+.. code-block:: python
+
+    redpipe.enable_threads()
+
+If you see any problems with asynchronous execution, `let me know <https://github.com/72squared/redpipe/issues>`_.
 

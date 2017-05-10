@@ -819,9 +819,9 @@ class ConnectTestCase(unittest.TestCase):
 
         self.assertEqual(ref.result, 1)
 
-    def test_async(self):
+    def test_sync(self):
         try:
-            redpipe.enable_threads()
+            redpipe.disable_threads()
             self.test_single_nested()
             self.tearDown()
             self.test_pipeline_nested_mismatched_name()
@@ -830,7 +830,7 @@ class ConnectTestCase(unittest.TestCase):
             self.tearDown()
             self.test_sleeping_cb()
         finally:
-            redpipe.disable_threads()
+            redpipe.enable_threads()
 
     def test_sleeping_cb(self):
         redpipe.connect_redis(redislite.Redis(), 'a')
@@ -1762,6 +1762,33 @@ class AsyncTestCase(unittest.TestCase):
         t = redpipe.tasks.AsynchronousTask(target=sleeper)
         t.start()
         self.assertEqual(t.result, 1)
+
+    def test_exceptions(self):
+        def blow_up():
+            raise Exception('boom')
+
+        t = redpipe.tasks.AsynchronousTask(target=blow_up)
+        t.start()
+        self.assertRaises(Exception, lambda: t.result)
+
+
+class SyncTestCase(unittest.TestCase):
+    def test(self):
+        def sleeper():
+            time.sleep(0.3)
+            return 1
+
+        t = redpipe.tasks.SynchronousTask(target=sleeper)
+        t.start()
+        self.assertEqual(t.result, 1)
+
+    def test_exceptions(self):
+        def blow_up():
+            raise Exception('boom')
+
+        t = redpipe.tasks.SynchronousTask(target=blow_up)
+        t.start()
+        self.assertRaises(Exception, lambda: t.result)
 
 
 class FutureTestCase(unittest.TestCase):

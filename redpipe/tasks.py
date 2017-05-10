@@ -4,10 +4,14 @@ When sending commands to multiple redis backends in one redpipe.pipeline,
 this module gives us an api to allow threaded async communication to those
 different backends, improving parallelism.
 
-Out of an abundance of caution, the SynchronousTask is the default.
-I've used these patterns in my own applications before.
-The threads were not true threads because I was using gevent.
-But the AsynchronousTask is well tested and should work well.
+The AsynchronousTask is well tested and should work well.
+But if you see any issues, you can easily disable this in your application.
+
+.. code-block:: python
+
+    redpipe.disable_threads()
+
+Please report any `issues <https://github.com/72squared/redpipe/issues>`_.
 """
 import sys
 from six import reraise
@@ -18,12 +22,15 @@ __all__ = ['enable_threads', 'disable_threads']
 
 class SynchronousTask(object):
     """
-    This is the default for now.
-    Just iterate through each backend sequentially.
-    Slow but reliable.
-    I'll make this a fallback once I feel confident in threaded behavior.
+    Iterate through each backend sequentially.
+    Fallback method if you aren't comfortable with threads.
     """
-    def __init__(self, target, args=(), kwargs=None):
+
+    def __init__(self, target, args=None, kwargs=None):
+        if args is None:
+            args = ()
+        if kwargs is None:
+            kwargs = {}
         self._target = target
         self._args = args
         self._kwargs = kwargs
@@ -57,6 +64,7 @@ class AsynchronousTask(threading.Thread):
     Should decrease latency for the case when sending commands to multiple
     redis backends in one `redpipe.pipeline`.
     """
+
     def __init__(self, target, args=None, kwargs=None):
         super(AsynchronousTask, self).__init__()
         if args is None:
@@ -94,7 +102,7 @@ class TaskManager(object):
     """
     standardized interface for processing async vs synchronous tasks.
     """
-    task = SynchronousTask
+    task = AsynchronousTask
 
     @classmethod
     def set_task_type(cls, task):
@@ -102,13 +110,28 @@ class TaskManager(object):
 
     @classmethod
     def promise(cls, fn, *args, **kwargs):
+        """
+        Used to build a task based on a callable function and the arguments.
+        Kick it off and start execution of the task.
+
+        :param fn: callable
+        :param args: tuple
+        :param kwargs: dict
+        :return: SynchronousTask or AsynchronousTask
+        """
         task = cls.task(target=fn, args=args, kwargs=kwargs)
         task.start()
         return task
 
     @classmethod
-    def wait(cls, *futures):
-        return [f.result for f in futures]
+    def wait(cls, *tasks):
+        """
+        Wait for all tasks to finish completion.
+
+        :param tasks: tulple of tasks, AsynchronousTask or SynchronousTask.
+        :return: list of the results from each task.
+        """
+        return [f.result for f in tasks]
 
 
 def enable_threads():
