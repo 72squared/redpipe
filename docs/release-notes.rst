@@ -1,12 +1,11 @@
 Release Notes
 =============
 
-Releases prior to **1.0.0** are considered beta.
-The api is not officially supported.
-We make no guarantees about backward compatibility.
+1.0.0 (May 11, 2017
+-------------------
+No substantive changes from 1.0.0rc3.
+Updating notes and removing beta flags.
 
-Once the api reaches **1.0.0**, all major and minor release notes will be well documented.
-Upgrade notes and any breaking changes will be described here and how to handle them.
 
 1.0.0rc3 (May 10, 2017)
 -----------------------
@@ -161,6 +160,10 @@ This is a breaking change.
 * better support for multi pipeline use case
 
 
-Earlier Releases
-----------------
+Old Releases
+------------
+Releases prior to **1.0.0** are considered beta.
+The api is not officially supported.
+We make no guarantees about backward compatibility.
+
 Releases less than **0.1.0** in this project are considered early alpha and don't deserve special mention.

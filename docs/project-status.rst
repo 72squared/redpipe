@@ -39,10 +39,3 @@ But you do so separately from Struct as their own first-class objects.
 This allows you to access and control the indexes separately from the objects.
 Don't see this as a deficiency in the framework.
 See it as a feature.
-
-
-How Long until a Stable Release?
---------------------------------
-Target for a stable release is late May, 2017.
-This code represents an RC release and should be fully functional.
-Try it out in your projects and let me know how it goes.

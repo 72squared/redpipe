@@ -52,7 +52,7 @@ setup(
     keywords='redis redis-pipeline orm database',
     packages=[NAME],
     classifiers=[
-        'Development Status :: 4 - Beta',
+        'Development Status :: 5 - Production/Stable',
         'Programming Language :: Python',
         'Programming Language :: Python',
         'Programming Language :: Python :: Implementation :: CPython',

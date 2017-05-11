@@ -15,15 +15,6 @@ If you have no idea what Redis is or why you should pipeline commands, `look it 
 
 |BuildStatus| |CoverageStatus| |Version| |Python|
 
-**RedPipe** is fast approaching a stable release.
-No new features or breaking changes expected at this point.
-The goal is to fix any remaining bugs and shore up the documentation.
-
-The code is well tested and rapidly stabilizing.
-I am in the progress of creating a release-candidate build.
-
-Please `report any issues`_ you find.
-
 Requirements
 ------------
 
