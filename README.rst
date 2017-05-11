@@ -4,10 +4,10 @@ RedPipe
 
 |BuildStatus| |CoverageStatus| |Version| |Python| |Docs|
 
-**RedPipe** is a wrapper around the pipeline component of `redis-py`_ or `redis-py-cluster`_.
+**RedPipe** is a wrapper around the pipeline component of `redis-py <https://redis-py.readthedocs.io>`_ or `redis-py-cluster <https://redis-py-cluster.readthedocs.io>`_.
 It makes it easy to reduce network round trips when talking to *Redis*.
 
-For more general information about redis pipelining, see the `official redis documentation`_.
+For more general information about redis pipelining, see the `official redis documentation <https://redis.io/topics/pipelining>`_.
 
 Use **RedPipe** to build pipelined redis calls in a modular reusable way.
 Rewrite your existing application calls via *redis-py* into efficient batches with only minimal changes.
@@ -37,7 +37,7 @@ or from source:
 Quick Start
 -----------
 To use redpipe, You need to bind your redis client instance to **RedPipe**.
-Use the standard `redis-py <https://redis-py.readthedocs.io/en/latest/#>`_ client.
+Use the standard *redis-py* client.
 
 .. code-block:: python
 
