@@ -27,6 +27,9 @@ What is RedPipe?
 ----------------
 **RedPipe** is a wrapper around the pipeline component of `redis-py`_ or `redis-py-cluster`_.
 It makes it easy to reduce network round trips when talking to *Redis*.
+The interface is very similar to `redis-py`.
+It pipelined commands work almost like non-pipelined command to redis.
+
 
 For more general information about redis pipelining, see the `official redis documentation`_.
 
@@ -36,7 +39,7 @@ Rewrite your existing application calls via *redis-py* into efficient batches wi
 
 How Does it Work?
 -----------------
-RedPipe makes pipeline commands work almost like un-pipelined commands in *redis-py*.
+RedPipe makes pipeline commands work almost like non-pipelined commands in *redis-py*.
 You may have used pipelines before in a few spots as a last-minute performance optimization.
 **Redpipe** operates with a different paradigm.
 It assumes every call will be pipelined.

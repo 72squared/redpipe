@@ -128,13 +128,16 @@ class Struct(object):
     fields = {}
     default_fields = 'all'  # set as 'defined', 'all', or ['a', b', 'c']
 
-    def __init__(self, _key_or_data, pipe=None, fields=None, no_op=False):
+    def __init__(self, _key_or_data, pipe=None, fields=None, no_op=False,
+                 nx=False):
         """
         class constructor
 
         :param _key_or_data:
         :param pipe:
         :param fields:
+        :param no_op: bool
+        :param nx: bool
         """
 
         self._data = {}
@@ -169,7 +172,7 @@ class Struct(object):
                     self._data = coerced
                     return
 
-                self.update(coerced, pipe=pipe)
+                self.update(coerced, pipe=pipe, nx=nx)
 
             # we wind up here if a dictionary was passed in, but it
             # didn't contain the primary key
@@ -308,22 +311,22 @@ class Struct(object):
         """
         return self.incr(field, amount * -1, pipe=pipe)
 
-    def update(self, changes, pipe=None):
+    def update(self, changes, pipe=None, nx=False):
         """
         update the data in the Struct.
 
         This will update the values in the underlying redis hash.
         After the pipeline executes, the changes will be reflected here
         in the local struct.
-
         If any values in the changes dict are None, those fields will be
         removed from redis and the instance.
-
         The changes should be a dictionary representing the fields to change
         and the values to change them to.
+        If you pass the nx flag, only sets the fields if they don't exist yet.
 
         :param changes: dict
         :param pipe: Pipeline, NestedPipeline, or None
+        :param nx: bool
         :return: None
         """
         if not changes:
@@ -344,6 +347,7 @@ class Struct(object):
         with self._pipe(pipe) as pipe:
 
             core = self.core(pipe=pipe)
+            set_method = core.hsetnx if nx else core.hset
 
             def build(k, v):
                 """
@@ -355,7 +359,8 @@ class Struct(object):
                 :param v: the value we want to set
                 :return: None
                 """
-                core.hset(self.key, k, v)
+
+                res = set_method(self.key, k, v)
 
                 def cb():
                     """
@@ -365,7 +370,8 @@ class Struct(object):
 
                     :return: None
                     """
-                    self._data[k] = v
+                    if not nx or res == 1:
+                        self._data[k] = v
 
                 # attach the callback.
                 pipe.on_execute(cb)

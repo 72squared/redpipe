@@ -756,6 +756,21 @@ class StructTestCase(BaseTestCase):
         t = Test(data['k'], fields='all')
         self.assertEqual(t, data)
 
+    def test_nx(self):
+        class Test(redpipe.Struct):
+            keyspace = 'U'
+            fields = {
+                'f1': redpipe.TextField,
+                'f2': redpipe.TextField,
+            }
+            key_name = 'k'
+
+        t = Test({'k': '1', 'f1': 'a'})
+        self.assertEqual(t['f1'], 'a')
+        t = Test({'k': '1', 'f1': 'b', 'f2': 'c'}, nx=True)
+        self.assertEqual(t['f1'], 'a')
+        self.assertEqual(t['f2'], 'c')
+
 
 class ConnectTestCase(unittest.TestCase):
     def tearDown(self):
