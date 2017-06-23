@@ -14,6 +14,7 @@ import six
 import pickle
 import socket
 
+
 # Tegalu: I can eat glass ...
 utf8_sample = u'నేను గాజు తినగలను మరియు అలా చేసినా నాకు ఏమి ఇబ్బంది లేదు'
 
@@ -1097,6 +1098,20 @@ class RedisClusterTestCase(unittest.TestCase):
         self.assertEqual(zadd, 1)
         self.assertEqual(zrange, ['a', 'b', 'c'])
         self.assertEqual(zincrby, 2)
+
+    def test_hll_commands(self):
+        class Test(redpipe.HyperLogLog):
+            keyspace = 'T'
+
+        with redpipe.autoexec() as pipe:
+            t = Test(pipe)
+            pfadd = t.pfadd('1', 'a', 'b', 'c')
+            t.pfadd('1', 'a', 'b', 'c')
+            t.pfadd('1', 'd')
+            pfcount = t.pfcount('1')
+
+        self.assertEqual(pfadd, 1)
+        self.assertEqual(pfcount, 4)
 
 
 class StrictRedisClusterTestCase(RedisClusterTestCase):

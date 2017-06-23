@@ -1,6 +1,17 @@
 Release Notes
 =============
 
+1.0.2 (June 23, 2017)
+---------------------
+enable pfcount when using rediscluster.
+
+
+1.0.1 (May 29, 2017
+-------------------
+adding an nx option to struct to allow changes to be set only if the properties
+don't already exist.
+
+
 1.0.0 (May 11, 2017
 -------------------
 No substantive changes from 1.0.0rc3.
