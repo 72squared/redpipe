@@ -1973,6 +1973,44 @@ class FutureCallableTestCase(unittest.TestCase):
         self.assertTrue(self.future.IS(self.result))
 
 
+class Issue2NamedConnectionsTestCase(unittest.TestCase):
+    conn = redislite.StrictRedis()
+
+    class T(redpipe.Struct):
+        connection = 't'
+        keyspace = 't'
+
+        fields = {
+            'foo': redpipe.IntegerField
+        }
+
+    class H(redpipe.Hash):
+        connection = 't'
+        keyspace = 'h'
+
+    def setUp(self):
+        redpipe.connect_redis(self.conn, 't')
+
+    def tearDown(self):
+        redpipe.reset()
+
+    def test_struct(self):
+        with redpipe.pipeline(name='t', autoexec=True) as pipe:
+            self.T('1', pipe=pipe, no_op=True).incr('foo', 10)
+
+        with redpipe.pipeline(name=None, autoexec=True) as pipe:
+            c = self.T('1', pipe=pipe)
+        self.assertEqual(c['foo'], 10)
+        self.assertEqual(c['_key'], '1')
+
+    def test_hash(self):
+        with redpipe.pipeline(name='t', autoexec=True) as pipe:
+            h = self.H(pipe=pipe)
+            h.hincrby('foo', 'val',  3)
+            res = h.hget('foo', 'val')
+        self.assertEqual(res, '3')
+
+
 if __name__ == '__main__':
     try:
         unittest.main(verbosity=2, warnings='ignore')

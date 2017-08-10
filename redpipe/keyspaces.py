@@ -73,7 +73,7 @@ class Keyspace(object):
     __slots__ = ['key', '_pipe']
 
     keyspace = None
-    connections = None
+    connection = None
     keyparse = TextField
     valueparse = TextField
 
@@ -108,7 +108,7 @@ class Keyspace(object):
 
         :return: Pipeline or NestedPipeline with autoexec set to true.
         """
-        return autoexec(self._pipe, name=self.connections)
+        return autoexec(self._pipe, name=self.connection)
 
     def delete(self, *names):
         """
