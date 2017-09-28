@@ -1,6 +1,16 @@
 Release Notes
 =============
 
+1.0.4 (September 28, 2017)
+--------------------------
+adding support for zcount (somehow missed it before).
+
+
+1.0.3 (August 10, 2017)
+-----------------------
+fixing a bug in named connections in structs and keyspaces. fixes issue #2
+
+
 1.0.2 (June 23, 2017)
 ---------------------
 enable pfcount when using rediscluster.

@@ -1526,7 +1526,8 @@ class StrictSortedSetTestCase(BaseTestCase):
                                                              10, 0, start=0,
                                                              num=1,
                                                              withscores=True)
-            zcard = s.zcard(key, )
+            zcard = s.zcard(key)
+            zcount = s.zcount(key, '-inf', '+inf')
             zrank = s.zrank(key, 'b')
             zlexcount = s.zlexcount(key, '-', '+')
             zrangebylex = s.zrangebylex(key, '-', '+')
@@ -1540,6 +1541,7 @@ class StrictSortedSetTestCase(BaseTestCase):
         self.assertEqual(zrevrangebyscore, ['b'])
         self.assertEqual(zrevrangebyscore_withscores, [['b', 2.0]])
         self.assertEqual(zcard, 2)
+        self.assertEqual(zcount, 2)
         self.assertEqual(zrank, 1)
         self.assertEqual(zremrangebyrank, 1)
         self.assertEqual(zremrangebyscore, 1)
