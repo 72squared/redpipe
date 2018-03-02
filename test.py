@@ -1421,12 +1421,12 @@ class StrictListTestCase(BaseTestCase):
 
     def test_scan_with_no_keyspace(self):
         with redpipe.autoexec() as pipe:
-            l = redpipe.List(pipe=pipe)
-            l.lpush('1a', '1')
-            l.lpush('1b', '1')
-            l.lpush('2a', '1')
-            l.lpush('2b', '1')
-            sscan = l.scan(0, match='1*')
+            t = redpipe.List(pipe=pipe)
+            t.lpush('1a', '1')
+            t.lpush('1b', '1')
+            t.lpush('2a', '1')
+            t.lpush('2b', '1')
+            sscan = t.scan(0, match='1*')
 
         self.assertEqual(sscan[0], 0)
         self.assertEqual(set(sscan[1]), {'1a', '1b'})
@@ -1436,16 +1436,16 @@ class StrictListTestCase(BaseTestCase):
         key2 = '2'
         key3 = '3'
         with redpipe.autoexec() as pipe:
-            l = self.Data(pipe=pipe)
-            l.rpush(key1, 'a', 'b')
-            l.rpush(key2, 'c', 'd')
-            blpop = l.blpop([key1])
-            brpop = l.brpop([key1])
-            blpop_missing = l.blpop(['4', '5'], timeout=1)
-            brpop_missing = l.brpop(['4', '5'], timeout=1)
-            brpoplpush = l.brpoplpush(key2, key3, timeout=1)
-            rpoplpush = l.rpoplpush(key2, key3)
-            members = l.lrange(key3, 0, -1)
+            t = self.Data(pipe=pipe)
+            t.rpush(key1, 'a', 'b')
+            t.rpush(key2, 'c', 'd')
+            blpop = t.blpop([key1])
+            brpop = t.brpop([key1])
+            blpop_missing = t.blpop(['4', '5'], timeout=1)
+            brpop_missing = t.brpop(['4', '5'], timeout=1)
+            brpoplpush = t.brpoplpush(key2, key3, timeout=1)
+            rpoplpush = t.rpoplpush(key2, key3)
+            members = t.lrange(key3, 0, -1)
 
         self.assertEqual(blpop, ('1', 'a'))
         self.assertEqual(brpop, ('1', 'b'))

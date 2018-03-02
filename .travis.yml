@@ -2,16 +2,15 @@ sudo: false
 language: python
 python:
   - "2.7"
-  - "3.3"
   - "3.4"
   - "3.5"
-  - "3.6-dev"
+  - "3.6"
   - "nightly"
   - "pypy"
   # pypy3 doesn't work with redislite
   # redpipe should work with it but it's too much of a pain to test.
   # https://bitbucket.org/pypy/pypy/issues/2450/cant-import-psutil-on-pypy3-missing
-  #- "pypy3"
+  - "pypy3"
 install:
   - pip install -r dev-requirements.txt
   - "if [[ $HIREDIS == '1' ]]; then pip install hiredis; fi"
