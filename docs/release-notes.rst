@@ -1,6 +1,11 @@
 Release Notes
 =============
 
+2.0.0 (March 8, 2018)
+---------------------
+to avoid confusion, make the eval command in keyspaces match the
+interface defined in redis-py.
+
 1.0.4 (September 28, 2017)
 --------------------------
 adding support for zcount (somehow missed it before).

@@ -14,7 +14,6 @@ import six
 import pickle
 import socket
 
-
 # Tegalu: I can eat glass ...
 utf8_sample = u'నేను గాజు తినగలను మరియు అలా చేసినా నాకు ఏమి ఇబ్బంది లేదు'
 
@@ -1267,6 +1266,15 @@ class StrictStringTestCase(BaseTestCase):
         self.assertIsNotNone(serialize.result)
         self.assertFalse(exists.result)
 
+    def test_eval(self):
+        key1 = '1'
+        script = """return redis.call("SET", KEYS[1], ARGV[1])"""
+        with redpipe.autoexec() as pipe:
+            s = self.Data(pipe=pipe)
+            s.eval(script, 1, key1, 'a')
+            get = s.get(key1)
+        self.assertEqual(get, 'a')
+
 
 class StringTestCase(StrictStringTestCase):
     @classmethod
@@ -2008,7 +2016,7 @@ class Issue2NamedConnectionsTestCase(unittest.TestCase):
     def test_hash(self):
         with redpipe.pipeline(name='t', autoexec=True) as pipe:
             h = self.H(pipe=pipe)
-            h.hincrby('foo', 'val',  3)
+            h.hincrby('foo', 'val', 3)
             res = h.hget('foo', 'val')
         self.assertEqual(res, '3')
 

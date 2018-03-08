@@ -142,20 +142,22 @@ class Keyspace(object):
         with self.pipe as pipe:
             return pipe.exists(self.redis_key(name))
 
-    def eval(self, name, script, *args):
+    def eval(self, script, numkeys, *keys_and_args):
         """
         Run a lua script against the key.
         Doesn't support multi-key lua operations because
         we wouldn't be able to know what argument to namespace.
         Also, redis cluster doesn't really support multi-key operations.
 
-        :param name: str     the name of the redis key
         :param script: str  A lua script targeting the current key.
-        :param args: arguments to be passed to redis for the lua script
+        :param numkeys: number of keys passed to the script
+        :param keys_and_args: list of keys and args passed to script
         :return: Future()
         """
         with self.pipe as pipe:
-            return pipe.eval(script, 1, self.redis_key(name), *args)
+            keys_and_args = [a if i >= numkeys else self.redis_key(a) for i, a
+                             in enumerate(keys_and_args)]
+            return pipe.eval(script, numkeys, *keys_and_args)
 
     def dump(self, name):
         """
@@ -176,7 +178,7 @@ class Keyspace(object):
         :param pttl: milliseconds till key expires
         :return: Future()
         """
-        return self.eval(name, lua_restorenx, pttl, value)
+        return self.eval(lua_restorenx, 1, name, pttl, value)
 
     def restore(self, name, value, pttl=0):
         """
