@@ -61,7 +61,7 @@ It doesn't matter.
 Whatever you use normally in your application.
 
 The goal is to reuse your application's existing redis connection.
-RedPipe can be used to build your entire in your application.
+RedPipe can be used to build your entire persistence layer in your application.
 Or you can use *RedPipe* along side your existing code.
 
 More on this later.
@@ -90,15 +90,16 @@ But, notice that each `incr` call immediately gets a reference object back in re
 That part looks similar to how `redis-py` works without a pipeline.
 
 The variables (in this case `foo` and `bar`) are empty until the pipeline executes.
-if you try to do any operations on them beforehand, it will raise an exception.
+If you try to do any operations on them beforehand, it will raise an exception.
 Once we complete the `execute()` call we can consume the pipeline results.
 These variables, `foo` and `bar`, behave just like the underlying result once the pipeline executes.
-You can iterate of it, add it, multiply it, etc.
+You can iterate over it, add it, multiply it, etc.
 
 
 Reusable Functions
 ------------------
-You can write a function that takes in a pipeline, and returns a result before the pipeline even executes.
+You can write a function that can work as a standalone chunk of logic
+and can also be linked to other pipelines.
 
 Here's a quick example of what I mean:
 
@@ -111,8 +112,8 @@ Here's a quick example of what I mean:
             pipe.execute()
             return foo
 
-Now I can invoke my function.
-I can call it in isolation:
+It is easy to see how this works as an standalone function. It looks almost
+like what you might write if you were just using redis-py.
 
 .. code-block:: python
 
@@ -123,7 +124,7 @@ This will pipeline the following commands to redis:
 * SETNX foo bar
 * GET foo
 
-Or I can pipeline it with other things:
+But the magic happens when you link this function with other pipeline objects.
 
 .. code-block:: python
 
@@ -141,6 +142,6 @@ This example will pipeline these three commands together:
 In this example, the `foo` and `bar` variables are both `redpipe.Future` objects.
 They are empty until the `pipe.execute()` happens outside of the function.
 The `pipe.execute()`  called inside the `get_foo` function in this case is a `NestedPipeline`.
-It passes it's stack of commands to the parent pipeline.
+It passes its stack of commands to the parent pipeline.
 That's because we passed a pipeline object into the `get_foo` function.
 The function passed that into `redpipe.pipeline` and it returned a NestedPipeline to wrap the one passed in.
