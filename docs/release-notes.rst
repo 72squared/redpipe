@@ -1,10 +1,17 @@
 Release Notes
 =============
 
+2.0.1 (March 15, 2018)
+----------------------
+ttl on struct objects.
+documentation fixes.
+
+
 2.0.0 (March 8, 2018)
 ---------------------
 to avoid confusion, make the eval command in keyspaces match the
 interface defined in redis-py.
+
 
 1.0.4 (September 28, 2017)
 --------------------------
