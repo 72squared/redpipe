@@ -340,6 +340,42 @@ I touched on it briefly before, but you can store arbitrary data in a struct too
 The data will be simple string key-value pairs by default.
 But you can add type-casting at any point easily in the `fields` dictionary.
 
+
+Temporary Structs
+-----------------
+Sometimes you want to be able to use a data structure but you only need it for
+a few hours. Redis has the concept of setting an expiry on any key via:
+
+.. code-block:: bash
+
+    redis-cli EXPIRE key
+
+You can do the same in redis-py and redpipe keyspaces with the `expire` method.
+With structs, many of those low level operations are abstracted away. You can
+always access the underlying hash object directly:
+
+.. code-block:: python
+
+    User.core().expire('1', 3600)
+
+This feels a little awkward and will be applied inconsistently in your
+code. Instead, I recommend using the optional ttl property on the Struct.
+
+
+.. code-block:: python
+
+    class User(redpipe.Struct):
+        keyspace = 'U'
+        key_name = 'user_id'
+        fields = {
+            # ...
+        }
+        ttl = 3600
+
+This will cause the object to expire one hour after it was last updated by
+any write operation in the struct.
+
+
 Why Struct and not Model?
 -------------------------
 I chose the name `Struct` because it implies a single, standalone data structure.

@@ -2021,6 +2021,73 @@ class Issue2NamedConnectionsTestCase(unittest.TestCase):
         self.assertEqual(res, '3')
 
 
+class StructExpiresTestCase(unittest.TestCase):
+    conn = redislite.StrictRedis()
+
+    class T(redpipe.Struct):
+        connection = 't'
+        keyspace = 't'
+        ttl = 30
+
+        fields = {
+            'foo': redpipe.IntegerField
+        }
+
+    def setUp(self):
+        redpipe.connect_redis(self.conn, 't')
+
+    def tearDown(self):
+        redpipe.reset()
+
+    def test_set(self):
+        with redpipe.pipeline(name='t', autoexec=True) as pipe:
+            t = self.T('1', pipe=pipe, no_op=True)
+            t.update({'foo': 1})
+
+            pttl = self.T.core(pipe=pipe).pttl('1')
+
+        self.assertAlmostEqual(pttl, 30000, delta=50)
+
+        with redpipe.pipeline(name=None, autoexec=True) as pipe:
+            c = self.T('1', pipe=pipe)
+            pttl = self.T.core(pipe=pipe).pttl('1')
+
+        self.assertAlmostEqual(pttl, 30000, delta=100)
+        self.assertEqual(c['foo'], 1)
+        self.assertEqual(c['_key'], '1')
+
+        with redpipe.pipeline(name=None, autoexec=True) as pipe:
+            c = self.T('1', pipe=pipe, no_op=True)
+            c.remove(['foo'])
+            pttl = self.T.core(pipe=pipe).pttl('1')
+
+        self.assertEqual(pttl, -2)
+
+        with redpipe.pipeline(name=None, autoexec=True) as pipe:
+            c = self.T('1', pipe=pipe)
+            c.update({'foo': 1, 'bar': 'b'})
+            c.remove(['foo'])
+            pttl = self.T.core(pipe=pipe).pttl('1')
+
+        self.assertEqual(dict(c), {'_key': '1', 'bar': 'b'})
+        self.assertAlmostEqual(pttl, 30000, delta=50)
+
+    def test_incr(self):
+        with redpipe.pipeline(name='t', autoexec=True) as pipe:
+            self.T('1', pipe=pipe, no_op=True).incr('foo', 10)
+            pttl = self.T.core(pipe=pipe).pttl('1')
+
+        self.assertAlmostEqual(pttl, 30000, delta=50)
+
+        with redpipe.pipeline(name=None, autoexec=True) as pipe:
+            c = self.T('1', pipe=pipe)
+            pttl = self.T.core(pipe=pipe).pttl('1')
+
+        self.assertAlmostEqual(pttl, 30000, delta=100)
+        self.assertEqual(c['foo'], 10)
+        self.assertEqual(c['_key'], '1')
+
+
 if __name__ == '__main__':
     try:
         unittest.main(verbosity=2, warnings='ignore')

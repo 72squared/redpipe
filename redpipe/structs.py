@@ -120,6 +120,22 @@ class Struct(object):
     already loaded.
     So you shouldn't need to pipeline them.
 
+
+    One more thing ... suppose you are storing temporary data and you want it
+    to expire after a few days. You can easily make that happen just by
+    changing the object definition:
+
+    .. code-block:: python
+
+        class Beer(redpipe.Struct):
+            fields = {'name': redpipe.TextField}
+            key_name = 'beer_id'
+            ttl = 24 * 60 * 60 * 3
+
+    This makes sure that any set operations on the Struct will set the expiry
+    at the same time. If the object isn't modified for more than the seconds
+    specified in the ttl (stands for time-to-live), then the object will be
+    expired from redis. This is useful for temporary objects.
     """
     __slots__ = ['key', '_data']
     keyspace = None
@@ -127,6 +143,7 @@ class Struct(object):
     key_name = '_key'
     fields = {}
     default_fields = 'all'  # set as 'defined', 'all', or ['a', b', 'c']
+    ttl = None
 
     def __init__(self, _key_or_data, pipe=None, fields=None, no_op=False,
                  nx=False):
@@ -281,6 +298,7 @@ class Struct(object):
             core = self.core(pipe=pipe)
             # increment the key
             new_amount = core.hincrby(self.key, field, amount)
+            self._expire(pipe=pipe)
 
             # we also read the value of the field.
             # this is a little redundant, but otherwise we don't know exactly
@@ -298,6 +316,7 @@ class Struct(object):
                 self._data[field] = ref.result
 
             pipe.on_execute(cb)
+
             return new_amount
 
     def decr(self, field, amount=1, pipe=None):
@@ -386,6 +405,7 @@ class Struct(object):
             # pass off all the delete operations to the remove call.
             # happens in the same pipeline.
             self.remove(deletes, pipe=pipe)
+            self._expire(pipe=pipe)
 
     def remove(self, fields, pipe=None):
         """
@@ -411,6 +431,7 @@ class Struct(object):
             # remove all the fields specified from redis.
             core = self.core(pipe=pipe)
             core.hdel(self.key, *fields)
+            self._expire(pipe=pipe)
 
             # set up a callback to remove the fields from this local object.
             def cb():
@@ -489,6 +510,7 @@ class Struct(object):
             c = self.core(pipe)
             ref = c.hget(self.key, name)
             c.hdel(self.key, name)
+            self._expire(pipe=pipe)
 
             def cb():
                 f.set(default if ref.result is None else ref.result)
@@ -513,6 +535,16 @@ class Struct(object):
         with cls._pipe(pipe) as pipe:
             core = cls.core(pipe)
             core.delete(*keys)
+
+    def _expire(self, pipe=None):
+        """
+        delete the current redis key.
+
+        :param pipe:
+        :return:
+        """
+        if self.ttl:
+            self.core(pipe=pipe).expire(self.key, self.ttl)
 
     @classmethod
     def _pipe(cls, pipe=None):
