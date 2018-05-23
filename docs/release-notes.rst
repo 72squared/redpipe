@@ -1,6 +1,13 @@
 Release Notes
 =============
 
+2.0.2 (May 23, 2018)
+----------------------
+rename `_memberparse` to `memberparse` on Hash class to be consistent
+with naming conventions of keyparse and valueparse variables.
+Also allows access of this variable outside the class which is fine.
+
+
 2.0.1 (March 15, 2018)
 ----------------------
 ttl on struct objects.

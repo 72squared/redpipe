@@ -1581,7 +1581,7 @@ class Hash(Keyspace):
 
     fields = {}
 
-    _memberparse = TextField
+    memberparse = TextField
 
     @classmethod
     def _value_encode(cls, member, value):
@@ -1638,7 +1638,7 @@ class Hash(Keyspace):
         """
         with self.pipe as pipe:
             value = self._value_encode(key, value)
-            key = self._memberparse.encode(key)
+            key = self.memberparse.encode(key)
             return pipe.hset(self.redis_key(name), key, value)
 
     def hsetnx(self, name, key, value):
@@ -1652,7 +1652,7 @@ class Hash(Keyspace):
         """
         with self.pipe as pipe:
             value = self._value_encode(key, value)
-            key = self._memberparse.encode(key)
+            key = self.memberparse.encode(key)
             return pipe.hsetnx(self.redis_key(name), key, value)
 
     def hdel(self, name, *keys):
@@ -1664,7 +1664,7 @@ class Hash(Keyspace):
         :return: Future()
         """
         with self.pipe as pipe:
-            m_encode = self._memberparse.encode
+            m_encode = self.memberparse.encode
             keys = [m_encode(m) for m in self._parse_values(keys)]
             return pipe.hdel(self.redis_key(name), *keys)
 
@@ -1680,7 +1680,7 @@ class Hash(Keyspace):
             res = pipe.hkeys(self.redis_key(name))
 
             def cb():
-                m_decode = self._memberparse.decode
+                m_decode = self.memberparse.decode
                 f.set([m_decode(v) for v in res.result])
 
             pipe.on_execute(cb)
@@ -1699,7 +1699,7 @@ class Hash(Keyspace):
 
             def cb():
                 data = {}
-                m_decode = self._memberparse.decode
+                m_decode = self.memberparse.decode
                 v_decode = self._value_decode
                 for k, v in res.result.items():
                     k = m_decode(k)
@@ -1740,7 +1740,7 @@ class Hash(Keyspace):
         with self.pipe as pipe:
             f = Future()
             res = pipe.hget(self.redis_key(name),
-                            self._memberparse.encode(key))
+                            self.memberparse.encode(key))
 
             def cb():
                 f.set(self._value_decode(key, res.result))
@@ -1758,7 +1758,7 @@ class Hash(Keyspace):
         """
         with self.pipe as pipe:
             return pipe.hexists(self.redis_key(name),
-                                self._memberparse.encode(key))
+                                self.memberparse.encode(key))
 
     def hincrby(self, name, key, amount=1):
         """
@@ -1771,7 +1771,7 @@ class Hash(Keyspace):
         """
         with self.pipe as pipe:
             return pipe.hincrby(self.redis_key(name),
-                                self._memberparse.encode(key),
+                                self.memberparse.encode(key),
                                 amount)
 
     def hincrbyfloat(self, name, key, amount=1.0):
@@ -1785,7 +1785,7 @@ class Hash(Keyspace):
         """
         with self.pipe as pipe:
             return pipe.hincrbyfloat(self.redis_key(name),
-                                     self._memberparse.encode(key),
+                                     self.memberparse.encode(key),
                                      amount)
 
     def hmget(self, name, keys, *args):
@@ -1796,7 +1796,7 @@ class Hash(Keyspace):
         :param fields:
         :return: Future()
         """
-        member_encode = self._memberparse.encode
+        member_encode = self.memberparse.encode
         keys = [k for k in self._parse_values(keys, args)]
         with self.pipe as pipe:
             f = Future()
@@ -1819,7 +1819,7 @@ class Hash(Keyspace):
         :return: Future()
         """
         with self.pipe as pipe:
-            m_encode = self._memberparse.encode
+            m_encode = self.memberparse.encode
             mapping = {m_encode(k): self._value_encode(k, v)
                        for k, v in mapping.items()}
             return pipe.hmset(self.redis_key(name), mapping)
@@ -1840,7 +1840,7 @@ class Hash(Keyspace):
 
             def cb():
                 data = {}
-                m_decode = self._memberparse.decode
+                m_decode = self.memberparse.decode
                 for k, v in res[1].items():
                     k = m_decode(k)
                     v = self._value_decode(k, v)
