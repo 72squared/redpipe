@@ -771,6 +771,50 @@ class StructTestCase(BaseTestCase):
         self.assertEqual(t['f1'], 'a')
         self.assertEqual(t['f2'], 'c')
 
+    def test_required_fields(self):
+        class Test(redpipe.Struct):
+            keyspace = 'U'
+            fields = {
+                'a': redpipe.IntegerField,
+                'b': redpipe.IntegerField
+            }
+            required = set('b')
+
+        t = Test({'_key': 'abc', 'b': 123})
+        self.assertEqual(t['b'], 123)
+        with self.assertRaises(redpipe.InvalidOperation):
+            Test({'_key': 'abc', 'a': 123})  # Create obj w/o required field
+        with self.assertRaises(redpipe.InvalidOperation):
+            # Update obj removing a required field
+            t.update({'a': 456, 'b': None})
+
+        # Make sure the other fields did NOT update on the failed update
+        self.assertIsNone(t.get('a', None))
+
+        t.update({'a': 456, 'b': 789})  # Update required field of obj
+        self.assertEqual(t['a'], 456)
+        self.assertEqual(t['b'], 789)
+        t.update({'a': None})  # Update non-required field of obj
+        self.assertIsNone(t.get('a', None))
+
+    def test_required_adding_later(self):
+        class Test(redpipe.Struct):
+            keyspace = 'U'
+            fields = {
+                'a': redpipe.IntegerField,
+                'b': redpipe.IntegerField
+            }
+
+        t = Test({'_key': 'abc', 'b': 123})
+        t.required = set(['new_required_field'])
+        t.update({'b': 456, 'random_field': 'hello_world'})
+        self.assertEqual(t['b'], 456)
+        self.assertEqual(t['random_field'], 'hello_world')
+        self.assertIsNone(t.get('new_required_field', None))
+        with self.assertRaises(redpipe.InvalidOperation):
+            # Update obj removing a required field that didn't yet exist
+            t.update({'a': 456, 'new_required_field': None})
+
 
 class ConnectTestCase(unittest.TestCase):
     def tearDown(self):

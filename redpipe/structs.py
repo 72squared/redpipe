@@ -143,6 +143,7 @@ class Struct(object):
     connection = None
     key_name = '_key'
     fields = {}
+    required = set()
     default_fields = 'all'  # set as 'defined', 'all', or ['a', b', 'c']
     ttl = None
 
@@ -189,6 +190,12 @@ class Struct(object):
                 if no_op:
                     self._data = coerced
                     return
+
+                required_found = self.required.intersection(coerced.keys())
+                if len(required_found) != len(self.required):
+                    raise InvalidOperation('missing required field(s): %s' %
+                                           list(self.required - required_found)
+                                           )
 
                 self.update(coerced, pipe=pipe, nx=nx)
 
@@ -361,7 +368,7 @@ class Struct(object):
         # sort the change set into updates and deletes.
         # the deletes are entries with None as the value.
         # updates are everything else.
-        deletes = {k for k, v in changes.items() if IS(v, None)}
+        deletes = [k for k, v in changes.items() if IS(v, None)]
         updates = {k: v for k, v in changes.items() if k not in deletes}
 
         with self._pipe(pipe) as pipe:
@@ -427,6 +434,11 @@ class Struct(object):
         # maybe you meant to call the delete method?
         if self.key_name in fields:
             raise InvalidOperation('cannot remove the redis key')
+
+        removed_required_fields = self.required.intersection(fields)
+        if len(removed_required_fields):
+            raise InvalidOperation('cannot remove required field(s): %s'
+                                   % list(removed_required_fields))
 
         with self._pipe(pipe) as pipe:
             # remove all the fields specified from redis.
