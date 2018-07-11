@@ -1,6 +1,11 @@
 Release Notes
 =============
 
+2.1.0 (July 11, 2018)
+----------------------
+Support for Strings stored in a sharded Hash.
+Adding `mget` on String keyspace data.
+
 2.0.2 (May 23, 2018)
 ----------------------
 rename `_memberparse` to `memberparse` on Hash class to be consistent

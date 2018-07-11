@@ -47,22 +47,50 @@ No matter what pipeline you pass in, it routes your commands to the
 
 There's also support for character encoding and complex data types.
 """
-
+import re
+from six import add_metaclass
+import hashlib
 from .pipelines import autoexec
 from .luascripts import lua_restorenx
 from .exceptions import InvalidOperation
 from .futures import Future
 from .fields import TextField
-import re
 
 __all__ = """
 String
+HashedString
 Set
 List
 SortedSet
 Hash
 HyperLogLog
 """.split()
+
+
+def _parse_values(values, extra=None):
+    """
+    Utility function to flatten out args.
+
+    For internal use only.
+
+    :param values: list, tuple, or str
+    :param extra: list or None
+    :return: list
+    """
+    coerced = list(values)
+
+    if coerced == values:
+        values = coerced
+    else:
+        coerced = tuple(values)
+        if coerced == values:
+            values = list(values)
+        else:
+            values = [values]
+
+    if extra:
+        values.extend(extra)
+    return values
 
 
 class Keyspace(object):
@@ -76,6 +104,7 @@ class Keyspace(object):
     connection = None
     keyparse = TextField
     valueparse = TextField
+    keyspace_template = "%s{%s}"
 
     def __init__(self, pipe=None):
         """
@@ -98,7 +127,8 @@ class Keyspace(object):
         :return: str
         """
         keyspace = cls.keyspace
-        key = "%s" % key if keyspace is None else "%s{%s}" % (keyspace, key)
+        tpl = cls.keyspace_template
+        key = "%s" % key if keyspace is None else tpl % (keyspace, key)
         return cls.keyparse.encode(key)
 
     @property
@@ -386,29 +416,7 @@ class Keyspace(object):
 
     @classmethod
     def _parse_values(cls, values, extra=None):
-        """
-        Utility function to flatten out args.
-
-        For internal use only.
-
-        :param values: list, tuple, or str
-        :param extra: list or None
-        :return: list
-        """
-        coerced = list(values)
-
-        if coerced == values:
-            values = coerced
-        else:
-            coerced = tuple(values)
-            if coerced == values:
-                values = list(values)
-            else:
-                values = [values]
-
-        if extra:
-            values.extend(extra)
-        return values
+        return _parse_values(values, extra)
 
 
 class String(Keyspace):
@@ -430,6 +438,22 @@ class String(Keyspace):
             def cb():
                 decode = self.valueparse.decode
                 f.set(decode(res.result))
+
+            pipe.on_execute(cb)
+            return f
+
+    def mget(self, keys, *args):
+        """
+        Returns a list of values ordered identically to ``keys``
+        """
+        keys = [self.redis_key(k) for k in self._parse_values(keys, args)]
+        with self.pipe as pipe:
+            f = Future()
+            res = pipe.mget(keys)
+
+            def cb():
+                decode = self.valueparse.decode
+                f.set([None if r is None else decode(r) for r in res.result])
 
             pipe.on_execute(cb)
             return f
@@ -648,6 +672,221 @@ class String(Keyspace):
         :return:
         """
         self.set(name, value)
+
+
+class HashedStringMeta(type):
+
+    def __new__(mcs, name, bases, d):
+        module = 'redpipe.keyspaces'
+        if name in ['HashedString'] and d.get('__module__', '') == module:
+            return type.__new__(mcs, name, bases, d)
+
+        class Core(Hash):
+            keyspace = d.get('keyspace', name)
+            connection = d.get('connection', None)
+            fields = d.get('fields', {})
+            keyparse = d.get('keyparse', TextField)
+            valueparse = d.get('valueparse', TextField)
+            memberparse = d.get('memberparse', TextField)
+            keyspace_template = d.get('keyspace_template', '%s{%s}')
+
+        d['core'] = Core
+
+        return type.__new__(mcs, name, bases, d)
+
+
+@add_metaclass(HashedStringMeta)
+class HashedString(object):
+    shard_count = 64
+
+    @classmethod
+    def shard(cls, key):
+        key = "%s" % key
+        keyhash = hashlib.md5(key.encode('utf-8')).hexdigest()
+        return int(keyhash, 16) % cls.shard_count
+
+    @classmethod
+    def _parse_values(cls, values, extra=None):
+        return _parse_values(values, extra)
+
+    def __init__(self, pipe=None):
+        """
+        Creates a new keyspace.
+        Optionally pass in a pipeline object.
+        If you pass in a pipeline, all commands to this instance will be
+        pipelined.
+
+        :param pipe: optional Pipeline or NestedPipeline
+        """
+        self._pipe = pipe
+
+    @property
+    def pipe(self):
+        """
+        Get a fresh pipeline() to be used in a `with` block.
+
+        :return: Pipeline or NestedPipeline with autoexec set to true.
+        """
+        return autoexec(self._pipe)
+
+    def get(self, key):
+        """
+        Return the value of the key or None if the key doesn't exist
+
+        :param name: str     the name of the redis key
+        :return: Future()
+        """
+        with self.pipe as pipe:
+            return self.core(pipe=pipe).hget(self.shard(key), key)
+
+    def delete(self, key, *args):
+        keys = self._parse_values(key, args)
+        response = Future()
+        with self.pipe as pipe:
+            core = self.core(pipe=pipe)
+            tracking = []
+            for k in keys:
+                tracking.append(core.hdel(self.shard(k), k))
+
+            def cb():
+                response.set(sum(tracking))
+
+            pipe.on_execute(cb)
+            return response
+
+    def set(self, name, value, nx=False):
+        """
+        Set the value at key ``name`` to ``value``
+
+        ``nx`` if set to True, set the value at key ``name`` to ``value`` if it
+        does not already exist.
+
+        :return: Future()
+        """
+        with self.pipe as pipe:
+            core = self.core(pipe=pipe)
+            method = core.hsetnx if nx else core.hset
+            return method(self.shard(name), name, value)
+
+    def setnx(self, name, value):
+        """
+        Set the value as a string in the key only if the key doesn't exist.
+
+        :param name: str     the name of the redis key
+        :param value:
+        :return: Future()
+        """
+        with self.pipe as pipe:
+            return self.core(pipe=pipe).hsetnx(self.shard(name), name, value)
+
+    def strlen(self, name):
+        """
+        Return the number of bytes stored in the value of the key
+
+        :param name: str     the name of the redis key
+        :return: Future()
+        """
+        with self.pipe as pipe:
+            return self.core(pipe=pipe).hstrlen(self.shard(name), name)
+
+    def incr(self, name, amount=1):
+        """
+        increment the value for key by 1
+
+        :param name: str     the name of the redis key
+        :param amount: int
+        :return: Future()
+        """
+        with self.pipe as pipe:
+            return self.core(pipe=pipe).hincrby(
+                self.shard(name), name, amount=amount)
+
+    def incrby(self, name, amount=1):
+        """
+        increment the value for key by value: int
+
+        :param name: str     the name of the redis key
+        :param amount: int
+        :return: Future()
+        """
+        with self.pipe as pipe:
+            return self.core(pipe=pipe).hincrby(
+                self.shard(name), name, amount=amount)
+
+    def incrbyfloat(self, name, amount=1.0):
+        """
+        increment the value for key by value: float
+
+        :param name: str     the name of the redis key
+        :param amount: int
+        :return: Future()
+        """
+        with self.pipe as pipe:
+            return self.core(pipe=pipe).hincrbyfloat(
+                self.shard(name), name, amount=amount)
+
+    def __getitem__(self, name):
+        """
+        magic python method that makes the class behave like a dictionary.
+
+        use to access elements.
+
+        :param name:
+        :return:
+        """
+        return self.get(name)
+
+    def __setitem__(self, name, value):
+        """
+        magic python method that makes the class behave like a dictionary.
+
+        use to set elements.
+
+        :param name:
+        :param value:
+        :return:
+        """
+        self.set(name, value)
+
+    def mget(self, keys, *args):
+        """
+        Returns a list of values ordered identically to ``keys``
+        """
+        with self.pipe as pipe:
+            f = Future()
+            core = self.core(pipe=pipe)
+            keys = [k for k in self._parse_values(keys, args)]
+            mapping = {k: core.hget(self.shard(k), k) for k in keys}
+
+            def cb():
+                f.set([mapping[k] for k in keys])
+
+            pipe.on_execute(cb)
+
+            return f
+
+    def scan_iter(self, match=None, count=None):
+        """
+        Make an iterator using the hscan command so that the client doesn't
+        need to remember the cursor position.
+
+        ``match`` allows for filtering the keys by pattern
+
+        ``count`` allows for hint the minimum number of returns
+        """
+        core = self.core()
+        for i in range(0, self.shard_count - 1):
+            cursor = 0
+            while True:
+                res = core.hscan(i, cursor=cursor, match=match, count=count)
+
+                cursor, elements = res
+                if elements:
+                    for k, v in elements.items():
+                        yield k, v
+
+                if cursor == 0:
+                    break
 
 
 class Set(Keyspace):
@@ -1626,6 +1865,14 @@ class Hash(Keyspace):
         """
         with self.pipe as pipe:
             return pipe.hlen(self.redis_key(name))
+
+    def hstrlen(self, name, key):
+        """
+        Return the number of bytes stored in the value of ``key``
+        within hash ``name``
+        """
+        with self.pipe as pipe:
+            return pipe.hstrlen(self.redis_key(name), key)
 
     def hset(self, name, key, value):
         """

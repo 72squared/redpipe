@@ -25,7 +25,7 @@ class StructMeta(type):
     """
 
     def __new__(mcs, name, bases, d):
-        if name in ['Struct']:
+        if name in ['Struct'] and d.get('__module__', '') == 'redpipe.structs':
             return type.__new__(mcs, name, bases, d)
 
         class StructHash(Hash):
@@ -35,6 +35,7 @@ class StructMeta(type):
             keyparse = d.get('keyparse', TextField)
             valueparse = d.get('valueparse', TextField)
             memberparse = d.get('memberparse', TextField)
+            keyspace_template = d.get('keyspace_template', '%s{%s}')
 
         d['core'] = StructHash
 

@@ -58,6 +58,50 @@ In a similar way, we support the other *Redis* primitives:
 All the commands associated with each data type are exposed for each.
 See the `official redis documentation`_ for more information, or refer to `redis-py`_.
 
+Hashed Strings
+--------------
+
+Sometimes you have a set of keys that are simple key/value pairs and it makes
+more sense to store all of them in a really large hash. That way you can store
+all of them in one key. The overhead is much lower than storing thousands or
+millions of individual keys.
+
+But eventually you may find that you are storing hundreds of millions of these
+pairs in a single hash key. In that case it makes more sense to be able to
+split these up. This is what the Hashed Strings pattern does for you.
+
+This is not really a core part of redpipe, but the pattern came up so
+frequently that it made sense to include it here. And it is a relatively
+small piece of code.
+
+For now, refer to the test-case on how to use this.
+
+More detailed documentation will be given in the future as this logic
+solidifies.
+
+Here is what a definition might look like:
+
+.. code-block:: python
+
+    class MyIndex(redpipe.HashedStrings):
+        keyspace = 'my_index'
+        connection = 'default'
+        shard_count = 1000
+
+
+This will namespace the shards under the keyspace `my_index{%s}`.
+The string interpolated inside of this keyspace will be a string of digits
+between 0 and 999.
+
+To invoke it, you can do:
+
+.. code-block:: python
+    with redpipe.pipeline(autoexec=True) as pipe:
+        i = MyIndex(pipe)
+        i.set('foo123', 'test')
+        result = i.get('foo123')
+
+The result returned for key `foo123` is a string `test`.
 
 Character Encoding in Keyspaces
 -------------------------------

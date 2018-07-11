@@ -106,6 +106,7 @@ Then it focuses on step-by-step instructions for getting the most out of RedPipe
     transactions
     keyspaces
     structs
+    indexes
     latency
     project-status
     redis-cluster

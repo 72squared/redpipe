@@ -1139,6 +1139,7 @@ class StrictStringTestCase(BaseTestCase):
             self.assertEqual(s.redis_key(key), b'STRING{1}')
             s.set(key, '2')
             before = s.get(key)
+            mget_res = s.mget([key])
             serialize = s.dump(key)
             s.expire(key, 3)
             ttl = s.ttl(key)
@@ -1148,6 +1149,7 @@ class StrictStringTestCase(BaseTestCase):
             self.assertRaises(redpipe.ResultNotReady, lambda: before.result)
 
         self.assertEqual(before, '2')
+        self.assertEqual(['2'], mget_res)
         self.assertEqual(after, None)
         self.assertAlmostEqual(ttl, 3, delta=1)
         self.assertIsNotNone(serialize.result)
@@ -2086,6 +2088,51 @@ class StructExpiresTestCase(unittest.TestCase):
         self.assertAlmostEqual(pttl, 30000, delta=100)
         self.assertEqual(c['foo'], 10)
         self.assertEqual(c['_key'], '1')
+
+
+class HashedStringTestCase(BaseTestCase):
+    class Data(redpipe.HashedString):
+        keyspace = 'my_index'
+        shard_count = 3
+
+    def test(self):
+        with redpipe.pipeline(autoexec=True) as pipe:
+            set_res = self.Data(pipe).set('a', 'foo')
+            get_res = self.Data(pipe).get('a')
+            setnx_res = self.Data(pipe).setnx('a', 'boo')
+            mget_res = self.Data(pipe).mget(['a'])
+            strlen_res = self.Data(pipe).strlen('a')
+            self.Data(pipe)['a'] = 'boo'
+            dict_res = self.Data(pipe)['a']
+
+        self.assertEqual(set_res, 1)
+        self.assertEqual(get_res, 'foo')
+        self.assertEqual(setnx_res, 0)
+        self.assertEqual(['foo'], mget_res)
+        self.assertEqual(3, strlen_res)
+        self.assertEqual('boo', dict_res)
+
+        data = {k: v for k, v in self.Data().scan_iter()}
+        self.assertEqual(data, {'a': 'boo'})
+
+        with redpipe.pipeline(autoexec=True) as pipe:
+            remove_res = self.Data(pipe).delete('a')
+            get_res = self.Data(pipe).get('a')
+
+        self.assertEqual(1, remove_res)
+        self.assertEqual(None, get_res)
+        self.assertEqual(b'my_index{1}',
+                         self.Data.core().redis_key(self.Data.shard('a')))
+
+    def test_incr(self):
+        with redpipe.pipeline(autoexec=True) as pipe:
+            incr_res = self.Data(pipe).incr('b')
+            incrby_res = self.Data(pipe).incrby('b', '1')
+            incrbyfloat_res = self.Data(pipe).incrbyfloat('b', 0.2)
+
+        self.assertEqual(1, incr_res)
+        self.assertEqual(2, incrby_res)
+        self.assertEqual(2.2, incrbyfloat_res)
 
 
 if __name__ == '__main__':
