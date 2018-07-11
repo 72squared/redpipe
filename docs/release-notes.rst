@@ -5,6 +5,7 @@ Release Notes
 ----------------------
 Support for Strings stored in a sharded Hash.
 Adding `mget` on String keyspace data.
+adding required fields and defaults on struct.
 
 2.0.2 (May 23, 2018)
 ----------------------
