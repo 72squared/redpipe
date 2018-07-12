@@ -609,16 +609,8 @@ class Struct(object):
             return super(Struct, self).__setattr__(key, value)
         except AttributeError as e:
             if key in self.fields:
-                tpl = 'cannot delete %s from %s indirectly. Use the delete method.'
+                tpl = 'cannot set %s from %s indirectly. Use the set method.'
                 raise InvalidOperation(tpl % (key, self))
-            raise e
-
-    def other__setattr__(self, key, value):
-        try:
-            return super(Struct, self).__setattr__(key, value)
-        except AttributeError as e:
-            if key in self.fields:
-                self._data[key] = value
             raise e
 
     def __delitem__(self, key):
