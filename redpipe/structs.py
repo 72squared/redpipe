@@ -598,6 +598,29 @@ class Struct(object):
 
         return self._data[item]
 
+    def __getattr__(self, item):
+        try:
+            return self._data[item]
+        except KeyError as e:
+            raise AttributeError('Attribute %s not found' % e)
+
+    def __setattr__(self, key, value):
+        try:
+            return super(Struct, self).__setattr__(key, value)
+        except AttributeError as e:
+            if key in self.fields:
+                tpl = 'cannot delete %s from %s indirectly. Use the delete method.'
+                raise InvalidOperation(tpl % (key, self))
+            raise e
+
+    def other__setattr__(self, key, value):
+        try:
+            return super(Struct, self).__setattr__(key, value)
+        except AttributeError as e:
+            if key in self.fields:
+                self._data[key] = value
+            raise e
+
     def __delitem__(self, key):
         """
         Explicitly prevent deleting data from the object via the `del`
