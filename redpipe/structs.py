@@ -145,6 +145,7 @@ class Struct(object):
     fields = {}
     required = set()
     default_fields = 'all'  # set as 'defined', 'all', or ['a', b', 'c']
+    field_attr_on = False
     ttl = None
 
     def __init__(self, _key_or_data, pipe=None, fields=None, no_op=False,
@@ -643,8 +644,54 @@ class Struct(object):
         :param value: the value to set it to
         :raise: InvalidOperation
         """
-        tpl = 'cannot set %s key on %s indirectly. Use the set method.'
+        tpl = 'cannot set %s key on %s indirectly. Use the update method.'
         raise InvalidOperation(tpl % (key, self))
+
+    def __getattr__(self, item):
+        """
+        magic python method -- returns fields as an attribute of the object.
+        This is off by default.
+        You can enable it by setting `field_attr_on = True` on
+        your struct.
+
+        Then you can access data like so:
+
+        .. code-block:: python
+
+            user = User('1')
+            assert(user.name == 'bill')
+
+        :param item: str
+        :return: mixed
+        """
+        try:
+            if self.field_attr_on:
+                return self._data[item]
+        except KeyError:
+            if item in self.fields:
+                return None
+
+        raise AttributeError(
+            "'%s' object has no attribute '%s'" % (
+                self.__class__.__name__, item))
+
+    def __setattr__(self, key, value):
+        """
+        magic python method to control setting attributes on the object.
+
+        :param key:
+        :param value:
+        :return:
+        """
+        if self.field_attr_on and key in self.fields:
+            tpl = 'cannot set %s.%s directly. Use the update method.'
+            raise InvalidOperation(tpl % (self, key))
+
+        if key in self.__slots__ or key in self.__dict__:
+            return super(Struct, self).__setattr__(key, value)
+
+        raise AttributeError("'%s' object has no attribute '%s'" %
+                             (self.__class__.__name__, key))
 
     def __iter__(self):
         """

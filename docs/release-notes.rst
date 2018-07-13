@@ -1,6 +1,13 @@
 Release Notes
 =============
 
+2.1.1 (July 13, 2018)
+----------------------
+If you set `field_attr_on` to true on a Struct, you can
+access fields as attributes of the struct. Not recommended,
+but there may be certain cases where it can be desirable.
+Use with caution.
+
 2.1.0 (July 11, 2018)
 ----------------------
 Support for Strings stored in a sharded Hash.
