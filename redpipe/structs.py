@@ -666,6 +666,9 @@ class Struct(object):
         """
         try:
             if self.field_attr_on:
+                if item == self.key_name:
+                    return self.key
+
                 return self._data[item]
         except KeyError:
             if item in self.fields:
