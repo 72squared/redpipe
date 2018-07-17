@@ -634,6 +634,18 @@ class StructTestCase(BaseTestCase):
         u = self.UserWithPk('1')
         self.assertEqual(u_copy, u)
 
+        with self.assertRaises(AttributeError):
+            self.assertEqual(u.user_id, '1')
+
+    def test_custom_pk_attr(self):
+        class UserWithPkAttr(StructUser):
+            key_name = 'user_id'
+            field_attr_on = True
+
+        data = self.fake_user_data(user_id='1')
+        u = UserWithPkAttr(data)
+        self.assertEqual(u.user_id, '1')
+
     def test_copy_with_no_pk(self):
         data = {'first_name': 'Bill'}
         self.assertRaises(redpipe.InvalidOperation,
