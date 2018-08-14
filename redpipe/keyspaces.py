@@ -1489,7 +1489,7 @@ class SortedSet(Keyspace):
 
             def cb():
                 if withscores:
-                    f.set([[self.valueparse.decode(v), s] for v, s in
+                    f.set([(self.valueparse.decode(v), s) for v, s in
                            res.result])
                 else:
                     f.set([self.valueparse.decode(v) for v in res.result])
@@ -1518,7 +1518,7 @@ class SortedSet(Keyspace):
 
             def cb():
                 if withscores:
-                    f.set([[self.valueparse.decode(v), s] for v, s in
+                    f.set([(self.valueparse.decode(v), s) for v, s in
                            res.result])
                 else:
                     f.set([self.valueparse.decode(v) for v in res.result])
@@ -1550,7 +1550,7 @@ class SortedSet(Keyspace):
 
             def cb():
                 if withscores:
-                    f.set([[self.valueparse.decode(v), s] for v, s in
+                    f.set([(self.valueparse.decode(v), s) for v, s in
                            res.result])
                 else:
                     f.set([self.valueparse.decode(v) for v in res.result])
@@ -1590,7 +1590,7 @@ class SortedSet(Keyspace):
 
             def cb():
                 if withscores:
-                    f.set([[self.valueparse.decode(v), s] for v, s in
+                    f.set([(self.valueparse.decode(v), s) for v, s in
                            res.result])
                 else:
                     f.set([self.valueparse.decode(v) for v in res.result])

@@ -1614,8 +1614,8 @@ class StrictSortedSetTestCase(BaseTestCase):
         self.assertEqual(zincrby, 7.0)
         self.assertEqual(zrevrank, 0)
         self.assertEqual(zrevrange, ['5', '4'])
-        self.assertEqual(zrange_withscores, [['2', 2.0], ['3', 3.0]])
-        self.assertEqual(zrevrange_withscores, [['5', 7.0], ['4', 4.0]])
+        self.assertEqual(zrange_withscores, [('2', 2.0), ('3', 3.0)])
+        self.assertEqual(zrevrange_withscores, [('5', 7.0), ('4', 4.0)])
 
         with redpipe.autoexec() as pipe:
             key = '1'
@@ -1642,9 +1642,9 @@ class StrictSortedSetTestCase(BaseTestCase):
             zremrangebylex = s.zremrangebylex(key, '-', '+')
 
         self.assertEqual(zrangebyscore, ['a'])
-        self.assertEqual(zrangebyscore_withscores, [['a', 1.0]])
+        self.assertEqual(zrangebyscore_withscores, [('a', 1.0)])
         self.assertEqual(zrevrangebyscore, ['b'])
-        self.assertEqual(zrevrangebyscore_withscores, [['b', 2.0]])
+        self.assertEqual(zrevrangebyscore_withscores, [('b', 2.0)])
         self.assertEqual(zcard, 2)
         self.assertEqual(zcount, 2)
         self.assertEqual(zrank, 1)
