@@ -1,6 +1,15 @@
 Release Notes
 =============
 
+2.2.0
+----------------------
+z[rev]range[byscore] functions should return list of tuples instead of list of lists.
+fix provided by Max Greenblatt, thanks!
+This makes the interface more closely match the behavior in redis-py which acts
+as a reference spec for redpipe commands. This is a minor change and probably won't
+break anything on the client, but incrementing the minor version, just in case.
+
+
 2.1.2 (July 17, 2018)
 ----------------------
 enable key by name as attribute.
