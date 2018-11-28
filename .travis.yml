@@ -5,13 +5,13 @@ python:
   - "3.4"
   - "3.5"
   - "3.6"
-  - "3.7"
   - "nightly"
   - "pypy"
   # pypy3 doesn't work with redislite
   # redpipe should work with it but it's too much of a pain to test.
   # https://bitbucket.org/pypy/pypy/issues/2450/cant-import-psutil-on-pypy3-missing
   - "pypy3"
+
 install:
   - pip install -r dev-requirements.txt
   - "if [[ $HIREDIS == '1' ]]; then pip install hiredis; fi"
@@ -34,3 +34,7 @@ after_success:
 matrix:
   allow_failures:
     - python: "nightly"
+  include:
+    - python: 3.7
+      dist: xenial
+      sudo: true
