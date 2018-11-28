@@ -1,6 +1,21 @@
 Release Notes
 =============
 
+2.3.0
+----------------------
+Bug fix: pickling future objects with a result that evaluates to false causes
+unpickling to not call __setstate__. This causes the future to raise an exception
+on unpickling when trying to use the future result because no state has been set.
+
+In python documentation it states:
+  "Note For new-style classes, if __getstate__() returns a false value,
+  the __setstate__() method will not be called."
+
+reference: https://docs.python.org/2/library/pickle.html
+
+The fix is to return a dictionary with the result in __getstate__ and expect one
+in __setstate__ so the value never evaluates to false.
+
 2.2.0
 ----------------------
 z[rev]range[byscore] functions should return list of tuples instead of list of lists.

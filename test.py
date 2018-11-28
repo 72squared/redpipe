@@ -6,13 +6,16 @@ import uuid
 import time
 import redis
 import redislite
-import rediscluster
-import rediscluster.exceptions
 import redpipe
 import redpipe.tasks
 import six
 import pickle
 import socket
+try:
+    import rediscluster
+    import rediscluster.exceptions
+except ImportError:
+    rediscluster = None
 
 # Tegalu: I can eat glass ...
 utf8_sample = u'నేను గాజు తినగలను మరియు అలా చేసినా నాకు ఏమి ఇబ్బంది లేదు'
@@ -22,6 +25,8 @@ class SingleNodeRedisCluster(object):
     __slots__ = ['node', 'port', 'client']
 
     def __init__(self, starting_port=7000, strict=True):
+        if rediscluster is None:
+            return
         port = starting_port
         while port < 55535:
 
@@ -114,9 +119,9 @@ class PipelineTestCase(BaseTestCase):
     def test_zset(self):
         p = redpipe.pipeline()
 
-        p.zadd('foo', 1, 'a')
-        p.zadd('foo', 2, 'b')
-        p.zadd('foo', 3, 'c')
+        p.zadd('foo', {'a': 1})
+        p.zadd('foo', {'b': 2})
+        p.zadd('foo', {'c': 3})
         z = p.zrange('foo', 0, -1)
 
         # can't access it until it's ready
@@ -157,7 +162,7 @@ class PipelineTestCase(BaseTestCase):
         self.assertEqual(self.r.zrange('foo', 0, -1), [])
 
         with redpipe.pipeline() as p:
-            ref = p.zadd('foo', 1, 'a')
+            ref = p.zadd('foo', {'a': 1})
             p.execute()
         self.assertEqual(p._callbacks, [])
         self.assertEqual(p._stack, [])
@@ -165,7 +170,7 @@ class PipelineTestCase(BaseTestCase):
         self.assertEqual(self.r.zrange('foo', 0, -1), [b'a'])
 
         p = redpipe.pipeline()
-        ref = p.zadd('foo', 1, 'a')
+        ref = p.zadd('foo', {'a': 1})
         p.reset()
         p.execute()
         self.assertRaises(redpipe.ResultNotReady, lambda: ref.result)
@@ -1092,6 +1097,7 @@ class ConnectTestCase(unittest.TestCase):
         self.assertRaises(redpipe.InvalidPipeline, nested_invalid)
 
 
+@unittest.skipIf(rediscluster is None, 'rediscluster is disabled')
 class ConnectRedisClusterTestCase(unittest.TestCase):
     def tearDown(self):
         redpipe.reset()
@@ -1109,6 +1115,7 @@ class ConnectRedisClusterTestCase(unittest.TestCase):
             self.assertRaises(Exception, pipe.execute)
 
 
+@unittest.skipIf(rediscluster is None, 'rediscluster package failed to import')
 class RedisClusterTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -1208,6 +1215,7 @@ class RedisClusterTestCase(unittest.TestCase):
         self.assertEqual(pfcount, 4)
 
 
+@unittest.skipIf(rediscluster is None, 'rediscluster package failed to import')
 class StrictRedisClusterTestCase(RedisClusterTestCase):
     @classmethod
     def setUpClass(cls):
@@ -1665,7 +1673,7 @@ class StrictSortedSetTestCase(BaseTestCase):
             s.zadd(key, 'b2', 2)
             sscan = s.zscan(key, 0, match='a*')
             sort = s.sort(key, alpha=True)
-            sort_store = s.sort(key, alpha=True, store=True)
+            sort_store = s.sort(key, alpha=True, store='store_result_key')
 
         self.assertEqual(sscan[0], 0)
         self.assertEqual(set(sscan[1]), {('a1', 1.0), ('a2', 2.0)})
@@ -1970,6 +1978,33 @@ class FutureNoneTestCase(unittest.TestCase):
         self.assertTrue(self.future.isinstance(None.__class__))
         self.assertTrue(redpipe.ISINSTANCE(self.future, None.__class__))
         self.assertTrue(redpipe.ISINSTANCE(None, None.__class__))
+        self.assertEqual(pickle.loads(pickle.dumps(self.future)), self.result)
+
+
+class FutureZeroTestCase(unittest.TestCase):
+    def setUp(self):
+        self.result = 0
+        self.future = redpipe.Future()
+        self.future.set(self.result)
+
+    def test(self):
+        self.assertEqual(repr(self.future), repr(self.result))
+        self.assertEqual(str(self.future), str(self.result))
+        self.assertEqual(self.future, self.result)
+        self.assertEqual(bool(self.future), bool(self.result))
+        self.assertTrue(self.future.IS(self.result))
+        self.assertEqual(hash(self.future), hash(self.result))
+        self.assertEqual(self.future + 1, self.result + 1)
+        self.assertEqual(1 + self.future, 1 + self.result)
+        self.assertEqual(self.future - 1, self.result - 1)
+        self.assertEqual(1 - self.future, 1 - self.result)
+        self.assertTrue(self.future < 2)
+        self.assertTrue(self.future <= 2)
+        self.assertTrue(self.future == 0)
+        self.assertTrue(self.future >= 0)
+        self.assertTrue(self.future != 2)
+        self.assertEqual(self.future * 1, self.result * 1)
+        self.assertEqual(pickle.loads(pickle.dumps(self.future)), self.result)
 
 
 class FutureIntTestCase(unittest.TestCase):

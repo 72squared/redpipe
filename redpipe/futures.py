@@ -604,7 +604,7 @@ class Future(object):
         used for getting object state to serialize when pickling
         :return: object
         """
-        return self.result
+        return {'result': self.result}
 
     def __setstate__(self, state):
         """
@@ -612,7 +612,7 @@ class Future(object):
         :param state: object
         :return: None
         """
-        self._result = state
+        self._result = state['result']
 
     # this helps with duck-typing.
     # when grabbing the property for json encoder,
