@@ -1235,6 +1235,34 @@ class StrictStringTestCase(BaseTestCase):
     class Data(redpipe.String):
         keyspace = 'STRING'
 
+        def super_get(self, key):
+            f = redpipe.Future()
+
+            with self.super_pipe as pipe:
+
+                res = self.get(key)
+
+                def cb():
+                    f.set(res.result)
+
+                pipe.on_execute(cb)
+
+                return f
+
+    def test_super_pipe(self):
+        foo = []
+
+        def cb():
+            foo.append(1)
+
+        with redpipe.autoexec(exit_handler=cb) as pipe:
+            key = '1'
+            s = self.Data(pipe=pipe)
+            s.set(key, '2')
+            res = s.super_get(key)
+        self.assertEqual(res, '2')
+        self.assertEqual(foo, [1])
+
     def test(self):
         with redpipe.autoexec() as pipe:
             key = '1'

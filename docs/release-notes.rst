@@ -1,8 +1,17 @@
 Release Notes
 =============
 
-2.3.0
-----------------------
+2.3.1 (Nov 29, 2018)
+---------------------
+Introduce Keyspace.super_pipe property.
+Allows multiple pipelined functions to share the same parent pipeline.
+Don't use this unless you know what you're doing. We will work out the
+documentation as we explore the need for this further
+and standardize the api.
+
+
+2.3.0 (Nov 28, 2018)
+---------------------
 Bug fix: pickling future objects with a result that evaluates to false causes
 unpickling to not call __setstate__. This causes the future to raise an exception
 on unpickling when trying to use the future result because no state has been set.
@@ -16,8 +25,8 @@ reference: https://docs.python.org/2/library/pickle.html
 The fix is to return a dictionary with the result in __getstate__ and expect one
 in __setstate__ so the value never evaluates to false.
 
-2.2.0
-----------------------
+2.2.0 (Aug 14, 2018)
+---------------------
 z[rev]range[byscore] functions should return list of tuples instead of list of lists.
 fix provided by Max Greenblatt, thanks!
 This makes the interface more closely match the behavior in redis-py which acts

@@ -57,9 +57,9 @@ class Pipeline(object):
     will set up this object correctly.
     """
     __slots__ = ['connection_name', 'autoexec', '_stack', '_callbacks',
-                 '_pipelines']
+                 '_pipelines', '_exit_handler']
 
-    def __init__(self, name, autoexec=False):
+    def __init__(self, name, autoexec=False, exit_handler=None):
         """
         Instantiate a new base pipeline object.
         This pipeline will be responsible for executing all the others that
@@ -74,6 +74,7 @@ class Pipeline(object):
         self._callbacks = []
         self.autoexec = autoexec
         self._pipelines = {}
+        self._exit_handler = exit_handler
 
     def __getattr__(self, item):
         """
@@ -213,6 +214,9 @@ class Pipeline(object):
                 self.execute()
         finally:
             self.reset()
+            cb = self._exit_handler
+            if cb:
+                cb()
 
     def reset(self):
         """
@@ -248,9 +252,9 @@ class NestedPipeline(object):
     will set up this object correctly.
     """
     __slots__ = ['connection_name', 'parent', 'autoexec', '_stack',
-                 '_callbacks']
+                 '_callbacks', '_exit_handler']
 
-    def __init__(self, parent, name=None, autoexec=False):
+    def __init__(self, parent, name=None, autoexec=False, exit_handler=None):
         """
         Similar interface to the Pipeline object, but with the ability
         to also track a parent pipeline object.
@@ -263,6 +267,7 @@ class NestedPipeline(object):
         self._stack = []
         self._callbacks = []
         self.autoexec = autoexec
+        self._exit_handler = exit_handler
 
     @staticmethod
     def supports_redpipe_pipeline():
@@ -379,9 +384,12 @@ class NestedPipeline(object):
                 self.execute()
         finally:
             self.reset()
+            cb = self._exit_handler
+            if cb:
+                cb()
 
 
-def pipeline(pipe=None, name=None, autoexec=False):
+def pipeline(pipe=None, name=None, autoexec=False, exit_handler=None):
     """
     This is the foundational function for all of redpipe.
     Everything goes through here.
@@ -423,21 +431,24 @@ def pipeline(pipe=None, name=None, autoexec=False):
     :return: Pipeline or NestedPipeline
     """
     if pipe is None:
-        return Pipeline(name=name, autoexec=autoexec)
+        return Pipeline(name=name, autoexec=autoexec,
+                        exit_handler=exit_handler)
 
     try:
         if pipe.supports_redpipe_pipeline():
             return NestedPipeline(
                 parent=pipe,
                 name=name,
-                autoexec=autoexec)
+                autoexec=autoexec,
+                exit_handler=exit_handler
+            )
     except AttributeError:
         pass
 
     raise InvalidPipeline('check your configuration')
 
 
-def autoexec(pipe=None, name=None):
+def autoexec(pipe=None, name=None, exit_handler=None):
     """
     create a pipeline with a context that will automatically execute the
     pipeline upon leaving the context if no exception was raised.
@@ -446,4 +457,5 @@ def autoexec(pipe=None, name=None):
     :param name:
     :return:
     """
-    return pipeline(pipe=pipe, name=name, autoexec=True)
+    return pipeline(pipe=pipe, name=name, autoexec=True,
+                    exit_handler=exit_handler)
