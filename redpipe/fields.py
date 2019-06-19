@@ -105,7 +105,7 @@ class IntegerField(object):
         :param value: bytes
         :return: int
         """
-        return None if value is None else int(value)
+        return None if value is None else int(float(value))
 
     @classmethod
     def encode(cls, value):
@@ -117,7 +117,7 @@ class IntegerField(object):
         :return: str
         """
         try:
-            coerced = int(value)
+            coerced = int(float(value))
             if coerced + 0 == value:
                 return repr(coerced)
 

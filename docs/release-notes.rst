@@ -1,5 +1,10 @@
 Release Notes
 =============
+2.3.2 (June 19, 2019)
+---------------------
+Make IntegerField a little more forgiving and allow float values to be passed
+in. Auto-convert to integers. Makes lots of things easier.
+
 
 2.3.1 (Nov 29, 2018)
 ---------------------
