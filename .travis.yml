@@ -34,6 +34,7 @@ after_success:
 matrix:
   allow_failures:
     - python: "nightly"
+    - python: "pypy3"
   include:
     - python: 3.7
       dist: xenial
