@@ -33,6 +33,21 @@ class BooleanField(object):
     """
     Used for boolean fields.
     """
+    @classmethod
+    def is_true(cls, val):
+        if val is True:
+            return True
+        if val is False:
+            return False
+
+        strval = str(val).lower()
+        if strval in ['true', '1']:
+            return True
+
+        if strval in ['false', '0', 'none', '']:
+            return False
+
+        return True if val else False
 
     @classmethod
     def encode(cls, value):
@@ -43,10 +58,7 @@ class BooleanField(object):
         :param value: bool
         :return: bytes
         """
-        if value not in [True, False]:
-            raise InvalidValue('not a boolean')
-
-        return b'1' if value else b''
+        return b'1' if cls.is_true(value) else b''
 
     @classmethod
     def decode(cls, value):
@@ -84,12 +96,13 @@ class FloatField(object):
         :return: bytes
         """
         try:
-            if float(value) + 0 == value:
-                return repr(value)
+            coerced = float(value)
         except (TypeError, ValueError):
-            pass
-
-        raise InvalidValue('not a float')
+            raise InvalidValue('not a float')
+        response = repr(coerced)
+        if response.endswith('.0'):
+            response = response[:-2]
+        return response
 
 
 class IntegerField(object):
@@ -117,14 +130,9 @@ class IntegerField(object):
         :return: str
         """
         try:
-            coerced = int(float(value))
-            if coerced + 0 == value:
-                return repr(coerced)
-
+            return repr(int(float(value)))
         except (TypeError, ValueError):
-            pass
-
-        raise InvalidValue('not an int')
+            raise InvalidValue('not an int')
 
 
 class TextField(object):

@@ -1,5 +1,11 @@
 Release Notes
 =============
+2.3.3 (June 21, 2019)
+---------------------
+Relaxing validation for fields a little bit and try to just do the right thing.
+Only blow up if we really can't coerce to what we think is a correct value.
+
+
 2.3.2 (June 19, 2019)
 ---------------------
 Make IntegerField a little more forgiving and allow float values to be passed

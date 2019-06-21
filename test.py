@@ -177,13 +177,22 @@ class PipelineTestCase(BaseTestCase):
 
 
 class FieldsTestCase(unittest.TestCase):
+    def test_bool(self):
+        field = redpipe.BooleanField
+        self.assertEqual(field.encode(True), b'1')
+        self.assertEqual(field.encode('True'), b'1')
+        self.assertEqual(field.encode(False), b'')
+        self.assertEqual(field.encode('False'), b'')
+        self.assertEqual(field.encode('foo'), b'1')
+
     def test_float(self):
         field = redpipe.FloatField
         self.assertRaises(redpipe.InvalidValue, lambda: field.encode(''))
         self.assertRaises(redpipe.InvalidValue, lambda: field.encode('a'))
-        self.assertRaises(redpipe.InvalidValue, lambda: field.encode('1'))
+        self.assertRaises(redpipe.InvalidValue, lambda: field.encode('1a'))
         self.assertRaises(redpipe.InvalidValue, lambda: field.encode([]))
         self.assertRaises(redpipe.InvalidValue, lambda: field.encode({}))
+        self.assertEqual(field.encode('1'), '1')
         self.assertEqual(field.encode(1), '1')
         self.assertEqual(field.encode(1.2), '1.2')
         self.assertEqual(field.encode(1.2345), '1.2345')
@@ -197,11 +206,12 @@ class FieldsTestCase(unittest.TestCase):
         self.assertEqual(field.encode(0), '0')
         self.assertEqual(field.encode(2), '2')
         self.assertEqual(field.encode(123456), '123456')
+        self.assertEqual(field.encode(1.2), '1')
+        self.assertEqual(field.encode('1'), '1')
+        self.assertEqual(field.encode(1), '1')
+
         self.assertRaises(redpipe.InvalidValue, lambda: field.encode(''))
         self.assertRaises(redpipe.InvalidValue, lambda: field.encode('a'))
-        self.assertRaises(redpipe.InvalidValue, lambda: field.encode('1'))
-        self.assertRaises(redpipe.InvalidValue, lambda: field.encode(1.2))
-        self.assertEqual(field.encode(1), '1')
         self.assertEqual(field.decode(b'1234'), 1234)
         self.assertRaises(ValueError, lambda: field.decode('x'))
 
@@ -576,10 +586,6 @@ class StructTestCase(BaseTestCase):
         self.assertRaises(
             redpipe.InvalidValue,
             lambda: Multi({'_key': 'm3', 'text': 123}))
-
-        self.assertRaises(
-            redpipe.InvalidValue,
-            lambda: Multi({'_key': 'm3', 'boolean': 'abc'}))
 
     def test_extra_fields(self):
         data = self.fake_user_data(_key='1', first_name='Bob',
@@ -1847,14 +1853,12 @@ class HashFieldsTestCase(BaseTestCase):
             self.assertRaises(
                 redpipe.InvalidValue, lambda: c.hset(key, 'i', 'a'))
             self.assertRaises(
-                redpipe.InvalidValue, lambda: c.hset(key, 'b', '1'))
-            self.assertRaises(
                 redpipe.InvalidValue, lambda: c.hset(key, 't', 1))
 
             c.hset(key, 'f', 1)
 
             self.assertRaises(
-                redpipe.InvalidValue, lambda: c.hset(key, 'f', '1'))
+                redpipe.InvalidValue, lambda: c.hset(key, 'f', 'a'))
 
     def test_dict(self):
         key = 'd'
