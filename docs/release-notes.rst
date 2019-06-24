@@ -1,5 +1,11 @@
 Release Notes
 =============
+2.3.4 (June 24, 2019)
+---------------------
+StringListField should return an empty string for an empty list encoding.
+Sending None to the redis results in bad stuff.
+
+
 2.3.3 (June 21, 2019)
 ---------------------
 Relaxing validation for fields a little bit and try to just do the right thing.

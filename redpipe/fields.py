@@ -328,7 +328,7 @@ class StringListField(object):
             coerced = [str(v) for v in value]
             if coerced == value:
                 return ",".join(coerced).encode(cls._encoding) if len(
-                    value) > 0 else None
+                    value) > 0 else b''
         except TypeError:
             pass
 
