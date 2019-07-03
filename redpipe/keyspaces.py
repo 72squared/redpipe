@@ -48,7 +48,7 @@ No matter what pipeline you pass in, it routes your commands to the
 There's also support for character encoding and complex data types.
 """
 import re
-from six import add_metaclass
+from six import add_metaclass, string_types
 import hashlib
 from .pipelines import autoexec
 from .luascripts import lua_restorenx
@@ -73,21 +73,21 @@ def _parse_values(values, extra=None):
 
     For internal use only.
 
-    :param values: list, tuple, or str
+    :param values: iterator, or str
     :param extra: list or None
     :return: list
     """
-    coerced = list(values)
-
-    if coerced == values:
-        values = coerced
-    else:
-        coerced = tuple(values)
-        if coerced == values:
-            values = list(values)
-        else:
+    # returns a single new list combining values and extra
+    try:
+        iter(values)
+        # a string or bytes instance can be iterated, but indicates
+        # keys wasn't passed as a list
+        if isinstance(values, (string_types, bytes)):
             values = [values]
-
+        else:
+            values = list(values)
+    except TypeError:
+        values = [values]
     if extra:
         values.extend(extra)
     return values
