@@ -1747,6 +1747,36 @@ class SortedSetTestCase(StrictSortedSetTestCase):
         redpipe.connect_redis(cls.r)
 
 
+class DictKeysTestCase(BaseTestCase):
+    # "Tests a bug with dict-keys not being properly treated as a list"
+    class Data(redpipe.Hash):
+        keyspace = 'HASH'
+
+    def test(self):
+        with redpipe.autoexec() as pipe:
+            key = '1'
+            c = self.Data(pipe=pipe)
+            hset = c.hset(key, 'a', '1')
+            hmset = c.hmset(key, {'b': '2', 'c': '3', 'd': '4'})
+            hlen = c.hlen(key, )
+            hdel = c.hdel(key, 'a', 'b')
+            hkeys = c.hkeys(key)
+            hexists = c.hexists(key, 'c')
+            hincrby = c.hincrby(key, 'd', 2)
+            hmget = c.hmget(key, {'c': 'TEST', 'd': 'TET123'}.keys())
+            hvals = c.hvals(key)
+
+        self.assertEqual(hset.result, True)
+        self.assertEqual(hmset.result, True)
+        self.assertEqual(hlen.result, 4)
+        self.assertEqual(hdel.result, 2)
+        self.assertEqual(set(hkeys.result), {'c', 'd'})
+        self.assertTrue(hexists.result)
+        self.assertEqual(hincrby.result, 6)
+        self.assertEqual(set(hmget.result), {'3', '6'})
+        self.assertEqual(set(hvals.result), {'3', '6'})
+
+
 class StrictHashTestCase(BaseTestCase):
     class Data(redpipe.Hash):
         keyspace = 'HASH'

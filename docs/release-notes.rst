@@ -1,5 +1,10 @@
 Release Notes
 =============
+2.3.5 (July 3, 2019)
+---------------------
+Fixing an issue where iterators getting passed in to multi key operations 
+were being treated as a single key. 
+
 2.3.4 (June 24, 2019)
 ---------------------
 StringListField should return an empty string for an empty list encoding.
