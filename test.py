@@ -1776,6 +1776,9 @@ class DictKeysTestCase(BaseTestCase):
         self.assertEqual(set(hmget.result), {'3', '6'})
         self.assertEqual(set(hvals.result), {'3', '6'})
 
+        self.assertEqual(c._parse_values(True), [True])
+        self.assertEqual(c._parse_values(1), [1])
+
 
 class StrictHashTestCase(BaseTestCase):
     class Data(redpipe.Hash):
