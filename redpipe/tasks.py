@@ -141,7 +141,7 @@ def enable_threads():
     Otherwise we don't need it.
     :return: None
     """
-    TaskManager.set_task_type(SynchronousTask)
+    TaskManager.set_task_type(AsynchronousTask)
 
 
 def disable_threads():
@@ -153,4 +153,4 @@ def disable_threads():
     Doesn't apply if you are only ever talking to one redis backend at a time.
     :return: None
     """
-    TaskManager.set_task_type(AsynchronousTask)
+    TaskManager.set_task_type(SynchronousTask)

@@ -1,5 +1,10 @@
 Release Notes
 =============
+2.3.6 (October 30, 2019)
+------------------------
+Bugfix. `enable_threads` and `disable_threads` behavior were swapped.
+Added a test to confirm correct behavior.
+
 2.3.5 (July 3, 2019)
 ---------------------
 Fixing an issue where iterators getting passed in to multi key operations 

@@ -943,6 +943,8 @@ class ConnectTestCase(unittest.TestCase):
     def test_sync(self):
         try:
             redpipe.disable_threads()
+            self.assertEqual(redpipe.tasks.TaskManager.task,
+                             redpipe.tasks.SynchronousTask)
             self.test_single_nested()
             self.tearDown()
             self.test_pipeline_nested_mismatched_name()
@@ -952,6 +954,8 @@ class ConnectTestCase(unittest.TestCase):
             self.test_sleeping_cb()
         finally:
             redpipe.enable_threads()
+            self.assertEqual(redpipe.tasks.TaskManager.task,
+                             redpipe.tasks.AsynchronousTask)
 
     def test_sleeping_cb(self):
         redpipe.connect_redis(redislite.Redis(), 'a')
