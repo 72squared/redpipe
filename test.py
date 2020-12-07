@@ -24,7 +24,7 @@ utf8_sample = u'నేను గాజు తినగలను మరియు 
 class SingleNodeRedisCluster(object):
     __slots__ = ['node', 'port', 'client']
 
-    def __init__(self, starting_port=7000, strict=True):
+    def __init__(self, starting_port=7000):
         if rediscluster is None:
             return
         port = starting_port
@@ -56,8 +56,7 @@ class SingleNodeRedisCluster(object):
 
             time.sleep(0.1)
 
-        klass = rediscluster.StrictRedisCluster if strict \
-            else rediscluster.RedisCluster
+        klass = rediscluster.RedisCluster
         self.client = klass(startup_nodes=[
             {'host': '127.0.0.1', 'port': port}
         ])
@@ -1115,7 +1114,7 @@ class ConnectRedisClusterTestCase(unittest.TestCase):
     def test(self):
         # i don't need to set up a full cluster to test. this.
         # it's enough to know I wired it into the code correctly for now.
-        r = rediscluster.StrictRedisCluster(
+        r = rediscluster.RedisCluster(
             startup_nodes=[{'host': '0', 'port': 999999}],
             init_slot_cache=False
         )
@@ -1129,7 +1128,7 @@ class ConnectRedisClusterTestCase(unittest.TestCase):
 class RedisClusterTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.c = SingleNodeRedisCluster(strict=False)
+        cls.c = SingleNodeRedisCluster()
         cls.r = cls.c.client
         redpipe.connect_redis(cls.r)
 
@@ -1229,7 +1228,7 @@ class RedisClusterTestCase(unittest.TestCase):
 class StrictRedisClusterTestCase(RedisClusterTestCase):
     @classmethod
     def setUpClass(cls):
-        cls.c = SingleNodeRedisCluster(strict=True)
+        cls.c = SingleNodeRedisCluster()
         cls.r = cls.c.client
         redpipe.connect_redis(cls.r)
 

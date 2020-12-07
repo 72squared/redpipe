@@ -8,7 +8,7 @@ Open Source Redis Cluster Support
     import rediscluster
     import redpipe
 
-    r = rediscluster.StrictRedisCluster(
+    r = rediscluster.RedisCluster(
         startup_nodes=[{'host': '0', 'port': 7000}],
     )
 
@@ -20,9 +20,9 @@ If it quacks like a duck ...
 
 **RedPipe** can support both the strict and normal interfaces.
 Because it is a wrapper, the commands buffer just as you send them.
-So if you wrap a StrictRedisCluster, the commands will be sent through as strict commands.
+So if you wrap a RedisCluster, the commands will be sent through as strict commands.
 If you wrap `RedisCluster` it follows that interface.
 
 When you get to `Keyspaces`, **RedPipe** is more opinionated.
-You can use either StrictRedisCluster or RedisCluster.
+You can use RedisCluster.
 But it will present an interface more like the non-strict version.
