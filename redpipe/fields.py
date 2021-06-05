@@ -11,7 +11,6 @@ values.
 
 import json
 import re
-import six
 from .exceptions import InvalidValue
 
 __all__ = [
@@ -25,8 +24,6 @@ __all__ = [
     'DictField',
     'StringListField',
 ]
-
-unicode = unicode if six.PY2 else str  # noqa
 
 
 class BooleanField(object):
@@ -151,7 +148,7 @@ class TextField(object):
         :param value: unicode, str
         :return: bytes
         """
-        coerced = unicode(value)
+        coerced = str(value)
         if coerced == value:
             return coerced.encode(cls._encoding)
 
@@ -165,7 +162,7 @@ class TextField(object):
         :param value:
         :return:
         """
-        return None if value is None else unicode(value.decode(cls._encoding))
+        return None if value is None else str(value.decode(cls._encoding))
 
 
 class AsciiField(TextField):
@@ -182,7 +179,7 @@ class AsciiField(TextField):
         :param value:
         :return:
         """
-        coerced = unicode(value)
+        coerced = str(value)
         if coerced == value and cls.PATTERN.match(coerced):
             return coerced.encode(cls._encoding)
 

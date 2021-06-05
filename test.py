@@ -8,7 +8,6 @@ import redis
 import redislite
 import redpipe
 import redpipe.tasks
-import six
 import pickle
 import socket
 try:
@@ -279,12 +278,11 @@ class FieldsTestCase(unittest.TestCase):
         self.assertRaises(redpipe.InvalidValue,
                           lambda: field.encode(0.1))
 
-        if six.PY3:
-            self.assertRaises(redpipe.InvalidValue,
-                              lambda: field.encode(''))
+        self.assertRaises(redpipe.InvalidValue,
+                          lambda: field.encode(''))
 
-            self.assertRaises(redpipe.InvalidValue,
-                              lambda: field.encode('dddd'))
+        self.assertRaises(redpipe.InvalidValue,
+                          lambda: field.encode('dddd'))
 
         sample = json.loads('"15\u00f8C"')
         self.assertRaises(redpipe.InvalidValue,

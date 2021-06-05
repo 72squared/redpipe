@@ -4,7 +4,6 @@ The Struct is a convenient way to access data in a hash.
 Makes it possible to load data from redis as an object and access the fields.
 Then store changes back into redis.
 """
-from six import add_metaclass
 from json.encoder import JSONEncoder
 from functools import wraps
 from .pipelines import autoexec
@@ -42,8 +41,7 @@ class StructMeta(type):
         return type.__new__(mcs, name, bases, d)
 
 
-@add_metaclass(StructMeta)
-class Struct(object):
+class Struct(metaclass=StructMeta):
     """
     load and store structured data in redis using OOP patterns.
 

@@ -48,7 +48,6 @@ No matter what pipeline you pass in, it routes your commands to the
 There's also support for character encoding and complex data types.
 """
 import re
-from six import add_metaclass, string_types
 import hashlib
 from .pipelines import autoexec
 from .luascripts import lua_restorenx
@@ -82,7 +81,7 @@ def _parse_values(values, extra=None):
         iter(values)
         # a string or bytes instance can be iterated, but indicates
         # keys wasn't passed as a list
-        if isinstance(values, (string_types, bytes)):
+        if isinstance(values, (str, bytes)):
             values = [values]
         else:
             values = list(values)
@@ -728,8 +727,7 @@ class HashedStringMeta(type):
         return type.__new__(mcs, name, bases, d)
 
 
-@add_metaclass(HashedStringMeta)
-class HashedString(object):
+class HashedString(metaclass=HashedStringMeta):
     shard_count = 64
 
     @classmethod
