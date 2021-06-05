@@ -1,6 +1,7 @@
 coverage >= 3.7.1
 tox
 flake8
+mypy
 python-coveralls
 redislite>=3.0.271
 redis-py-cluster>=2.1.0

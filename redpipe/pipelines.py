@@ -31,16 +31,32 @@ behave very differently.
 pipeline they wrap. This could be another `NestedPipeline` object, or
 a Pipeline() object.
 """
-
+from typing import (Protocol, Union, Optional, Callable, Dict, List, Tuple)
 from .futures import Future
-from .connections import ConnectionManager
-from .tasks import TaskManager
+from .connections import ConnectionManager  # noqa
+from .tasks import TaskManager  # noqa
 from .exceptions import InvalidPipeline
 
 __all__ = [
     'pipeline',
     'autoexec',
+    'PipelineInterface'
 ]
+
+
+class PipelineInterface(Protocol):
+
+    def execute(self) -> None: ...
+
+    def on_execute(self, callback: Callable) -> None: ...
+
+    def reset(self) -> None: ...
+
+    def __getattr__(self, item: str): ...
+
+    def __enter__(self): ...
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None: ...
 
 
 class Pipeline(object):
@@ -59,7 +75,10 @@ class Pipeline(object):
     __slots__ = ['connection_name', 'autoexec', '_stack', '_callbacks',
                  '_pipelines', '_exit_handler']
 
-    def __init__(self, name, autoexec=False, exit_handler=None):
+    def __init__(self,
+                 name: Optional[str],
+                 autoexec: bool = False,  # noqa
+                 exit_handler: Optional[Callable] = None):
         """
         Instantiate a new base pipeline object.
         This pipeline will be responsible for executing all the others that
@@ -69,14 +88,14 @@ class Pipeline(object):
         :param name: str    The name of the connection
         :param autoexec: bool, whether or not to implicitly execute the pipe.
         """
-        self.connection_name = name
-        self._stack = []
-        self._callbacks = []
-        self.autoexec = autoexec
-        self._pipelines = {}
-        self._exit_handler = exit_handler
+        self.connection_name: Optional[str] = name
+        self._stack: List[Tuple[str, Tuple, Dict, Future]] = []
+        self._callbacks: List[Callable] = []
+        self.autoexec: bool = autoexec
+        self._pipelines: Dict[str, Union[Pipeline, NestedPipeline]] = {}
+        self._exit_handler: Optional[Callable] = exit_handler
 
-    def __getattr__(self, item):
+    def __getattr__(self, item: str):
         """
         when you call a command like `pipeline().incr('foo')` it winds up here.
         the item would be 'incr', because python can't find that attribute.
@@ -105,10 +124,10 @@ class Pipeline(object):
         return command
 
     @staticmethod
-    def supports_redpipe_pipeline():
+    def supports_redpipe_pipeline() -> bool:
         return True
 
-    def _pipeline(self, name):
+    def _pipeline(self, name) -> PipelineInterface:
         """
         Don't call this function directly.
         Used by the NestedPipeline class when it executes.
@@ -125,14 +144,13 @@ class Pipeline(object):
             self._pipelines[name] = pipe
             return pipe
 
-    def execute(self):
+    def execute(self) -> None:
         """
         Invoke the redispy pipeline.execute() method and take all the values
         returned in sequential order of commands and map them to the
         Future objects we returned when each command was queued inside
         the pipeline.
         Also invoke all the callback functions queued up.
-        :param raise_on_error: boolean
         :return: None
         """
         stack = self._stack
@@ -188,7 +206,7 @@ class Pipeline(object):
         for cb in callbacks:
             cb()
 
-    def __enter__(self):
+    def __enter__(self) -> PipelineInterface:
         """
         magic method to allow us to use in context like this:
 
@@ -201,7 +219,7 @@ class Pipeline(object):
         """
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """
         context manager cleanup method.
         :param exc_type:
@@ -218,7 +236,7 @@ class Pipeline(object):
             if cb:
                 cb()
 
-    def reset(self):
+    def reset(self) -> None:
         """
         cleanup method. get rid of the stack and callbacks.
         :return:
@@ -230,7 +248,7 @@ class Pipeline(object):
         for pipe in pipes.values():
             pipe.reset()
 
-    def on_execute(self, callback):
+    def on_execute(self, callback: Callable) -> None:
         """
         attach a callback to be called when the pipe finally executes.
         :param callback:
@@ -238,7 +256,7 @@ class Pipeline(object):
         """
         self._callbacks.append(callback)
 
-    def _inject_callbacks(self, callbacks):
+    def _inject_callbacks(self, callbacks) -> None:
         self._callbacks[0:0] = callbacks
 
 
@@ -254,7 +272,11 @@ class NestedPipeline(object):
     __slots__ = ['connection_name', 'parent', 'autoexec', '_stack',
                  '_callbacks', '_exit_handler']
 
-    def __init__(self, parent, name=None, autoexec=False, exit_handler=None):
+    def __init__(self,
+                 parent: PipelineInterface,
+                 name: Optional[str] = None,
+                 autoexec: bool = False, # noqa
+                 exit_handler: Optional[Callable] = None):
         """
         Similar interface to the Pipeline object, but with the ability
         to also track a parent pipeline object.
@@ -262,15 +284,15 @@ class NestedPipeline(object):
         :param name: str, the name of the connection
         :param autoexec: bool, implicitly call execute?
         """
-        self.connection_name = name
-        self.parent = parent
-        self._stack = []
-        self._callbacks = []
-        self.autoexec = autoexec
-        self._exit_handler = exit_handler
+        self.connection_name: Optional[str] = name
+        self.parent: PipelineInterface = parent
+        self._stack: List[Tuple[str, Tuple, Dict, Future]] = []
+        self._callbacks: List[Callable] = []
+        self.autoexec: bool = autoexec
+        self._exit_handler: Optional[Callable] = exit_handler
 
     @staticmethod
-    def supports_redpipe_pipeline():
+    def supports_redpipe_pipeline() -> bool:
         """
         used by the `redpipe.pipeline()` function to determine if it can be
         nested inside other pipeline objects.
@@ -389,7 +411,11 @@ class NestedPipeline(object):
                 cb()
 
 
-def pipeline(pipe=None, name=None, autoexec=False, exit_handler=None):
+def pipeline(pipe: Optional[PipelineInterface] = None,
+             name: Optional[str] = None,
+             autoexec: bool = False, # noqa
+             exit_handler: Callable = None
+             ) -> Union[Pipeline, NestedPipeline]:
     """
     This is the foundational function for all of redpipe.
     Everything goes through here.
@@ -428,6 +454,7 @@ def pipeline(pipe=None, name=None, autoexec=False, exit_handler=None):
     :param pipe: a Pipeline() or NestedPipeline() object, or None
     :param name: str, optional. the name of the connection to use.
     :param autoexec: bool, if true, implicitly execute the pipe
+    :param exit_handler: Callable
     :return: Pipeline or NestedPipeline
     """
     if pipe is None:
@@ -448,13 +475,17 @@ def pipeline(pipe=None, name=None, autoexec=False, exit_handler=None):
     raise InvalidPipeline('check your configuration')
 
 
-def autoexec(pipe=None, name=None, exit_handler=None):
+def autoexec(pipe: Optional[PipelineInterface] = None,
+             name: Optional[str] = None,
+             exit_handler: Optional[Callable] = None
+             ) -> Union[Pipeline, NestedPipeline]:
     """
     create a pipeline with a context that will automatically execute the
     pipeline upon leaving the context if no exception was raised.
 
     :param pipe:
     :param name:
+    :param exit_handler:
     :return:
     """
     return pipeline(pipe=pipe, name=name, autoexec=True,

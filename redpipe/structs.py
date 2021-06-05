@@ -6,12 +6,12 @@ Then store changes back into redis.
 """
 from json.encoder import JSONEncoder
 from functools import wraps
-from .pipelines import autoexec
+from .pipelines import (autoexec, PipelineInterface)
 from .keyspaces import Hash
-from .fields import TextField
+from .fields import (TextField, Field)
 from .exceptions import InvalidOperation
 from .futures import Future, IS
-
+from typing import (Union, Dict, Optional, List, Set, Tuple, Iterable, Any)
 __all__ = ['Struct']
 
 
@@ -137,17 +137,29 @@ class Struct(metaclass=StructMeta):
     expired from redis. This is useful for temporary objects.
     """
     __slots__ = ['key', '_data']
-    keyspace = None
-    connection = None
-    key_name = '_key'
-    fields = {}
-    required = set()
-    default_fields = 'all'  # set as 'defined', 'all', or ['a', b', 'c']
-    field_attr_on = False
-    ttl = None
 
-    def __init__(self, _key_or_data, pipe=None, fields=None, no_op=False,
-                 nx=False):
+    keyspace: Optional[str] = None
+
+    connection: Optional[str] = None
+
+    key_name: str = '_key'
+
+    fields: Dict[Any, Field] = {}
+
+    required: Set[str] = set()
+
+    # set as 'defined', 'all', or ['a', b', 'c']
+    default_fields: Union[str, List[str]] = 'all'
+
+    field_attr_on: bool = False
+
+    ttl: Optional[int] = None
+
+    def __init__(self, _key_or_data: Union[str, Dict],
+                 pipe: Optional[PipelineInterface] = None,
+                 fields: Union[str, List[str], None] = None,
+                 no_op: bool = False,
+                 nx: bool = False):
         """
         class constructor
 
@@ -159,63 +171,63 @@ class Struct(metaclass=StructMeta):
         """
 
         self._data = {}
-        with self._pipe(pipe=pipe) as pipe:
+        with self._pipe(pipe=pipe) as p:
             # first we try treat the first arg as a dictionary.
             # this is if we are passing in data to be set into the redis hash.
             # if that doesn't work, we assume it must be the name of the key.
-            try:
-                # force type to dict.
-                # this blows up if it's a string.
-                coerced = dict(_key_or_data)
-
-                # look for the primary key in the data
-                # won't work if we don't have this.
-                keyname = self.key_name
-
-                # track the primary key
-                # it's the name of the key only.
-                # the keyspace we defined will transform it into the full
-                # name of the key.
-                self.key = coerced[keyname]
-
-                # remove it from our data set.
-                # we don't write this value into redis.
-                del coerced[keyname]
-
-                # no op flag means don't write or read from the db.
-                # if so, we just set the dictionary.
-                # this is useful if we are cloning the object
-                # or rehydrating it somehow.
-                if no_op:
-                    self._data = coerced
-                    return
-
-                required_found = self.required.intersection(coerced.keys())
-                if len(required_found) != len(self.required):
-                    raise InvalidOperation('missing required field(s): %s' %
-                                           list(self.required - required_found)
-                                           )
-
-                self.update(coerced, pipe=pipe, nx=nx)
-
-            # we wind up here if a dictionary was passed in, but it
-            # didn't contain the primary key
-            except KeyError:
-                # can't go any further, blow up.
-                raise InvalidOperation(
-                    'must specify primary key when cloning a struct')
-
-            # this is a normal case, not really exceptional.
-            # If you pass in the name of the key, you wind up here.
-            except (ValueError, TypeError):
+            if isinstance(_key_or_data, str):
                 self.key = _key_or_data
+            else:
+                try:
+                    # force type to dict.
+                    # this blows up if it's a string.
+                    coerced = dict(_key_or_data)
+
+                    # look for the primary key in the data
+                    # won't work if we don't have this.
+                    keyname = self.key_name
+
+                    # track the primary key
+                    # it's the name of the key only.
+                    # the keyspace we defined will transform it into the full
+                    # name of the key.
+                    self.key = coerced[keyname]
+
+                    # remove it from our data set.
+                    # we don't write this value into redis.
+                    del coerced[keyname]
+
+                    # no op flag means don't write or read from the db.
+                    # if so, we just set the dictionary.
+                    # this is useful if we are cloning the object
+                    # or rehydrating it somehow.
+                    if no_op:
+                        self._data = coerced
+                        return
+
+                    required_found = self.required.intersection(coerced.keys())
+                    if len(required_found) != len(self.required):
+                        raise InvalidOperation(
+                            'missing required field(s): %s'
+                            % list(self.required - required_found)
+                        )
+
+                    self.update(coerced, pipe=p, nx=nx)
+
+                # we wind up here if a dictionary was passed in, but it
+                # didn't contain the primary key
+                except KeyError:
+                    # can't go any further, blow up.
+                    raise InvalidOperation(
+                        'must specify primary key when cloning a struct')
 
             # normally we ask redis for the data from redis.
             # if the no_op flag was passed we skip it.
             if not no_op:
-                self.load(fields=fields, pipe=pipe)
+                self.load(fields=fields, pipe=p)
 
-    def load(self, fields=None, pipe=None):
+    def load(self, fields: Union[str, List[str], None] = None,
+             pipe: Optional[PipelineInterface] = None) -> None:
         """
         Load data from redis.
         Allows you to specify what fields to load.
@@ -237,12 +249,12 @@ class Struct(metaclass=StructMeta):
         if not fields:
             return
 
-        with self._pipe(pipe) as pipe:
+        with self._pipe(pipe) as p:
             # get the list of fields.
             # it returns a numerically keyed array.
             # when that happens we match up the results
             # to the keys we requested.
-            ref = self.core(pipe=pipe).hmget(self.key, fields)
+            ref = self.core(pipe=p).hmget(self.key, fields)
 
             def cb():
                 """
@@ -267,17 +279,19 @@ class Struct(metaclass=StructMeta):
                         self._data[k] = v
 
             # attach the callback to the pipeline.
-            pipe.on_execute(cb)
+            p.on_execute(cb)
 
-    def _load_all(self, pipe=None):
+    def _load_all(self,
+                  pipe: Optional[PipelineInterface] = None
+                  ) -> None:
         """
         Load all data from the redis hash key into this local object.
 
         :param pipe: optional pipeline
         :return: None
         """
-        with self._pipe(pipe) as pipe:
-            ref = self.core(pipe=pipe).hgetall(self.key)
+        with self._pipe(pipe) as p:
+            ref = self.core(pipe=p).hgetall(self.key)
 
             def cb():
                 if not ref.result:
@@ -287,9 +301,10 @@ class Struct(metaclass=StructMeta):
                     if k != self.key_name:
                         self._data[k] = v
 
-            pipe.on_execute(cb)
+            p.on_execute(cb)
 
-    def incr(self, field, amount=1, pipe=None):
+    def incr(self, field: str, amount: int = 1,
+             pipe: Optional[PipelineInterface] = None) -> Future:
         """
         Increment a field by a given amount.
         Return the future
@@ -301,11 +316,11 @@ class Struct(metaclass=StructMeta):
         :param pipe:
         :return:
         """
-        with self._pipe(pipe) as pipe:
-            core = self.core(pipe=pipe)
+        with self._pipe(pipe) as p:
+            core = self.core(pipe=p)
             # increment the key
             new_amount = core.hincrby(self.key, field, amount)
-            self._expire(pipe=pipe)
+            self._expire(pipe=p)
 
             # we also read the value of the field.
             # this is a little redundant, but otherwise we don't know exactly
@@ -322,11 +337,12 @@ class Struct(metaclass=StructMeta):
                 """
                 self._data[field] = ref.result
 
-            pipe.on_execute(cb)
+            p.on_execute(cb)
 
             return new_amount
 
-    def decr(self, field, amount=1, pipe=None):
+    def decr(self, field: str, amount: int = 1,
+             pipe: Optional[PipelineInterface] = None) -> Future:
         """
         Inverse of incr function.
 
@@ -337,7 +353,9 @@ class Struct(metaclass=StructMeta):
         """
         return self.incr(field, amount * -1, pipe=pipe)
 
-    def update(self, changes, pipe=None, nx=False):
+    def update(self, changes: Dict[str, Any],
+               pipe: Optional[PipelineInterface] = None,
+               nx: bool = False):
         """
         update the data in the Struct.
 
@@ -559,7 +577,9 @@ class Struct(metaclass=StructMeta):
             self.core(pipe=pipe).expire(self.key, self.ttl)
 
     @classmethod
-    def _pipe(cls, pipe=None):
+    def _pipe(cls,
+              pipe: Optional[PipelineInterface] = None
+              ) -> PipelineInterface:
         """
         Internal method for automatically wrapping a pipeline and
         turning it into a nested pipeline with the correct connection
@@ -570,7 +590,7 @@ class Struct(metaclass=StructMeta):
         """
         return autoexec(pipe, name=cls.connection)
 
-    def __getitem__(self, item):
+    def __getitem__(self, item: str) -> Any:
         """
         magic python method to make the object behave like a dictionary.
         You can access data like so:
@@ -597,7 +617,7 @@ class Struct(metaclass=StructMeta):
 
         return self._data[item]
 
-    def __delitem__(self, key):
+    def __delitem__(self, key: str) -> None:
         """
         Explicitly prevent deleting data from the object via the `del`
         command.
@@ -619,7 +639,7 @@ class Struct(metaclass=StructMeta):
         tpl = 'cannot delete %s from %s indirectly. Use the delete method.'
         raise InvalidOperation(tpl % (key, self))
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: str, value: Any) -> None:
         """
         Explicitly prevent setting data into this dictionary-like object.
 
@@ -645,7 +665,7 @@ class Struct(metaclass=StructMeta):
         tpl = 'cannot set %s key on %s indirectly. Use the update method.'
         raise InvalidOperation(tpl % (key, self))
 
-    def __getattr__(self, item):
+    def __getattr__(self, item: str) -> Any:
         """
         magic python method -- returns fields as an attribute of the object.
         This is off by default.
@@ -676,7 +696,7 @@ class Struct(metaclass=StructMeta):
             "'%s' object has no attribute '%s'" % (
                 self.__class__.__name__, item))
 
-    def __setattr__(self, key, value):
+    def __setattr__(self, key, value) -> None:
         """
         magic python method to control setting attributes on the object.
 
@@ -694,7 +714,7 @@ class Struct(metaclass=StructMeta):
         raise AttributeError("'%s' object has no attribute '%s'" %
                              (self.__class__.__name__, key))
 
-    def __iter__(self):
+    def __iter__(self) -> Iterable[str]:
         """
         Make the `Struct` iterable, like a dictionary.
         When you iterate on a dict, it yields the keys of the dictionary.
@@ -705,7 +725,7 @@ class Struct(metaclass=StructMeta):
         for k in self.keys():
             yield k
 
-    def __len__(self):
+    def __len__(self) -> int:
         """
         How many elements in the Struct?
         This includes all the fields returned from redis + the key.
@@ -719,7 +739,7 @@ class Struct(metaclass=StructMeta):
             return True
         return item in self._data
 
-    def iteritems(self):
+    def iteritems(self) -> Iterable[Tuple[str, Any]]:
         """
         Support for the python 2 iterator of key/value pairs.
         This includes the primary key name and value.
@@ -746,7 +766,7 @@ class Struct(metaclass=StructMeta):
         for k, v in self._data.items():
             yield k, v
 
-    def items(self):
+    def items(self) -> List[Tuple[str, Any]]:
         """
         We return the list of key/value pair tuples.
         Similar to iteritems but in list form instead of as
@@ -774,7 +794,7 @@ class Struct(metaclass=StructMeta):
         """
         return [row for row in self.iteritems()]
 
-    def __eq__(self, other):
+    def __eq__(self, other: Any):
         """
         Test for equality with another python object.
 
@@ -803,7 +823,7 @@ class Struct(metaclass=StructMeta):
 
         return False
 
-    def keys(self):
+    def keys(self) -> List[str]:
         """
         Get a list of all the keys in the Struct.
         This includes the primary key name, and all the elements
@@ -909,4 +929,6 @@ def _json_default_encoder(func):
     return inner
 
 
-JSONEncoder.default = _json_default_encoder(JSONEncoder.default)
+_jsonencoder = _json_default_encoder  # noqa
+
+JSONEncoder.default = _jsonencoder(JSONEncoder.default)  # type: ignore

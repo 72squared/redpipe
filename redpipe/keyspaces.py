@@ -49,11 +49,14 @@ There's also support for character encoding and complex data types.
 """
 import re
 import hashlib
-from .pipelines import autoexec
+from datetime import (timedelta, datetime)
+import typing
+from typing import (Dict, Union, Optional, Iterable, Callable, Tuple, Any)
+from .pipelines import (autoexec, PipelineInterface)
 from .luascripts import lua_restorenx
 from .exceptions import InvalidOperation
 from .futures import Future
-from .fields import TextField
+from .fields import (TextField, Field)
 
 __all__ = """
 String
@@ -66,7 +69,7 @@ HyperLogLog
 """.split()
 
 
-def _parse_values(values, extra=None):
+def _parse_values(values, extra=None) -> typing.List[Union[str, bytes]]:
     """
     Utility function to flatten out args.
 
@@ -99,13 +102,13 @@ class Keyspace(object):
     """
     __slots__ = ['key', '_pipe']
 
-    keyspace = None
-    connection = None
+    keyspace: Optional[str] = None
+    connection: Optional[str] = None
     keyparse = TextField
     valueparse = TextField
     keyspace_template = "%s{%s}"
 
-    def __init__(self, pipe=None):
+    def __init__(self, pipe: Optional[PipelineInterface] = None):
         """
         Creates a new keyspace.
         Optionally pass in a pipeline object.
@@ -117,7 +120,7 @@ class Keyspace(object):
         self._pipe = pipe
 
     @classmethod
-    def redis_key(cls, key):
+    def redis_key(cls, key: str) -> bytes:
         """
         Get the key we pass to redis.
         If no namespace is declared, it will use the class name.
@@ -131,7 +134,7 @@ class Keyspace(object):
         return cls.keyparse.encode(key)
 
     @property
-    def pipe(self):
+    def pipe(self) -> PipelineInterface:
         """
         Get a fresh pipeline() to be used in a `with` block.
 
@@ -140,7 +143,7 @@ class Keyspace(object):
         return autoexec(self._pipe, name=self.connection)
 
     @property
-    def super_pipe(self):
+    def super_pipe(self) -> PipelineInterface:
         """
         Creates a mechanism for us to internally bind two different
         operations together in a shared pipeline on the class.
@@ -172,18 +175,17 @@ class Keyspace(object):
 
         return self._pipe
 
-    def delete(self, *names):
+    def delete(self, *names: str) -> Future:
         """
         Remove the key from redis
 
         :param names: tuple of strings - The keys to remove from redis.
         :return: Future()
         """
-        names = [self.redis_key(n) for n in names]
         with self.pipe as pipe:
-            return pipe.delete(*names)
+            return pipe.delete(*[self.redis_key(n) for n in names])
 
-    def expire(self, name, time):
+    def expire(self, name: str, time: int) -> Future:
         """
         Allow the key to expire after ``time`` seconds.
 
@@ -194,7 +196,7 @@ class Keyspace(object):
         with self.pipe as pipe:
             return pipe.expire(self.redis_key(name), time)
 
-    def exists(self, name):
+    def exists(self, name) -> Future:
         """
         does the key exist in redis?
 
@@ -204,7 +206,7 @@ class Keyspace(object):
         with self.pipe as pipe:
             return pipe.exists(self.redis_key(name))
 
-    def eval(self, script, numkeys, *keys_and_args):
+    def eval(self, script: str, numkeys: int, *keys_and_args) -> Future:
         """
         Run a lua script against the key.
         Doesn't support multi-key lua operations because
@@ -217,11 +219,11 @@ class Keyspace(object):
         :return: Future()
         """
         with self.pipe as pipe:
-            keys_and_args = [a if i >= numkeys else self.redis_key(a) for i, a
-                             in enumerate(keys_and_args)]
-            return pipe.eval(script, numkeys, *keys_and_args)
+            args = (a if i >= numkeys else self.redis_key(a) for i, a
+                    in enumerate(keys_and_args))
+            return pipe.eval(script, numkeys, *args)
 
-    def dump(self, name):
+    def dump(self, name: str) -> typing.ByteString:
         """
         get a redis RDB-like serialization of the object.
 
@@ -231,7 +233,10 @@ class Keyspace(object):
         with self.pipe as pipe:
             return pipe.dump(self.redis_key(name))
 
-    def restorenx(self, name, value, pttl=0):
+    def restorenx(self,
+                  name: str,
+                  value: bytes,
+                  pttl: int = 0) -> Future:
         """
         Restore serialized dump of a key back into redis
 
@@ -242,7 +247,10 @@ class Keyspace(object):
         """
         return self.eval(lua_restorenx, 1, name, pttl, value)
 
-    def restore(self, name, value, pttl=0):
+    def restore(self,
+                name: str,
+                value: bytes,
+                pttl: int = 0) -> Future[bool]:
         """
         Restore serialized dump of a key back into redis
 
@@ -253,7 +261,7 @@ class Keyspace(object):
         """
         with self.pipe as pipe:
             res = pipe.restore(self.redis_key(name), ttl=pttl, value=value)
-            f = Future()
+            f = Future[bool]()
 
             def cb():
                 f.set(self.valueparse.decode(res.result))
@@ -261,7 +269,7 @@ class Keyspace(object):
             pipe.on_execute(cb)
             return f
 
-    def ttl(self, name):
+    def ttl(self, name: str) -> int:
         """
         get the number of seconds until the key's expiration
 
@@ -271,7 +279,7 @@ class Keyspace(object):
         with self.pipe as pipe:
             return pipe.ttl(self.redis_key(name))
 
-    def persist(self, name):
+    def persist(self, name: str) -> Future:
         """
         clear any expiration TTL set on the object
 
@@ -281,7 +289,7 @@ class Keyspace(object):
         with self.pipe as pipe:
             return pipe.persist(self.redis_key(name))
 
-    def pexpire(self, name, time):
+    def pexpire(self, name: str, time: Union[int, timedelta]) -> Future:
         """
         Set an expire flag on key ``name`` for ``time`` milliseconds.
         ``time`` can be represented by an integer or a Python timedelta
@@ -294,7 +302,7 @@ class Keyspace(object):
         with self.pipe as pipe:
             return pipe.pexpire(self.redis_key(name), time)
 
-    def pexpireat(self, name, when):
+    def pexpireat(self, name: str, when: Union[int, datetime]) -> Future:
         """
         Set an expire flag on key ``name``. ``when`` can be represented
         as an integer representing unix time in milliseconds (unix time * 1000)
@@ -303,34 +311,34 @@ class Keyspace(object):
         with self.pipe as pipe:
             return pipe.pexpireat(self.redis_key(name), when)
 
-    def pttl(self, name):
+    def pttl(self, name: str) -> Future:
         """
         Returns the number of milliseconds until the key ``name`` will expire
 
         :param name: str    the name of the redis key
-        :return:
+        :return: Future int
         """
         with self.pipe as pipe:
             return pipe.pttl(self.redis_key(name))
 
-    def rename(self, src, dst):
+    def rename(self, src: str, dst: str) -> Future:
         """
         Rename key ``src`` to ``dst``
         """
         with self.pipe as pipe:
             return pipe.rename(self.redis_key(src), self.redis_key(dst))
 
-    def renamenx(self, src, dst):
+    def renamenx(self, src: str, dst: str) -> Future:
         "Rename key ``src`` to ``dst`` if ``dst`` doesn't already exist"
         with self.pipe as pipe:
             return pipe.renamenx(self.redis_key(src), self.redis_key(dst))
 
-    def object(self, infotype, key):
+    def object(self, infotype: str, key: str) -> Future:
         """
         get the key's info stats
 
-        :param name: str     the name of the redis key
-        :param subcommand: REFCOUNT | ENCODING | IDLETIME
+        :param infotype: REFCOUNT | ENCODING | IDLETIME
+        :param key: str     the name of the redis key
         :return: Future()
         """
         with self.pipe as pipe:
@@ -345,7 +353,10 @@ class Keyspace(object):
         """
         return "<%s>" % cls.__name__
 
-    def scan(self, cursor=0, match=None, count=None):
+    def scan(self,
+             cursor: int = 0,
+             match: Optional[str] = None,
+             count: Optional[int] = None) -> Future[Iterable[Tuple[str, Any]]]:
         """
         Incrementally return lists of key names. Also return a cursor
         indicating the scan position.
@@ -354,7 +365,7 @@ class Keyspace(object):
 
         ``count`` allows for hint the minimum number of returns
         """
-        f = Future()
+        f = Future[Iterable[Tuple[str, Any]]]()
         if self.keyspace is None:
             with self.pipe as pipe:
                 res = pipe.scan(cursor=cursor, match=match, count=count)
@@ -387,7 +398,9 @@ class Keyspace(object):
             pipe.on_execute(cb)
             return f
 
-    def scan_iter(self, match=None, count=None):
+    def scan_iter(self,
+                  match: Optional[str] = None,
+                  count: Optional[int] = None) -> Iterable[Tuple[str, Any]]:
         """
         Make an iterator using the SCAN command so that the client doesn't
         need to remember the cursor position.
@@ -401,12 +414,22 @@ class Keyspace(object):
 
         cursor = '0'
         while cursor != 0:
-            cursor, data = self.scan(cursor=cursor, match=match, count=count)
+            cursor, data = self.scan(cursor=int(cursor),
+                                     match=match,
+                                     count=count)
             for item in data:
                 yield item
 
-    def sort(self, name, start=None, num=None, by=None, get=None,
-             desc=False, alpha=False, store=None, groups=False):
+    def sort(self,
+             name: str,
+             start: Optional[int] = None,
+             num: Optional[int] = None,
+             by: Optional[str] = None, get=None,
+             desc: bool = False,
+             alpha: bool = False,
+             store: Optional[str] = None,
+             groups: bool = False
+             ) -> Future:
         """
         Sort and return the list, set or sorted set at ``name``.
 
@@ -432,12 +455,19 @@ class Keyspace(object):
 
         """
         with self.pipe as pipe:
-            res = pipe.sort(self.redis_key(name), start=start, num=num,
-                            by=by, get=get, desc=desc, alpha=alpha,
-                            store=store, groups=groups)
+            res = pipe.sort(
+                self.redis_key(name),
+                start=start,
+                num=num,
+                by=self.redis_key(by) if by is not None else None,
+                get=self.redis_key(get) if get is not None else None,
+                desc=desc,
+                alpha=alpha,
+                store=self.redis_key(store) if store is not None else None,
+                groups=groups)
             if store:
                 return res
-            f = Future()
+            f = Future[Iterable[Any]]()
 
             def cb():
                 decode = self.valueparse.decode
@@ -456,7 +486,7 @@ class String(Keyspace):
     Manipulate a String key in Redis.
     """
 
-    def get(self, name):
+    def get(self, name: str) -> Future[str]:
         """
         Return the value of the key or None if the key doesn't exist
 
@@ -464,7 +494,7 @@ class String(Keyspace):
         :return: Future()
         """
         with self.pipe as pipe:
-            f = Future()
+            f = Future[str]()
             res = pipe.get(self.redis_key(name))
 
             def cb():
@@ -474,14 +504,14 @@ class String(Keyspace):
             pipe.on_execute(cb)
             return f
 
-    def mget(self, keys, *args):
+    def mget(self, keys: Union[str, typing.List[str]], *args: str) -> Future:
         """
         Returns a list of values ordered identically to ``keys``
         """
-        keys = [self.redis_key(k) for k in self._parse_values(keys, args)]
+        rkeys = [self.redis_key(k) for k in self._parse_values(keys, args)]
         with self.pipe as pipe:
-            f = Future()
-            res = pipe.mget(keys)
+            f = Future[typing.List[Any]]()
+            res = pipe.mget(rkeys)
 
             def cb():
                 decode = self.valueparse.decode
@@ -490,7 +520,13 @@ class String(Keyspace):
             pipe.on_execute(cb)
             return f
 
-    def set(self, name, value, ex=None, px=None, nx=False, xx=False):
+    def set(self,
+            name: str,
+            value: str,
+            ex: Optional[int] = None,
+            px: Optional[int] = None,
+            nx: bool = False,
+            xx: bool = False) -> Future:
         """
         Set the value at key ``name`` to ``value``
 
@@ -507,11 +543,11 @@ class String(Keyspace):
         :return: Future()
         """
         with self.pipe as pipe:
-            value = self.valueparse.encode(value)
-            return pipe.set(self.redis_key(name), value,
+            return pipe.set(self.redis_key(name),
+                            self.valueparse.encode(value),
                             ex=ex, px=px, nx=nx, xx=xx)
 
-    def setnx(self, name, value):
+    def setnx(self, name: str, value: str) -> int:
         """
         Set the value as a string in the key only if the key doesn't exist.
 
@@ -523,7 +559,7 @@ class String(Keyspace):
             return pipe.setnx(self.redis_key(name),
                               self.valueparse.encode(value))
 
-    def setex(self, name, value, time):
+    def setex(self, name: str, value: str, time: int) -> Future:
         """
         Set the value of key to ``value`` that expires in ``time``
         seconds. ``time`` can be represented by an integer or a Python
@@ -539,7 +575,7 @@ class String(Keyspace):
                               value=self.valueparse.encode(value),
                               time=time)
 
-    def psetex(self, name, value, time_ms):
+    def psetex(self, name: str, value: str, time_ms: int) -> Future:
         """
         Set the value of key ``name`` to ``value`` that expires in ``time_ms``
         milliseconds. ``time_ms`` can be represented by an integer or a Python
@@ -549,7 +585,7 @@ class String(Keyspace):
             return pipe.psetex(self.redis_key(name), time_ms=time_ms,
                                value=self.valueparse.encode(value=value))
 
-    def append(self, name, value):
+    def append(self, name: str, value: str) -> Future:
         """
         Appends the string ``value`` to the value at ``key``. If ``key``
         doesn't already exist, create it with a value of ``value``.
@@ -563,7 +599,7 @@ class String(Keyspace):
             return pipe.append(self.redis_key(name),
                                self.valueparse.encode(value))
 
-    def strlen(self, name):
+    def strlen(self, name: str) -> Future:
         """
         Return the number of bytes stored in the value of the key
 
@@ -573,7 +609,7 @@ class String(Keyspace):
         with self.pipe as pipe:
             return pipe.strlen(self.redis_key(name))
 
-    def substr(self, name, start, end=-1):
+    def substr(self, name: str, start: int, end: int = -1) -> Future[str]:
         """
         Return a substring of the string at key ``name``. ``start`` and ``end``
         are 0-based integers specifying the portion of the string to return.
@@ -584,7 +620,7 @@ class String(Keyspace):
         :return: Future()
         """
         with self.pipe as pipe:
-            f = Future()
+            f = Future[str]()
             res = pipe.substr(self.redis_key(name), start=start, end=end)
 
             def cb():
@@ -593,7 +629,7 @@ class String(Keyspace):
             pipe.on_execute(cb)
             return f
 
-    def setrange(self, name, offset, value):
+    def setrange(self, name: str, offset: int, value: str) -> Future:
         """
         Overwrite bytes in the value of ``name`` starting at ``offset`` with
         ``value``. If ``offset`` plus the length of ``value`` exceeds the
@@ -612,7 +648,7 @@ class String(Keyspace):
         with self.pipe as pipe:
             return pipe.setrange(self.redis_key(name), offset, value)
 
-    def setbit(self, name, offset, value):
+    def setbit(self, name: str, offset: int, value: str) -> Future:
         """
         Flag the ``offset`` in the key as ``value``. Returns a boolean
         indicating the previous value of ``offset``.
@@ -625,7 +661,7 @@ class String(Keyspace):
         with self.pipe as pipe:
             return pipe.setbit(self.redis_key(name), offset, value)
 
-    def getbit(self, name, offset):
+    def getbit(self, name: str, offset: int) -> Future:
         """
         Returns a boolean indicating the value of ``offset`` in key
 
@@ -636,7 +672,7 @@ class String(Keyspace):
         with self.pipe as pipe:
             return pipe.getbit(self.redis_key(name), offset)
 
-    def bitcount(self, name, start=None, end=None):
+    def bitcount(self, name, start=None, end=None) -> Future:
         """
         Returns the count of set bits in the value of ``key``.  Optional
         ``start`` and ``end`` paramaters indicate which bytes to consider
@@ -649,7 +685,7 @@ class String(Keyspace):
         with self.pipe as pipe:
             return pipe.bitcount(self.redis_key(name), start=start, end=end)
 
-    def incr(self, name, amount=1):
+    def incr(self, name: str, amount: int = 1) -> Future:
         """
         increment the value for key by 1
 
@@ -660,7 +696,7 @@ class String(Keyspace):
         with self.pipe as pipe:
             return pipe.incr(self.redis_key(name), amount=amount)
 
-    def incrby(self, name, amount=1):
+    def incrby(self, name: str, amount: int = 1) -> Future:
         """
         increment the value for key by value: int
 
@@ -671,7 +707,7 @@ class String(Keyspace):
         with self.pipe as pipe:
             return pipe.incrby(self.redis_key(name), amount=amount)
 
-    def incrbyfloat(self, name, amount=1.0):
+    def incrbyfloat(self, name: str, amount: float = 1.0) -> Future:
         """
         increment the value for key by value: float
 
@@ -682,7 +718,7 @@ class String(Keyspace):
         with self.pipe as pipe:
             return pipe.incrbyfloat(self.redis_key(name), amount=amount)
 
-    def __getitem__(self, name):
+    def __getitem__(self, name: str) -> Any:
         """
         magic python method that makes the class behave like a dictionary.
 
@@ -693,7 +729,7 @@ class String(Keyspace):
         """
         return self.get(name)
 
-    def __setitem__(self, name, value):
+    def __setitem__(self, name: str, value: str) -> None:
         """
         magic python method that makes the class behave like a dictionary.
 
@@ -722,16 +758,21 @@ class HashedStringMeta(type):
             memberparse = d.get('memberparse', TextField)
             keyspace_template = d.get('keyspace_template', '%s{%s}')
 
-        d['core'] = Core
+        d['_core'] = Core
 
         return type.__new__(mcs, name, bases, d)
 
 
 class HashedString(metaclass=HashedStringMeta):
+    _core: Callable
     shard_count = 64
 
     @classmethod
-    def shard(cls, key):
+    def core(cls, pipe: Optional[PipelineInterface] = None):
+        return cls._core(pipe)  # typing: ignore
+
+    @classmethod
+    def shard(cls, key: str):
         key = "%s" % key
         keyhash = hashlib.md5(key.encode('utf-8')).hexdigest()
         return int(keyhash, 16) % cls.shard_count
@@ -740,7 +781,7 @@ class HashedString(metaclass=HashedStringMeta):
     def _parse_values(cls, values, extra=None):
         return _parse_values(values, extra)
 
-    def __init__(self, pipe=None):
+    def __init__(self, pipe: Optional[PipelineInterface] = None):
         """
         Creates a new keyspace.
         Optionally pass in a pipeline object.
@@ -752,7 +793,7 @@ class HashedString(metaclass=HashedStringMeta):
         self._pipe = pipe
 
     @property
-    def pipe(self):
+    def pipe(self) -> PipelineInterface:
         """
         Get a fresh pipeline() to be used in a `with` block.
 
@@ -760,19 +801,19 @@ class HashedString(metaclass=HashedStringMeta):
         """
         return autoexec(self._pipe)
 
-    def get(self, key):
+    def get(self, key: str) -> Future:
         """
         Return the value of the key or None if the key doesn't exist
 
-        :param name: str     the name of the redis key
+        :param key: str     the name of the redis key
         :return: Future()
         """
         with self.pipe as pipe:
             return self.core(pipe=pipe).hget(self.shard(key), key)
 
-    def delete(self, key, *args):
+    def delete(self, key: str, *args) -> Future[int]:
         keys = self._parse_values(key, args)
-        response = Future()
+        response = Future[int]()
         with self.pipe as pipe:
             core = self.core(pipe=pipe)
             tracking = []
@@ -785,7 +826,7 @@ class HashedString(metaclass=HashedStringMeta):
             pipe.on_execute(cb)
             return response
 
-    def set(self, name, value, nx=False):
+    def set(self, name: str, value: str, nx: bool = False) -> Future:
         """
         Set the value at key ``name`` to ``value``
 
@@ -799,7 +840,7 @@ class HashedString(metaclass=HashedStringMeta):
             method = core.hsetnx if nx else core.hset
             return method(self.shard(name), name, value)
 
-    def setnx(self, name, value):
+    def setnx(self, name, value) -> Future:
         """
         Set the value as a string in the key only if the key doesn't exist.
 
@@ -810,7 +851,7 @@ class HashedString(metaclass=HashedStringMeta):
         with self.pipe as pipe:
             return self.core(pipe=pipe).hsetnx(self.shard(name), name, value)
 
-    def strlen(self, name):
+    def strlen(self, name: str) -> Future:
         """
         Return the number of bytes stored in the value of the key
 
@@ -820,7 +861,7 @@ class HashedString(metaclass=HashedStringMeta):
         with self.pipe as pipe:
             return self.core(pipe=pipe).hstrlen(self.shard(name), name)
 
-    def incr(self, name, amount=1):
+    def incr(self, name: str, amount: int = 1) -> Future:
         """
         increment the value for key by 1
 
@@ -832,7 +873,7 @@ class HashedString(metaclass=HashedStringMeta):
             return self.core(pipe=pipe).hincrby(
                 self.shard(name), name, amount=amount)
 
-    def incrby(self, name, amount=1):
+    def incrby(self, name: str, amount: int = 1) -> Future:
         """
         increment the value for key by value: int
 
@@ -844,7 +885,7 @@ class HashedString(metaclass=HashedStringMeta):
             return self.core(pipe=pipe).hincrby(
                 self.shard(name), name, amount=amount)
 
-    def incrbyfloat(self, name, amount=1.0):
+    def incrbyfloat(self, name: str, amount: float = 1.0) -> Future:
         """
         increment the value for key by value: float
 
@@ -856,7 +897,7 @@ class HashedString(metaclass=HashedStringMeta):
             return self.core(pipe=pipe).hincrbyfloat(
                 self.shard(name), name, amount=amount)
 
-    def __getitem__(self, name):
+    def __getitem__(self, name: str) -> Future:
         """
         magic python method that makes the class behave like a dictionary.
 
@@ -867,7 +908,7 @@ class HashedString(metaclass=HashedStringMeta):
         """
         return self.get(name)
 
-    def __setitem__(self, name, value):
+    def __setitem__(self, name: str, value: str) -> None:
         """
         magic python method that makes the class behave like a dictionary.
 
@@ -879,12 +920,12 @@ class HashedString(metaclass=HashedStringMeta):
         """
         self.set(name, value)
 
-    def mget(self, keys, *args):
+    def mget(self, keys: Union[str, typing.List[str]], *args: str) -> Future:
         """
         Returns a list of values ordered identically to ``keys``
         """
         with self.pipe as pipe:
-            f = Future()
+            f = Future[Any]()
             core = self.core(pipe=pipe)
             keys = [k for k in self._parse_values(keys, args)]
             mapping = {k: core.hget(self.shard(k), k) for k in keys}
@@ -896,7 +937,7 @@ class HashedString(metaclass=HashedStringMeta):
 
             return f
 
-    def scan_iter(self, match=None, count=None):
+    def scan_iter(self, match=None, count=None) -> Iterable:
         """
         Make an iterator using the hscan command so that the client doesn't
         need to remember the cursor position.
@@ -925,7 +966,9 @@ class Set(Keyspace):
     Manipulate a Set key in redis.
     """
 
-    def sdiff(self, keys, *args):
+    def sdiff(self,
+              keys: Union[str, typing.List[str]],
+              *args: str) -> Future[typing.List[Any]]:
         """
         Return the difference of sets specified by ``keys``
 
@@ -933,11 +976,11 @@ class Set(Keyspace):
         :param args: tuple
         :return: Future()
         """
-        keys = [self.redis_key(k) for k in self._parse_values(keys, args)]
+        rkeys = [self.redis_key(k) for k in self._parse_values(keys, args)]
 
         with self.pipe as pipe:
-            res = pipe.sdiff(*keys)
-            f = Future()
+            res = pipe.sdiff(*rkeys)
+            f = Future[Any]()
 
             def cb():
                 f.set({self.valueparse.decode(v) for v in res.result})
@@ -945,17 +988,19 @@ class Set(Keyspace):
             pipe.on_execute(cb)
             return f
 
-    def sdiffstore(self, dest, *keys):
+    def sdiffstore(self,
+                   dest: str,
+                   *keys: Union[str, typing.List[str]]) -> Future:
         """
         Store the difference of sets specified by ``keys`` into a new
         set named ``dest``.  Returns the number of keys in the new set.
         """
-        keys = [self.redis_key(k) for k in self._parse_values(keys)]
+        rkeys = (self.redis_key(k) for k in self._parse_values(keys))
 
         with self.pipe as pipe:
-            return pipe.sdiffstore(self.redis_key(dest), *keys)
+            return pipe.sdiffstore(self.redis_key(dest), *rkeys)
 
-    def sinter(self, keys, *args):
+    def sinter(self, keys, *args) -> Future[typing.List[str]]:
         """
         Return the intersection of sets specified by ``keys``
 
@@ -967,7 +1012,7 @@ class Set(Keyspace):
         keys = [self.redis_key(k) for k in self._parse_values(keys, args)]
         with self.pipe as pipe:
             res = pipe.sinter(*keys)
-            f = Future()
+            f = Future[typing.List[str]]()
 
             def cb():
                 f.set({self.valueparse.decode(v) for v in res.result})
@@ -975,16 +1020,20 @@ class Set(Keyspace):
             pipe.on_execute(cb)
             return f
 
-    def sinterstore(self, dest, keys, *args):
+    def sinterstore(self, dest: str,
+                    keys: Union[str, typing.List[str]],
+                    *args: str) -> Future:
         """
         Store the intersection of sets specified by ``keys`` into a new
         set named ``dest``.  Returns the number of keys in the new set.
         """
-        keys = [self.redis_key(k) for k in self._parse_values(keys, args)]
+        rkeys = [self.redis_key(k) for k in self._parse_values(keys, args)]
         with self.pipe as pipe:
-            return pipe.sinterstore(self.redis_key(dest), keys)
+            return pipe.sinterstore(self.redis_key(dest), rkeys)
 
-    def sunion(self, keys, *args):
+    def sunion(self,
+               keys: Union[str, typing.List[str]],
+               *args: str) -> Future[typing.List[str]]:
         """
         Return the union of sets specified by ``keys``
 
@@ -992,10 +1041,10 @@ class Set(Keyspace):
         :param args: tuple
         :return: Future()
         """
-        keys = [self.redis_key(k) for k in self._parse_values(keys, args)]
+        rkeys = [self.redis_key(k) for k in self._parse_values(keys, args)]
         with self.pipe as pipe:
-            res = pipe.sunion(*keys)
-            f = Future()
+            res = pipe.sunion(*rkeys)
+            f = Future[typing.List[str]]()
 
             def cb():
                 f.set({self.valueparse.decode(v) for v in res.result})
@@ -1003,16 +1052,22 @@ class Set(Keyspace):
             pipe.on_execute(cb)
             return f
 
-    def sunionstore(self, dest, keys, *args):
+    def sunionstore(self,
+                    dest: str,
+                    keys: Union[str, typing.List[str]],
+                    *args: str) -> Future:
         """
         Store the union of sets specified by ``keys`` into a new
         set named ``dest``.  Returns the number of members in the new set.
         """
-        keys = [self.redis_key(k) for k in self._parse_values(keys, args)]
+        rkeys = [self.redis_key(k) for k in self._parse_values(keys, args)]
         with self.pipe as pipe:
-            return pipe.sunionstore(self.redis_key(dest), *keys)
+            return pipe.sunionstore(self.redis_key(dest), *rkeys)
 
-    def sadd(self, name, values, *args):
+    def sadd(self,
+             name: str,
+             values: Union[str, typing.List[str]],
+             *args: str) -> Future:
         """
         Add the specified members to the Set.
 
@@ -1021,11 +1076,13 @@ class Set(Keyspace):
         :return: Future()
         """
         with self.pipe as pipe:
-            values = [self.valueparse.encode(v) for v in
-                      self._parse_values(values, args)]
-            return pipe.sadd(self.redis_key(name), *values)
+            return pipe.sadd(self.redis_key(name),
+                             *[self.valueparse.encode(v) for v in
+                               self._parse_values(values, args)])
 
-    def srem(self, name, *values):
+    def srem(self,
+             name: str,
+             *values: Union[str, typing.List[str]]) -> Future:
         """
         Remove the values from the Set if they are present.
 
@@ -1035,10 +1092,11 @@ class Set(Keyspace):
         """
         with self.pipe as pipe:
             v_encode = self.valueparse.encode
-            values = [v_encode(v) for v in self._parse_values(values)]
-            return pipe.srem(self.redis_key(name), *values)
+            return pipe.srem(
+                self.redis_key(name),
+                *[v_encode(v) for v in self._parse_values(values)])
 
-    def spop(self, name):
+    def spop(self, name: str) -> Future[typing.List[Any]]:
         """
         Remove and return (pop) a random element from the Set.
 
@@ -1046,7 +1104,7 @@ class Set(Keyspace):
         :return: Future()
         """
         with self.pipe as pipe:
-            f = Future()
+            f = Future[typing.List[Any]]()
             res = pipe.spop(self.redis_key(name))
 
             def cb():
@@ -1055,7 +1113,7 @@ class Set(Keyspace):
             pipe.on_execute(cb)
             return f
 
-    def smembers(self, name):
+    def smembers(self, name: str) -> Future[typing.List[Any]]:
         """
         get the set of all members for key
 
@@ -1063,7 +1121,7 @@ class Set(Keyspace):
         :return:
         """
         with self.pipe as pipe:
-            f = Future()
+            f = Future[typing.List[Any]]()
             res = pipe.smembers(self.redis_key(name))
 
             def cb():
@@ -1072,7 +1130,7 @@ class Set(Keyspace):
             pipe.on_execute(cb)
             return f
 
-    def scard(self, name):
+    def scard(self, name: str) -> Future:
         """
         How many items in the set?
 
@@ -1082,7 +1140,7 @@ class Set(Keyspace):
         with self.pipe as pipe:
             return pipe.scard(self.redis_key(name))
 
-    def sismember(self, name, value):
+    def sismember(self, name: str, value: str) -> Future:
         """
         Is the provided value is in the ``Set``?
 
@@ -1094,15 +1152,19 @@ class Set(Keyspace):
             return pipe.sismember(self.redis_key(name),
                                   self.valueparse.encode(value))
 
-    def srandmember(self, name, number=None):
+    def srandmember(self,
+                    name: str,
+                    number: Optional[int] = None
+                    ) -> Future[Any]:
         """
         Return a random member of the set.
 
         :param name: str     the name of the redis key
+        :param number: optional int
         :return: Future()
         """
         with self.pipe as pipe:
-            f = Future()
+            f = Future[Any]()
             res = pipe.srandmember(self.redis_key(name), number=number)
 
             def cb():
@@ -1114,7 +1176,12 @@ class Set(Keyspace):
             pipe.on_execute(cb)
             return f
 
-    def sscan(self, name, cursor=0, match=None, count=None):
+    def sscan(self,
+              name: str,
+              cursor: int = 0,
+              match: Optional[str] = None,
+              count: Optional[int] = None
+              ) -> Future[Tuple[int, typing.List[Any]]]:
         """
         Incrementally return lists of elements in a set. Also return a cursor
         indicating the scan position.
@@ -1129,7 +1196,7 @@ class Set(Keyspace):
         :param count: int
         """
         with self.pipe as pipe:
-            f = Future()
+            f = Future[Tuple[int, typing.List[Any]]]()
             res = pipe.sscan(self.redis_key(name), cursor=cursor,
                              match=match, count=count)
 
@@ -1139,7 +1206,10 @@ class Set(Keyspace):
             pipe.on_execute(cb)
             return f
 
-    def sscan_iter(self, name, match=None, count=None):
+    def sscan_iter(self,
+                   name: str,
+                   match: Optional[str] = None,
+                   count: Optional[int] = None) -> Iterable:
         """
         Make an iterator using the SSCAN command so that the client doesn't
         need to remember the cursor position.
@@ -1157,7 +1227,7 @@ class Set(Keyspace):
 
         cursor = '0'
         while cursor != 0:
-            cursor, data = self.sscan(name, cursor=cursor,
+            cursor, data = self.sscan(name, cursor=int(cursor),
                                       match=match, count=count)
             for item in data:
                 yield item
@@ -1168,7 +1238,9 @@ class List(Keyspace):
     Manipulate a List key in redis
     """
 
-    def blpop(self, keys, timeout=0):
+    def blpop(self,
+              keys: Union[str, typing.List[str]],
+              timeout: int = 0) -> Future[Optional[Tuple[str, Any]]]:
         """
         LPOP a value off of the first non-empty list
         named in the ``keys`` list.
@@ -1179,16 +1251,14 @@ class List(Keyspace):
 
         If timeout is 0, then block indefinitely.
         """
-        map = {self.redis_key(k): k for k in self._parse_values(keys)}
-        keys = map.keys()
-
+        kvpairs = {self.redis_key(k): k for k in self._parse_values(keys)}
         with self.pipe as pipe:
-            f = Future()
-            res = pipe.blpop(keys, timeout=timeout)
+            f = Future[Optional[Tuple[str, Any]]]()
+            res = pipe.blpop(kvpairs.keys(), timeout=timeout)
 
             def cb():
                 if res.result:
-                    k = map[res.result[0]]
+                    k = kvpairs[res.result[0]]
                     v = self.valueparse.decode(res.result[1])
 
                     f.set((k, v))
@@ -1198,7 +1268,9 @@ class List(Keyspace):
             pipe.on_execute(cb)
             return f
 
-    def brpop(self, keys, timeout=0):
+    def brpop(self,
+              keys: Union[str, typing.List[str]],
+              timeout: int = 0) -> Future[Optional[Tuple[str, Any]]]:
         """
         RPOP a value off of the first non-empty list
         named in the ``keys`` list.
@@ -1209,16 +1281,14 @@ class List(Keyspace):
 
         If timeout is 0, then block indefinitely.
         """
-        map = {self.redis_key(k): k for k in self._parse_values(keys)}
-        keys = map.keys()
-
+        kvpairs = {self.redis_key(k): k for k in self._parse_values(keys)}
         with self.pipe as pipe:
-            f = Future()
-            res = pipe.brpop(keys, timeout=timeout)
+            f = Future[Optional[Tuple[str, Any]]]()
+            res = pipe.brpop(kvpairs.keys(), timeout=timeout)
 
             def cb():
                 if res.result:
-                    k = map[res.result[0]]
+                    k = kvpairs[res.result[0]]
                     v = self.valueparse.decode(res.result[1])
 
                     f.set((k, v))
@@ -1228,7 +1298,11 @@ class List(Keyspace):
             pipe.on_execute(cb)
             return f
 
-    def brpoplpush(self, src, dst, timeout=0):
+    def brpoplpush(self,
+                   src: str,
+                   dst: str,
+                   timeout: int = 0
+                   ) -> Future[Optional[Tuple[str, Any]]]:
         """
         Pop a value off the tail of ``src``, push it on the head of ``dst``
         and then return it.
@@ -1240,7 +1314,7 @@ class List(Keyspace):
         with self.pipe as pipe:
             res = pipe.brpoplpush(self.redis_key(src),
                                   self.redis_key(dst), timeout)
-            f = Future()
+            f = Future[Optional[Tuple[str, Any]]]()
 
             def cb():
                 f.set(self.valueparse.decode(res.result))
@@ -1248,7 +1322,7 @@ class List(Keyspace):
             pipe.on_execute(cb)
             return f
 
-    def llen(self, name):
+    def llen(self, name: str) -> Future[int]:
         """
         Returns the length of the list.
 
@@ -1258,7 +1332,11 @@ class List(Keyspace):
         with self.pipe as pipe:
             return pipe.llen(self.redis_key(name))
 
-    def lrange(self, name, start, stop):
+    def lrange(self,
+               name: str,
+               start: int,
+               stop: int
+               ) -> Future[typing.List[Any]]:
         """
         Returns a range of items.
 
@@ -1268,7 +1346,7 @@ class List(Keyspace):
         :return: Future()
         """
         with self.pipe as pipe:
-            f = Future()
+            f = Future[typing.List[Any]]()
             res = pipe.lrange(self.redis_key(name), start, stop)
 
             def cb():
@@ -1277,7 +1355,7 @@ class List(Keyspace):
             pipe.on_execute(cb)
             return f
 
-    def lpush(self, name, *values):
+    def lpush(self, name: str, *values: str) -> Future[int]:
         """
         Push the value into the list from the *left* side
 
@@ -1287,10 +1365,11 @@ class List(Keyspace):
         """
         with self.pipe as pipe:
             v_encode = self.valueparse.encode
-            values = [v_encode(v) for v in self._parse_values(values)]
-            return pipe.lpush(self.redis_key(name), *values)
+            return pipe.lpush(
+                self.redis_key(name),
+                *[v_encode(v) for v in self._parse_values(values)])
 
-    def rpush(self, name, *values):
+    def rpush(self, name: str, *values: str) -> Future:
         """
         Push the value into the list from the *right* side
 
@@ -1300,10 +1379,11 @@ class List(Keyspace):
         """
         with self.pipe as pipe:
             v_encode = self.valueparse.encode
-            values = [v_encode(v) for v in self._parse_values(values)]
-            return pipe.rpush(self.redis_key(name), *values)
+            return pipe.rpush(
+                self.redis_key(name),
+                *[v_encode(v) for v in self._parse_values(values)])
 
-    def lpop(self, name):
+    def lpop(self, name: str) -> Future[Any]:
         """
         Pop the first object from the left.
 
@@ -1312,7 +1392,7 @@ class List(Keyspace):
 
         """
         with self.pipe as pipe:
-            f = Future()
+            f = Future[Any]()
             res = pipe.lpop(self.redis_key(name))
 
             def cb():
@@ -1321,7 +1401,7 @@ class List(Keyspace):
             pipe.on_execute(cb)
             return f
 
-    def rpop(self, name):
+    def rpop(self, name: str) -> Future[Any]:
         """
         Pop the first object from the right.
 
@@ -1329,7 +1409,7 @@ class List(Keyspace):
         :return: the popped value.
         """
         with self.pipe as pipe:
-            f = Future()
+            f = Future[Any]()
             res = pipe.rpop(self.redis_key(name))
 
             def cb():
@@ -1338,13 +1418,13 @@ class List(Keyspace):
             pipe.on_execute(cb)
             return f
 
-    def rpoplpush(self, src, dst):
+    def rpoplpush(self, src: str, dst: str) -> Future[Any]:
         """
         RPOP a value off of the ``src`` list and atomically LPUSH it
         on to the ``dst`` list.  Returns the value.
         """
         with self.pipe as pipe:
-            f = Future()
+            f = Future[Any]()
             res = pipe.rpoplpush(self.redis_key(src), self.redis_key(dst))
 
             def cb():
@@ -1353,7 +1433,7 @@ class List(Keyspace):
             pipe.on_execute(cb)
             return f
 
-    def lrem(self, name, value, num=1):
+    def lrem(self, name: str, value: str, num: int = 1) -> Future[int]:
         """
         Remove first occurrence of value.
 
@@ -1367,11 +1447,10 @@ class List(Keyspace):
         :return: Future()
         """
         with self.pipe as pipe:
-            value = self.valueparse.encode(value)
             return pipe.execute_command('LREM', self.redis_key(name),
-                                        num, value)
+                                        num, self.valueparse.encode(value))
 
-    def ltrim(self, name, start, end):
+    def ltrim(self, name: str, start: int, end: int) -> Future:
         """
         Trim the list from start to end.
 
@@ -1383,7 +1462,7 @@ class List(Keyspace):
         with self.pipe as pipe:
             return pipe.ltrim(self.redis_key(name), start, end)
 
-    def lindex(self, name, index):
+    def lindex(self, name: str, index: int) -> Future[Any]:
         """
         Return the value at the index *idx*
 
@@ -1392,7 +1471,7 @@ class List(Keyspace):
         :return: Future()
         """
         with self.pipe as pipe:
-            f = Future()
+            f = Future[Any]()
             res = pipe.lindex(self.redis_key(name), index)
 
             def cb():
@@ -1401,18 +1480,18 @@ class List(Keyspace):
             pipe.on_execute(cb)
             return f
 
-    def lset(self, name, index, value):
+    def lset(self, name: str, index: int, value: str) -> Future:
         """
         Set the value in the list at index *idx*
 
         :param name: str     the name of the redis key
-        :param value:
         :param index:
+        :param value:
         :return: Future()
         """
         with self.pipe as pipe:
-            value = self.valueparse.encode(value)
-            return pipe.lset(self.redis_key(name), index, value)
+            return pipe.lset(self.redis_key(name), index,
+                             self.valueparse.encode(value))
 
 
 class SortedSet(Keyspace):
@@ -1420,8 +1499,14 @@ class SortedSet(Keyspace):
     Manipulate a SortedSet key in redis.
     """
 
-    def zadd(self, name, members, score=1, nx=False,
-             xx=False, ch=False, incr=False):
+    def zadd(self,
+             name: str,
+             members: Union[str, typing.List[str]],
+             score: float = 1.0,
+             nx: bool = False,
+             xx: bool = False,
+             ch: bool = False,
+             incr: bool = False) -> Future:
         """
         Add members in the set and assign them the score.
 
@@ -1434,7 +1519,7 @@ class SortedSet(Keyspace):
         :param incr:
         :return: Future()
         """
-
+        _args: typing.List[Union[bytes, str]]
         if nx:
             _args = ['NX']
         elif xx:
@@ -1450,16 +1535,16 @@ class SortedSet(Keyspace):
 
         if isinstance(members, dict):
             for member, score in members.items():
-                _args += [score, self.valueparse.encode(member)]
-        else:
-            _args += [score, self.valueparse.encode(members)]
+                _args += [str(score), self.valueparse.encode(member)]
+        elif isinstance(members, str):
+            _args += [str(score), self.valueparse.encode(members)]
 
         if nx and xx:
             raise InvalidOperation('cannot specify nx and xx at the same time')
         with self.pipe as pipe:
             return pipe.execute_command('ZADD', self.redis_key(name), *_args)
 
-    def zrem(self, name, *values):
+    def zrem(self, name: str, *values: str) -> Future:
         """
         Remove the values from the SortedSet
 
@@ -1470,10 +1555,11 @@ class SortedSet(Keyspace):
         """
         with self.pipe as pipe:
             v_encode = self.valueparse.encode
-            values = [v_encode(v) for v in self._parse_values(values)]
-            return pipe.zrem(self.redis_key(name), *values)
+            return pipe.zrem(
+                self.redis_key(name),
+                *[v_encode(v) for v in self._parse_values(values)])
 
-    def zincrby(self, name, value, amount=1):
+    def zincrby(self, name: str, value: Any, amount: float = 1.0) -> Future:
         """
         Increment the score of the item by `value`
 
@@ -1487,19 +1573,25 @@ class SortedSet(Keyspace):
                                 value=self.valueparse.encode(value),
                                 amount=amount)
 
-    def zrevrank(self, name, value):
+    def zrevrank(self, name: str, value: str):
         """
         Returns the ranking in reverse order for the member
 
         :param name: str     the name of the redis key
-        :param member: str
+        :param value: str
         """
         with self.pipe as pipe:
             return pipe.zrevrank(self.redis_key(name),
                                  self.valueparse.encode(value))
 
-    def zrange(self, name, start, end, desc=False, withscores=False,
-               score_cast_func=float):
+    def zrange(self,
+               name: str,
+               start: int,
+               end: int,
+               desc: bool = False,
+               withscores: bool = False,
+               score_cast_func: Callable = float
+               ) -> Future[typing.List[Any]]:
         """
         Returns all the elements including between ``start`` (non included)
         and ``stop`` (included).
@@ -1513,7 +1605,7 @@ class SortedSet(Keyspace):
         :return:
         """
         with self.pipe as pipe:
-            f = Future()
+            f = Future[typing.List[Any]]()
             res = pipe.zrange(
                 self.redis_key(name), start, end, desc=desc,
                 withscores=withscores, score_cast_func=score_cast_func)
@@ -1528,8 +1620,13 @@ class SortedSet(Keyspace):
             pipe.on_execute(cb)
             return f
 
-    def zrevrange(self, name, start, end,
-                  withscores=False, score_cast_func=float):
+    def zrevrange(self,
+                  name: str,
+                  start: int,
+                  end: int,
+                  withscores: bool = False,
+                  score_cast_func: Callable = float
+                  ) -> Future[typing.List[Any]]:
         """
         Returns the range of items included between ``start`` and ``stop``
         in reverse order (from high to low)
@@ -1542,7 +1639,7 @@ class SortedSet(Keyspace):
         :return:
         """
         with self.pipe as pipe:
-            f = Future()
+            f = Future[typing.List[Any]]()
             res = pipe.zrevrange(self.redis_key(name), start, end,
                                  withscores=withscores,
                                  score_cast_func=score_cast_func)
@@ -1558,8 +1655,15 @@ class SortedSet(Keyspace):
             return f
 
     # noinspection PyShadowingBuiltins
-    def zrangebyscore(self, name, min, max, start=None, num=None,
-                      withscores=False, score_cast_func=float):
+    def zrangebyscore(self,
+                      name: str,
+                      min: float,
+                      max: float,
+                      start: Optional[int] = None,
+                      num: Optional[int] = None,
+                      withscores: bool = False,
+                      score_cast_func: Callable = float
+                      ) -> Future[typing.List[Any]]:
         """
         Returns the range of elements included between the scores (min and max)
 
@@ -1573,7 +1677,7 @@ class SortedSet(Keyspace):
         :return: Future()
         """
         with self.pipe as pipe:
-            f = Future()
+            f = Future[typing.List[Any]]()
             res = pipe.zrangebyscore(self.redis_key(name), min, max,
                                      start=start, num=num,
                                      withscores=withscores,
@@ -1590,8 +1694,15 @@ class SortedSet(Keyspace):
             return f
 
     # noinspection PyShadowingBuiltins
-    def zrevrangebyscore(self, name, max, min, start=None, num=None,
-                         withscores=False, score_cast_func=float):
+    def zrevrangebyscore(self,
+                         name: str,
+                         max: float,
+                         min: float,
+                         start: int = None,
+                         num: int = None,
+                         withscores: bool = False,
+                         score_cast_func: Callable = float
+                         ) -> Future[typing.List[Any]]:
         """
         Returns the range of elements between the scores (min and max).
 
@@ -1613,7 +1724,7 @@ class SortedSet(Keyspace):
         :return: Future()
         """
         with self.pipe as pipe:
-            f = Future()
+            f = Future[typing.List[Any]]()
             res = pipe.zrevrangebyscore(self.redis_key(name), max, min,
                                         start=start, num=num,
                                         withscores=withscores,
@@ -1629,7 +1740,7 @@ class SortedSet(Keyspace):
             pipe.on_execute(cb)
             return f
 
-    def zcard(self, name):
+    def zcard(self, name: str) -> Future[int]:
         """
         Returns the cardinality of the SortedSet.
 
@@ -1639,7 +1750,8 @@ class SortedSet(Keyspace):
         with self.pipe as pipe:
             return pipe.zcard(self.redis_key(name))
 
-    def zcount(self, name, min, max):
+    # noinspection PyShadowingBuiltins
+    def zcount(self, name: str, min: float, max: float) -> Future[int]:
         """
         Returns the number of elements in the sorted set at key ``name`` with
         a score between ``min`` and ``max``.
@@ -1652,7 +1764,7 @@ class SortedSet(Keyspace):
         with self.pipe as pipe:
             return pipe.zcount(self.redis_key(name), min, max)
 
-    def zscore(self, name, value):
+    def zscore(self, name: str, value: Any) -> Future[float]:
         """
         Return the score of an element
 
@@ -1664,7 +1776,12 @@ class SortedSet(Keyspace):
             return pipe.zscore(self.redis_key(name),
                                self.valueparse.encode(value))
 
-    def zremrangebyrank(self, name, min, max):
+    # noinspection PyShadowingBuiltins
+    def zremrangebyrank(self,
+                        name: str,
+                        min: float,
+                        max: float
+                        ) -> Future[int]:
         """
         Remove a range of element between the rank ``start`` and
         ``stop`` both included.
@@ -1678,7 +1795,11 @@ class SortedSet(Keyspace):
             return pipe.zremrangebyrank(self.redis_key(name), min, max)
 
     # noinspection PyShadowingBuiltins
-    def zremrangebyscore(self, name, min, max):
+    def zremrangebyscore(self,
+                         name: str,
+                         min: int,
+                         max: int
+                         ) -> Future[typing.List[Any]]:
         """
         Remove a range of element by between score ``min_value`` and
         ``max_value`` both included.
@@ -1691,7 +1812,7 @@ class SortedSet(Keyspace):
         with self.pipe as pipe:
             return pipe.zremrangebyscore(self.redis_key(name), min, max)
 
-    def zrank(self, name, value):
+    def zrank(self, name: str, value: str) -> Future[int]:
         """
         Returns the rank of the element.
 
@@ -1699,11 +1820,11 @@ class SortedSet(Keyspace):
         :param value: the element in the sorted set
         """
         with self.pipe as pipe:
-            value = self.valueparse.encode(value)
-            return pipe.zrank(self.redis_key(name), value)
+            return pipe.zrank(self.redis_key(name),
+                              self.valueparse.encode(value))
 
     # noinspection PyShadowingBuiltins
-    def zlexcount(self, name, min, max):
+    def zlexcount(self, name: str, min: float, max: float) -> Future[int]:
         """
         Return the number of items in the sorted set between the
         lexicographical range ``min`` and ``max``.
@@ -1717,7 +1838,13 @@ class SortedSet(Keyspace):
             return pipe.zlexcount(self.redis_key(name), min, max)
 
     # noinspection PyShadowingBuiltins
-    def zrangebylex(self, name, min, max, start=None, num=None):
+    def zrangebylex(self,
+                    name: str,
+                    min: float,
+                    max: float,
+                    start: int = None,
+                    num: int = None
+                    ) -> Future[typing.List[Any]]:
         """
         Return the lexicographical range of values from sorted set ``name``
         between ``min`` and ``max``.
@@ -1733,7 +1860,7 @@ class SortedSet(Keyspace):
         :return: Future()
         """
         with self.pipe as pipe:
-            f = Future()
+            f = Future[typing.List[Any]]()
             res = pipe.zrangebylex(self.redis_key(name), min, max,
                                    start=start, num=num)
 
@@ -1744,7 +1871,13 @@ class SortedSet(Keyspace):
             return f
 
     # noinspection PyShadowingBuiltins
-    def zrevrangebylex(self, name, max, min, start=None, num=None):
+    def zrevrangebylex(self,
+                       name: str,
+                       max: float,
+                       min: float,
+                       start: int = None,
+                       num: int = None
+                       ) -> Future[typing.List[Any]]:
         """
         Return the reversed lexicographical range of values from the sorted set
          between ``max`` and ``min``.
@@ -1760,7 +1893,7 @@ class SortedSet(Keyspace):
         :return: Future()
         """
         with self.pipe as pipe:
-            f = Future()
+            f = Future[typing.List[Any]]()
             res = pipe.zrevrangebylex(self.redis_key(name), max, min,
                                       start=start, num=num)
 
@@ -1771,7 +1904,7 @@ class SortedSet(Keyspace):
             return f
 
     # noinspection PyShadowingBuiltins
-    def zremrangebylex(self, name, min, max):
+    def zremrangebylex(self, name: str, min: float, max: float) -> Future[int]:
         """
         Remove all elements in the sorted set between the
         lexicographical range specified by ``min`` and ``max``.
@@ -1785,19 +1918,27 @@ class SortedSet(Keyspace):
         with self.pipe as pipe:
             return pipe.zremrangebylex(self.redis_key(name), min, max)
 
-    def zunionstore(self, dest, keys, aggregate=None):
+    def zunionstore(self, dest: str,
+                    keys: typing.List[str],
+                    aggregate: Optional[str] = None) -> Future[int]:
         """
         Union multiple sorted sets specified by ``keys`` into
         a new sorted set, ``dest``. Scores in the destination will be
-        aggregated based on the ``aggregate``, or SUM if none is provided.
+        aggregated based on the ``aggregate``, MIN, MAX,
+        or SUM if none is provided.
         """
         with self.pipe as pipe:
-            keys = [self.redis_key(k) for k in keys]
-            return pipe.zunionstore(self.redis_key(dest), keys,
+            return pipe.zunionstore(self.redis_key(dest),
+                                    [self.redis_key(k) for k in keys],
                                     aggregate=aggregate)
 
-    def zscan(self, name, cursor=0, match=None, count=None,
-              score_cast_func=float):
+    def zscan(self,
+              name: str,
+              cursor: int = 0,
+              match: Optional[str] = None,
+              count: Optional[int] = None,
+              score_cast_func: Callable = float
+              ) -> Future[Tuple[int, typing.List[Tuple[str, Any]]]]:
         """
         Incrementally return lists of elements in a sorted set. Also return a
         cursor indicating the scan position.
@@ -1809,7 +1950,7 @@ class SortedSet(Keyspace):
         ``score_cast_func`` a callable used to cast the score return value
         """
         with self.pipe as pipe:
-            f = Future()
+            f = Future[Tuple[int, typing.List[Tuple[str, Any]]]]()
             res = pipe.zscan(self.redis_key(name), cursor=cursor,
                              match=match, count=count,
                              score_cast_func=score_cast_func)
@@ -1821,8 +1962,12 @@ class SortedSet(Keyspace):
             pipe.on_execute(cb)
             return f
 
-    def zscan_iter(self, name, match=None, count=None,
-                   score_cast_func=float):
+    def zscan_iter(self,
+                   name: str,
+                   match: Optional[str] = None,
+                   count: Optional[int] = None,
+                   score_cast_func: Callable = float
+                   ) -> Iterable[Tuple[str, Any]]:
         """
         Make an iterator using the ZSCAN command so that the client doesn't
         need to remember the cursor position.
@@ -1837,7 +1982,7 @@ class SortedSet(Keyspace):
             raise InvalidOperation('cannot pipeline scan operations')
         cursor = '0'
         while cursor != 0:
-            cursor, data = self.zscan(name, cursor=cursor, match=match,
+            cursor, data = self.zscan(name, cursor=int(cursor), match=match,
                                       count=count,
                                       score_cast_func=score_cast_func)
             for item in data:
@@ -1849,7 +1994,7 @@ class Hash(Keyspace):
     Manipulate a Hash key in Redis.
     """
 
-    fields = {}
+    fields: Dict[str, Field] = {}
 
     memberparse = TextField
 
@@ -1887,7 +2032,7 @@ class Hash(Keyspace):
 
         return field_validator.decode(value)
 
-    def hlen(self, name):
+    def hlen(self, name: str) -> Future[int]:
         """
         Returns the number of elements in the Hash.
 
@@ -1897,7 +2042,7 @@ class Hash(Keyspace):
         with self.pipe as pipe:
             return pipe.hlen(self.redis_key(name))
 
-    def hstrlen(self, name, key):
+    def hstrlen(self, name: str, key: str) -> Future:
         """
         Return the number of bytes stored in the value of ``key``
         within hash ``name``
@@ -1905,7 +2050,7 @@ class Hash(Keyspace):
         with self.pipe as pipe:
             return pipe.hstrlen(self.redis_key(name), key)
 
-    def hset(self, name, key, value):
+    def hset(self, name: str, key: str, value: Any) -> Future[int]:
         """
         Set ``member`` in the Hash at ``value``.
 
@@ -1915,11 +2060,11 @@ class Hash(Keyspace):
         :return: Future()
         """
         with self.pipe as pipe:
-            value = self._value_encode(key, value)
-            key = self.memberparse.encode(key)
-            return pipe.hset(self.redis_key(name), key, value)
+            return pipe.hset(self.redis_key(name),
+                             self.memberparse.encode(key),
+                             self._value_encode(key, value))
 
-    def hsetnx(self, name, key, value):
+    def hsetnx(self, name: str, key: str, value: Any) -> Future[int]:
         """
         Set ``member`` in the Hash at ``value``.
 
@@ -1929,11 +2074,11 @@ class Hash(Keyspace):
         :return: Future()
         """
         with self.pipe as pipe:
-            value = self._value_encode(key, value)
-            key = self.memberparse.encode(key)
-            return pipe.hsetnx(self.redis_key(name), key, value)
+            return pipe.hsetnx(self.redis_key(name),
+                               self.memberparse.encode(key),
+                               self._value_encode(key, value))
 
-    def hdel(self, name, *keys):
+    def hdel(self, name: str, *keys) -> Future[int]:
         """
         Delete one or more hash field.
 
@@ -1943,10 +2088,11 @@ class Hash(Keyspace):
         """
         with self.pipe as pipe:
             m_encode = self.memberparse.encode
-            keys = [m_encode(m) for m in self._parse_values(keys)]
-            return pipe.hdel(self.redis_key(name), *keys)
+            return pipe.hdel(
+                self.redis_key(name),
+                *[m_encode(m) for m in self._parse_values(keys)])
 
-    def hkeys(self, name):
+    def hkeys(self, name: str) -> Future[typing.List[str]]:
         """
         Returns all fields name in the Hash.
 
@@ -1954,7 +2100,7 @@ class Hash(Keyspace):
         :return: Future
         """
         with self.pipe as pipe:
-            f = Future()
+            f = Future[typing.List[str]]()
             res = pipe.hkeys(self.redis_key(name))
 
             def cb():
@@ -1964,7 +2110,7 @@ class Hash(Keyspace):
             pipe.on_execute(cb)
             return f
 
-    def hgetall(self, name):
+    def hgetall(self, name: str) -> Future[Dict[str, Any]]:
         """
         Returns all the fields and values in the Hash.
 
@@ -1972,7 +2118,7 @@ class Hash(Keyspace):
         :return: Future()
         """
         with self.pipe as pipe:
-            f = Future()
+            f = Future[Dict[str, Any]]()
             res = pipe.hgetall(self.redis_key(name))
 
             def cb():
@@ -1988,7 +2134,7 @@ class Hash(Keyspace):
             pipe.on_execute(cb)
             return f
 
-    def hvals(self, name):
+    def hvals(self, name: str) -> Future[typing.List[Any]]:
         """
         Returns all the values in the Hash
         Unfortunately we can't type cast these fields.
@@ -1998,7 +2144,7 @@ class Hash(Keyspace):
         :return: Future()
         """
         with self.pipe as pipe:
-            f = Future()
+            f = Future[typing.List[Any]]()
             res = pipe.hvals(self.redis_key(name))
 
             def cb():
@@ -2007,7 +2153,7 @@ class Hash(Keyspace):
             pipe.on_execute(cb)
             return f
 
-    def hget(self, name, key):
+    def hget(self, name: str, key: str) -> Future[Any]:
         """
         Returns the value stored in the field, None if the field doesn't exist.
 
@@ -2016,7 +2162,7 @@ class Hash(Keyspace):
         :return: Future()
         """
         with self.pipe as pipe:
-            f = Future()
+            f = Future[Any]()
             res = pipe.hget(self.redis_key(name),
                             self.memberparse.encode(key))
 
@@ -2026,7 +2172,7 @@ class Hash(Keyspace):
             pipe.on_execute(cb)
             return f
 
-    def hexists(self, name, key):
+    def hexists(self, name: str, key: str) -> Future[bool]:
         """
         Returns ``True`` if the field exists, ``False`` otherwise.
 
@@ -2038,13 +2184,13 @@ class Hash(Keyspace):
             return pipe.hexists(self.redis_key(name),
                                 self.memberparse.encode(key))
 
-    def hincrby(self, name, key, amount=1):
+    def hincrby(self, name: str, key: str, amount: int = 1) -> Future[int]:
         """
         Increment the value of the field.
 
         :param name: str     the name of the redis key
-        :param increment: int
-        :param field: str
+        :param key: str
+        :param amount: int
         :return: Future()
         """
         with self.pipe as pipe:
@@ -2052,7 +2198,11 @@ class Hash(Keyspace):
                                 self.memberparse.encode(key),
                                 amount)
 
-    def hincrbyfloat(self, name, key, amount=1.0):
+    def hincrbyfloat(self,
+                     name: str,
+                     key: str,
+                     amount: float = 1.0
+                     ) -> Future[float]:
         """
         Increment the value of the field.
 
@@ -2066,18 +2216,21 @@ class Hash(Keyspace):
                                      self.memberparse.encode(key),
                                      amount)
 
-    def hmget(self, name, keys, *args):
+    def hmget(self,
+              name: str,
+              keys: typing.List[str],
+              *args) -> Future[typing.List[Any]]:
         """
         Returns the values stored in the fields.
 
         :param name: str     the name of the redis key
-        :param fields:
+        :param keys:
         :return: Future()
         """
         member_encode = self.memberparse.encode
-        keys = [k for k in self._parse_values(keys, args)]
         with self.pipe as pipe:
-            f = Future()
+            f = Future[typing.List[Any]]()
+            keys = [k for k in self._parse_values(keys, args)]
             res = pipe.hmget(self.redis_key(name),
                              [member_encode(k) for k in keys])
 
@@ -2088,7 +2241,7 @@ class Hash(Keyspace):
             pipe.on_execute(cb)
             return f
 
-    def hmset(self, name, mapping):
+    def hmset(self, name: str, mapping: Dict[str, Any]) -> Future[None]:
         """
         Sets or updates the fields with their corresponding values.
 
@@ -2098,11 +2251,16 @@ class Hash(Keyspace):
         """
         with self.pipe as pipe:
             m_encode = self.memberparse.encode
-            mapping = {m_encode(k): self._value_encode(k, v)
-                       for k, v in mapping.items()}
-            return pipe.hmset(self.redis_key(name), mapping)
+            return pipe.hmset(self.redis_key(name),
+                              {m_encode(k): self._value_encode(k, v)
+                               for k, v in mapping.items()})
 
-    def hscan(self, name, cursor=0, match=None, count=None):
+    def hscan(self,
+              name: str,
+              cursor: int = 0,
+              match: Optional[str] = None,
+              count: Optional[int] = None
+              ) -> Future[typing.Tuple[int, Dict[str, Any]]]:
         """
         Incrementally return key/value slices in a hash. Also return a cursor
         indicating the scan position.
@@ -2112,7 +2270,7 @@ class Hash(Keyspace):
         ``count`` allows for hint the minimum number of returns
         """
         with self.pipe as pipe:
-            f = Future()
+            f = Future[typing.Tuple[int, Dict[str, Any]]]()
             res = pipe.hscan(self.redis_key(name), cursor=cursor,
                              match=match, count=count)
 
@@ -2129,7 +2287,10 @@ class Hash(Keyspace):
             pipe.on_execute(cb)
             return f
 
-    def hscan_iter(self, name, match=None, count=None):
+    def hscan_iter(self, name: str,
+                   match: Optional[str] = None,
+                   count: Optional[int] = None
+                   ) -> Iterable[Tuple[str, Any]]:
         """
         Make an iterator using the HSCAN command so that the client doesn't
         need to remember the cursor position.
@@ -2142,7 +2303,7 @@ class Hash(Keyspace):
             raise InvalidOperation('cannot pipeline scan operations')
         cursor = '0'
         while cursor != 0:
-            cursor, data = self.hscan(name, cursor=cursor,
+            cursor, data = self.hscan(name, cursor=int(cursor),
                                       match=match, count=count)
             for item in data.items():
                 yield item
@@ -2153,7 +2314,7 @@ class HyperLogLog(Keyspace):
     Manipulate a HyperLogLog key in redis.
     """
 
-    def pfadd(self, name, *values):
+    def pfadd(self, name: str, *values: str) -> Future[int]:
         """
         Adds the specified elements to the specified HyperLogLog.
 
@@ -2162,10 +2323,11 @@ class HyperLogLog(Keyspace):
         """
         with self.pipe as pipe:
             v_encode = self.valueparse.encode
-            values = [v_encode(v) for v in self._parse_values(values)]
-            return pipe.pfadd(self.redis_key(name), *values)
+            return pipe.pfadd(
+                self.redis_key(name),
+                *[v_encode(v) for v in self._parse_values(values)])
 
-    def pfcount(self, *sources):
+    def pfcount(self, *sources: str) -> Future[int]:
         """
         Return the approximated cardinality of
         the set observed by the HyperLogLog at key(s).
@@ -2177,11 +2339,11 @@ class HyperLogLog(Keyspace):
 
         :param sources: [str]     the names of the redis keys
         """
-        sources = [self.redis_key(s) for s in sources]
         with self.pipe as pipe:
-            return pipe.execute_command('PFCOUNT', *sources)
+            return pipe.execute_command('PFCOUNT',
+                                        *[self.redis_key(s) for s in sources])
 
-    def pfmerge(self, dest, *sources):
+    def pfmerge(self, dest: str, *sources: str) -> Future[None]:
         """
         Merge N different HyperLogLogs into a single one.
 
@@ -2189,6 +2351,6 @@ class HyperLogLog(Keyspace):
         :param sources:
         :return:
         """
-        sources = [self.redis_key(k) for k in sources]
         with self.pipe as pipe:
-            return pipe.pfmerge(self.redis_key(dest), *sources)
+            return pipe.pfmerge(self.redis_key(dest),
+                                *[self.redis_key(k) for k in sources])

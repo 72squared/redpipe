@@ -11,6 +11,8 @@ values.
 
 import json
 import re
+import typing
+from typing import (Protocol, TypeVar, Generic, Optional, Union)
 from .exceptions import InvalidValue
 
 __all__ = [
@@ -23,7 +25,18 @@ __all__ = [
     'ListField',
     'DictField',
     'StringListField',
+    'Field'
 ]
+
+T = TypeVar('T')
+
+
+class Field(Protocol, Generic[T]):
+    @classmethod
+    def encode(cls, value: T) -> bytes: ...
+
+    @classmethod
+    def decode(cls, value: Optional[bytes]) -> Optional[T]: ...
 
 
 class BooleanField(object):
@@ -47,7 +60,7 @@ class BooleanField(object):
         return True if val else False
 
     @classmethod
-    def encode(cls, value):
+    def encode(cls, value: bool) -> bytes:
         """
         convert a boolean value into something we can persist to redis.
         An empty string is the representation for False.
@@ -58,7 +71,7 @@ class BooleanField(object):
         return b'1' if cls.is_true(value) else b''
 
     @classmethod
-    def decode(cls, value):
+    def decode(cls, value: Optional[bytes]) -> Optional[bool]:
         """
         convert from redis bytes into a boolean value
 
@@ -75,7 +88,7 @@ class FloatField(object):
     """
 
     @classmethod
-    def decode(cls, value):
+    def decode(cls, value: Optional[bytes]) -> Optional[float]:
         """
         decode the bytes from redis back into a float
 
@@ -85,7 +98,7 @@ class FloatField(object):
         return None if value is None else float(value)
 
     @classmethod
-    def encode(cls, value):
+    def encode(cls, value: float) -> bytes:
         """
         encode a floating point number to bytes in redis
 
@@ -99,7 +112,7 @@ class FloatField(object):
         response = repr(coerced)
         if response.endswith('.0'):
             response = response[:-2]
-        return response
+        return response.encode()
 
 
 class IntegerField(object):
@@ -108,7 +121,7 @@ class IntegerField(object):
     """
 
     @classmethod
-    def decode(cls, value):
+    def decode(cls, value: Optional[bytes]) -> Optional[int]:
         """
         read bytes from redis and turn it back into an integer.
 
@@ -118,7 +131,7 @@ class IntegerField(object):
         return None if value is None else int(float(value))
 
     @classmethod
-    def encode(cls, value):
+    def encode(cls, value: int) -> bytes:
         """
         take an integer and turn it into a string representation
         to write into redis.
@@ -127,7 +140,7 @@ class IntegerField(object):
         :return: str
         """
         try:
-            return repr(int(float(value)))
+            return repr(int(float(value))).encode()
         except (TypeError, ValueError):
             raise InvalidValue('not an int')
 
@@ -141,7 +154,7 @@ class TextField(object):
     _encoding = 'utf-8'
 
     @classmethod
-    def encode(cls, value):
+    def encode(cls, value: str) -> bytes:
         """
         take a valid unicode string and turn it into utf-8 bytes
 
@@ -155,7 +168,7 @@ class TextField(object):
         raise InvalidValue('not text')
 
     @classmethod
-    def decode(cls, value):
+    def decode(cls, value: Optional[bytes]) -> Optional[str]:
         """
         take bytes from redis and turn them into unicode string
 
@@ -172,7 +185,7 @@ class AsciiField(TextField):
     PATTERN = re.compile('^([ -~]+)?$')
 
     @classmethod
-    def encode(cls, value):
+    def encode(cls, value: str) -> bytes:
         """
         take a list of strings and turn it into utf-8 byte-string
 
@@ -192,7 +205,7 @@ class BinaryField(object):
     """
 
     @classmethod
-    def encode(cls, value):
+    def encode(cls, value: bytes) -> bytes:
         """
         write binary data into redis without encoding it.
 
@@ -209,7 +222,7 @@ class BinaryField(object):
         raise InvalidValue('not binary')
 
     @classmethod
-    def decode(cls, value):
+    def decode(cls, value: Optional[bytes]) -> Optional[bytes]:
         """
         read binary data from redis and pass it on through.
 
@@ -227,7 +240,7 @@ class ListField(object):
     _encoding = 'utf-8'
 
     @classmethod
-    def encode(cls, value):
+    def encode(cls, value: list) -> bytes:
         """
         take a list and turn it into a utf-8 encoded byte-string for redis.
 
@@ -244,7 +257,7 @@ class ListField(object):
         raise InvalidValue('not a list')
 
     @classmethod
-    def decode(cls, value):
+    def decode(cls, value: Union[bytes, None, list]) -> Optional[list]:
         """
         take a utf-8 encoded byte-string from redis and
         turn it back into a list
@@ -254,16 +267,16 @@ class ListField(object):
         """
         try:
             return None if value is None else \
-                list(json.loads(value.decode(cls._encoding)))
+                list(json.loads(value.decode(cls._encoding)))  # type: ignore
         except (TypeError, AttributeError):
-            return list(value)
+            return list(value)  # type: ignore
 
 
 class DictField(object):
     _encoding = 'utf-8'
 
     @classmethod
-    def encode(cls, value):
+    def encode(cls, value: dict) -> bytes:
         """
         encode the dict as a json string to be written into redis.
 
@@ -279,7 +292,7 @@ class DictField(object):
         raise InvalidValue('not a dict')
 
     @classmethod
-    def decode(cls, value):
+    def decode(cls, value: Union[bytes, None, dict]) -> Optional[dict]:
         """
         decode the data from a json string in redis back into a dict object.
 
@@ -288,9 +301,9 @@ class DictField(object):
         """
         try:
             return None if value is None else \
-                dict(json.loads(value.decode(cls._encoding)))
+                dict(json.loads(value.decode(cls._encoding)))  # type: ignore
         except (TypeError, AttributeError):
-            return dict(value)
+            return dict(value)  # type: ignore
 
 
 class StringListField(object):
@@ -300,23 +313,28 @@ class StringListField(object):
     _encoding = 'utf-8'
 
     @classmethod
-    def decode(cls, value):
+    def decode(cls,
+               value: Union[bytes, None, typing.List[str]]
+               ) -> Optional[typing.List[str]]:
         """
         decode the data from redis.
         :param value: bytes
         :return: list
         """
+        if value is None or isinstance(value, list):
+            return value
+
         try:
             data = [v for v in value.decode(cls._encoding).split(',') if
                     v != '']
             return data if data else None
         except AttributeError:
-            return value
+            return None
 
     @classmethod
-    def encode(cls, value):
+    def encode(cls, value: typing.List[str]) -> bytes:
         """
-        the list it so it can be stored in redis.
+        encode the list it so it can be stored in redis.
 
         :param value: list
         :return: bytes

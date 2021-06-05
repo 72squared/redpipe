@@ -85,9 +85,11 @@ You shouldn't need to import the submodules directly.
 from .version import __version__  # noqa
 from .pipelines import *  # noqa
 from .fields import *  # noqa
+from .fields import (StringListField, TextField, IntegerField, Field)  # noqa
 from .connections import *  # noqa
 from .structs import *  # noqa
 from .keyspaces import *  # noqa
+from .keyspaces import (String, HashedString, Set, List, SortedSet, Hash, HyperLogLog)  # noqa
 from .exceptions import *  # noqa
 from .futures import *  # noqa
 from .tasks import *  # noqa
