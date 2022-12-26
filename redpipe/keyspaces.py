@@ -1360,7 +1360,7 @@ class List(Keyspace):
         Remove first occurrence of value.
 
         Can't use redis-py interface. It's inconstistent between
-        redis.Redis and redis.StrictRedis in terms of the kwargs.
+        redis.Redis and redis.Redis in terms of the kwargs.
         Better to use the underlying execute_command instead.
 
         :param name: str     the name of the redis key

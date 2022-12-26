@@ -1,10 +1,10 @@
 sudo: false
 language: python
 python:
-  - "2.7"
-  - "3.4"
-  - "3.5"
   - "3.6"
+  - "3.7"
+  - "3.8"
+  - "3.9"
   - "nightly"
   - "pypy"
   # pypy3 doesn't work with redislite
@@ -26,16 +26,17 @@ env:
 script:
   - coverage erase
   - coverage run --source redpipe -p test.py
-  - flake8 --exclude=./build,.venv*,.tox,dist
+  - flake8 --exclude="./build,.venv*,.tox,dist"
 
 after_success:
   - coverage combine
   - coveralls
 matrix:
   allow_failures:
+    - python: "3.7"
     - python: "nightly"
     - python: "pypy3"
   include:
-    - python: 3.7
+    - python: 3.8
       dist: xenial
       sudo: true

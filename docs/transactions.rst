@@ -19,7 +19,7 @@ You can turn transactions on or off in setting up your connection.
 
 .. code-block:: python
 
-    client = redis.StrictRedis()
+    client = redis.Redis()
     redpipe.connect_redis(client, transaction=False)
 
 I welcome discussion.

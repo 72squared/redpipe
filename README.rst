@@ -65,7 +65,7 @@ Find **RedPipe** documentation on `Read the Docs <http://redpipe.readthedocs.io/
 
 
 .. |BuildStatus| image:: https://travis-ci.org/72squared/redpipe.svg?branch=master
-    :target: https://travis-ci.org/72squared/redpipe
+    :target: https://app.travis-ci.com/github/72squared/redpipe
 
 .. |CoverageStatus| image:: https://coveralls.io/repos/github/72squared/redpipe/badge.svg?branch=master
     :target: https://coveralls.io/github/72squared/redpipe?branch=master
