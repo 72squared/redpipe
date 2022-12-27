@@ -16,7 +16,6 @@ Thread Safety
 Thread safety is a stated goal of *RedPipe*.
 
 Redis-Py is considered thread safe by using atomic operations against the GIL when accessing the connection pool.
-Redis-Py-Cluster uses similar mechanisms.
 
 You should not share objects produced by `redpipe.pipeline()` between threads.
 The main issue you will run into is how it enters and exits the with block, resetting the command stack.
@@ -45,7 +44,7 @@ If you find a bug, Please report it.
 
 Lua Scripting
 -------------
-Lua scripting is only barely supported in `redis-py-cluster`.
+Lua scripting is only barely supported in redis cluster.
 You can make it work if you don't bother with script registration or evalsha.
 That's because it is too hard to know for sure when running a command whether or not the node in the cluster will have it already.
 And it gets especially complicated in pipeline scenarios and pipelined failover scenarios.

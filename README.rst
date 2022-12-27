@@ -4,7 +4,7 @@ RedPipe
 
 |BuildStatus| |CoverageStatus| |Version| |Python| |Docs|
 
-**RedPipe** is a wrapper around the pipeline component of `redis-py <https://redis-py.readthedocs.io>`_ or `redis-py-cluster <https://redis-py-cluster.readthedocs.io>`_.
+**RedPipe** is a wrapper around the pipeline component of `redis-py <https://redis-py.readthedocs.io>`_.
 It makes it easy to reduce network round trips when talking to *Redis*.
 
 For more general information about redis pipelining, see the `official redis documentation <https://redis.io/topics/pipelining>`_.

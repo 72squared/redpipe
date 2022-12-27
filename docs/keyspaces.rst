@@ -202,11 +202,6 @@ When you use the `scan` command on a keyspace, **RedPipe** automatically builds 
 Any additional patterns you pass in are searched for inside of that pattern.
 So you should be able easily iterate through a list of all keys in the keyspace.
 
-The scan commands don't seem to work quite right in redis-py-cluster.
-I'm working with the package maintainer to try to get that squared away.
-
-
-
 .. _official redis documentation: https://redis.io/commands
 .. _redis-py: https://redis-py.readthedocs.io/en/latest/index.html#module-redis
 

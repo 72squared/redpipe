@@ -20,12 +20,12 @@ Requirements
 
 The *redpipe* module requires Python 2.7 or higher.
 
-It also requires `redis-py`_ or `redis-py-cluster`_.
+It also requires `redis-py`_.
 
 
 What is RedPipe?
 ----------------
-**RedPipe** is a wrapper around the pipeline component of `redis-py`_ or `redis-py-cluster`_.
+**RedPipe** is a wrapper around the pipeline component of `redis-py`_.
 It makes it easy to reduce network round trips when talking to *Redis*.
 The interface is very similar to `redis-py`.
 Pipelined commands work almost like non-pipelined commands.
@@ -163,8 +163,6 @@ You can see everything.
 .. _official redis documentation: https://redis.io/topics/pipelining
 
 .. _redis-py: https://redis-py.readthedocs.io
-
-.. _redis-py-cluster: https://redis-py-cluster.readthedocs.io
 
 .. _Keyspaces: keyspaces.html
 

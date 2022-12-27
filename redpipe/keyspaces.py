@@ -2172,8 +2172,8 @@ class HyperLogLog(Keyspace):
         Return the approximated cardinality of
         the set observed by the HyperLogLog at key(s).
 
-        Using the execute_command because redis-py-cluster disabled it
-        unnecessarily. but you can only send one key at a time in that case,
+        Using the execute_command because redis-py disabled it
+        unnecessarily for c;luster. but you can only send one key at a time in that case,
         or only keys that map to the same keyslot.
         Use at your own risk.
 

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Bind instances of the redis-py or redis-py-cluster client to redpipe.
+Bind instances of the redis-py client to redpipe.
 Assign named connections to be able to talk to multiple redis servers in your
 project.
 
