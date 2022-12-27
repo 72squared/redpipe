@@ -4,7 +4,7 @@ RedPipe
 
 |BuildStatus| |CoverageStatus| |Version| |Python| |Docs|
 
-**RedPipe** is a wrapper around the pipeline component of `redis-py <https://redis-py.readthedocs.io>`_ or `redis-py-cluster <https://redis-py-cluster.readthedocs.io>`_.
+**RedPipe** is a wrapper around the pipeline component of `redis-py <https://redis-py.readthedocs.io>`_.
 It makes it easy to reduce network round trips when talking to *Redis*.
 
 For more general information about redis pipelining, see the `official redis documentation <https://redis.io/topics/pipelining>`_.
@@ -65,7 +65,7 @@ Find **RedPipe** documentation on `Read the Docs <http://redpipe.readthedocs.io/
 
 
 .. |BuildStatus| image:: https://travis-ci.org/72squared/redpipe.svg?branch=master
-    :target: https://travis-ci.org/72squared/redpipe
+    :target: https://app.travis-ci.com/github/72squared/redpipe
 
 .. |CoverageStatus| image:: https://coveralls.io/repos/github/72squared/redpipe/badge.svg?branch=master
     :target: https://coveralls.io/github/72squared/redpipe?branch=master

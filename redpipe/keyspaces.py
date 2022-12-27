@@ -1438,7 +1438,7 @@ class List(Keyspace):
         Remove first occurrence of value.
 
         Can't use redis-py interface. It's inconstistent between
-        redis.Redis and redis.StrictRedis in terms of the kwargs.
+        redis.Redis and redis.Redis in terms of the kwargs.
         Better to use the underlying execute_command instead.
 
         :param name: str     the name of the redis key
@@ -2332,8 +2332,9 @@ class HyperLogLog(Keyspace):
         Return the approximated cardinality of
         the set observed by the HyperLogLog at key(s).
 
-        Using the execute_command because redis-py-cluster disabled it
-        unnecessarily. but you can only send one key at a time in that case,
+        Using the execute_command because redis-py disabled it
+        unnecessarily for cluster.
+        You can only send one key at a time in that case,
         or only keys that map to the same keyslot.
         Use at your own risk.
 

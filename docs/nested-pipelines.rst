@@ -15,7 +15,7 @@ I deliberately did not expose this class at the root level of the package.
 You never need to instantiate it directly.
 
 This `Pipeline` object will collect your commands.
-When `Pipeline.execute` is called, it obtains a `redis.StrictPipeline` and runs your pipelined commands.
+When `Pipeline.execute` is called, it obtains a `redis.Pipeline` and runs your pipelined commands.
 Simple.
 
 If you pass in a `Pipeline` object into the `redpipe.pipeline` function, it returns a `redpipe.pipelines.NestedPipeline` object.

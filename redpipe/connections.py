@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Bind instances of the redis-py or redis-py-cluster client to redpipe.
+Bind instances of the redis-py client to redpipe.
 Assign named connections to be able to talk to multiple redis servers in your
 project.
 
@@ -65,9 +65,9 @@ class ConnectionManager(object):
         :param name: str optional
         :return: None
         """
-        new_pool = pipeline_method().connection_pool
         try:
-            if cls.get(name).connection_pool != new_pool:
+            if cls.get(name).get_connection_kwargs() \
+                    != pipeline_method().get_connection_kwargs():
                 raise AlreadyConnected("can't change connection for %s" % name)
         except InvalidPipeline:
             pass
@@ -83,15 +83,10 @@ class ConnectionManager(object):
 
         We call the pipeline method of the redis client.
 
-        The ``redis_client`` can be either a redis or rediscluster client.
+        The ``redis_client`` can be either a redis or redis cluster client.
         We use the interface, not the actual class.
 
         That means we can handle either one identically.
-
-        It doesn't matter if you pass in `Redis` or `StrictRedis`.
-        the interface for direct redis commands will behave indentically.
-        Keyspaces will work with either, but it presents the same interface
-        that the Redis class does, not StrictRedis.
 
         The transaction flag is a boolean value we hold on to and
         pass to the invocation of something equivalent to:
@@ -108,14 +103,12 @@ class ConnectionManager(object):
 
         **RedPipe** is about improving network round-trip efficiency.
 
-        :param redis_client: redis.StrictRedis() or redis.Redis()
+        :param redis_client: redis.Redis()
         :param name: identifier for the connection, optional
         :param transaction: bool, defaults to False
         :return: None
         """
-        connection_pool = redis_client.connection_pool
-
-        if connection_pool.connection_kwargs.get('decode_responses', False):
+        if redis_client.get_connection_kwargs().get('decode_responses', False):
             raise InvalidPipeline('decode_responses set to True')
 
         def pipeline_method():
@@ -164,26 +157,24 @@ def connect_redis(redis_client, name=None, transaction=False) -> None:
 
     .. code:: python
 
-        redpipe.connect_redis(redis.StrictRedis(), name='users')
+        redpipe.connect_redis(redis.Redis(), name='users')
 
 
     Do this during your application bootstrapping.
 
-    You can also pass a redis-py-cluster instance to this method.
+    You can also pass a redis cluster instance to this method.
 
     .. code:: python
 
-        redpipe.connect_redis(rediscluster.StrictRedisCluster(), name='users')
+        redpipe.connect_redis(redis.RedisCluster(), name='users')
 
 
-    You are allowed to pass in either the strict or regular instance.
+    You are allowed to pass in any redis-py client instance.
 
     .. code:: python
 
-        redpipe.connect_redis(redis.StrictRedis(), name='a')
-        redpipe.connect_redis(redis.Redis(), name='b')
-        redpipe.connect_redis(rediscluster.StrictRedisCluster(...), name='c')
-        redpipe.connect_redis(rediscluster.RedisCluster(...), name='d')
+        redpipe.connect_redis(redis.Redis(), name='a')
+        redpipe.connect_redis(redis.RedisCluster(...), name='b')
 
     :param redis_client:
     :param name: nickname you want to give to your connection.

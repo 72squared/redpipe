@@ -1,5 +1,18 @@
 Release Notes
 =============
+
+3.0.1 (December 26, 2022)
+-------------------------
+Update the docs to reflect deprecation of redis-py-cluster.
+Use redis-py instead.
+
+
+3.0.0 (December 26, 2022)
+-------------------------
+Maintain compatibility with latest version of redis-py,
+now that it natively supports redis cluster.
+
+
 2.3.6 (October 30, 2019)
 ------------------------
 Bugfix. `enable_threads` and `disable_threads` behavior were swapped.

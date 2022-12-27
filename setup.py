@@ -64,9 +64,10 @@ setup(
         'Operating System :: POSIX'],
     license='MIT',
     install_requires=['redis>=2.10.2'],
-    tests_require=['redislite>=3.0.271', 'redis-py-cluster>=1.3.0'],
+    tests_require=['redislite>=3.0.271'],
     include_package_data=True,
     long_description=readme + '\n\n' + history,
+    long_description_content_type="text/markdown",
     cmdclass=cmdclass,
     ext_modules=ext_modules
 )

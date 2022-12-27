@@ -210,7 +210,7 @@ class Pipeline(object):
         """
         magic method to allow us to use in context like this:
 
-            with Pipeline(redis.StrictRedis().pipeline()) as pipe:
+            with Pipeline(redis.Redis().pipeline()) as pipe:
                 ref = pipe.set('foo', 'bar')
                 pipe.execute()
 

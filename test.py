@@ -1,20 +1,17 @@
 #!/usr/bin/env python
 # -*- encoding: utf-8 -*-
 import json
+import pickle
+import socket
+import time
 import unittest
 import uuid
-import time
+
 import redis
 import redislite  # type: ignore
 import redpipe
 import redpipe.tasks
-import pickle
-import socket
-try:
-    import rediscluster  # type: ignore
-    import rediscluster.exceptions  # type: ignore
-except ImportError:
-    rediscluster = None
+
 
 # Tegalu: I can eat glass ...
 utf8_sample = u'నేను గాజు తినగలను మరియు అలా చేసినా నాకు ఏమి ఇబ్బంది లేదు'
@@ -24,8 +21,6 @@ class SingleNodeRedisCluster(object):
     __slots__ = ['node', 'port', 'client']
 
     def __init__(self, starting_port=7000):
-        if rediscluster is None:
-            return
         port = starting_port
         while port < 55535:
 
@@ -38,7 +33,7 @@ class SingleNodeRedisCluster(object):
             port += 1
 
         self.port = port
-        self.node = redislite.StrictRedis(
+        self.node = redislite.Redis(
             serverconfig={
                 'cluster-enabled': 'yes',
                 'port': port
@@ -55,10 +50,8 @@ class SingleNodeRedisCluster(object):
 
             time.sleep(0.1)
 
-        klass = rediscluster.RedisCluster
-        self.client = klass(startup_nodes=[
-            {'host': '127.0.0.1', 'port': port}
-        ])
+        self.client = redis.RedisCluster.from_url(
+            'redis://127.0.0.1:%d' % port)
 
     @staticmethod
     def _check_port(port):
@@ -70,7 +63,7 @@ class SingleNodeRedisCluster(object):
 
     def shutdown(self):
         if self.client:
-            self.client.connection_pool.disconnect()
+            self.client.close()
             self.client = None
 
         if self.node:
@@ -86,7 +79,7 @@ class SingleNodeRedisCluster(object):
 class BaseTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.r = redislite.StrictRedis()
+        cls.r = redislite.Redis()
         redpipe.connect_redis(cls.r)
 
     @classmethod
@@ -493,7 +486,7 @@ class StructTestCase(BaseTestCase):
 
         u = self.User('1')
         with self.assertRaises(AttributeError):
-            assert(u.first_name is None)
+            assert (u.first_name is None)
 
         with self.assertRaises(AttributeError):
             u.first_name = 'test'
@@ -890,14 +883,14 @@ class ConnectTestCase(unittest.TestCase):
             return pipe.incr(key)
 
     def test(self):
-        r = redislite.StrictRedis()
+        r = redislite.Redis()
         redpipe.connect_redis(r)
         redpipe.connect_redis(r)
         self.assertRaises(
             redpipe.AlreadyConnected,
-            lambda: redpipe.connect_redis(redislite.StrictRedis()))
+            lambda: redpipe.connect_redis(redislite.Redis()))
         redpipe.disconnect()
-        redpipe.connect_redis(redislite.StrictRedis())
+        redpipe.connect_redis(redislite.Redis())
 
         # tear down the connection
         redpipe.disconnect()
@@ -913,17 +906,17 @@ class ConnectTestCase(unittest.TestCase):
         self.assertRaises(
             redpipe.AlreadyConnected,
             lambda: redpipe.connect_redis(
-                redislite.StrictRedis()))
+                redislite.Redis()))
 
     def test_with_decode_responses(self):
         def connect():
             redpipe.connect_redis(
-                redislite.StrictRedis(decode_responses=True))
+                redislite.Redis(decode_responses=True))
 
         self.assertRaises(redpipe.InvalidPipeline, connect)
 
     def test_single_nested(self):
-        redpipe.connect_redis(redislite.StrictRedis(), 'a')
+        redpipe.connect_redis(redislite.Redis(), 'a')
 
         def mid_level(pipe=None):
             with redpipe.autoexec(pipe, name='a') as pipe:
@@ -969,8 +962,8 @@ class ConnectTestCase(unittest.TestCase):
 
     def test_multi(self):
 
-        a_conn = redislite.StrictRedis()
-        b_conn = redislite.StrictRedis()
+        a_conn = redislite.Redis()
+        b_conn = redislite.Redis()
         redpipe.connect_redis(a_conn, name='a')
         redpipe.connect_redis(b_conn, name='b')
 
@@ -1002,8 +995,8 @@ class ConnectTestCase(unittest.TestCase):
 
     def test_multi_auto(self):
 
-        a_conn = redislite.StrictRedis()
-        b_conn = redislite.StrictRedis()
+        a_conn = redislite.Redis()
+        b_conn = redislite.Redis()
         redpipe.connect_redis(a_conn)
         redpipe.connect_redis(a_conn, name='a')
         redpipe.connect_redis(b_conn, name='b')
@@ -1024,8 +1017,8 @@ class ConnectTestCase(unittest.TestCase):
         self.assertEqual(verify_callback, [1])
 
     def test_multi_invalid_connection(self):
-        a_conn = redislite.StrictRedis()
-        b_conn = redislite.StrictRedis(port=987654321)
+        a_conn = redislite.Redis()
+        b_conn = redislite.Redis(port=987654321)
         redpipe.connect_redis(a_conn, name='a')
         redpipe.connect_redis(b_conn, name='b')
 
@@ -1049,8 +1042,8 @@ class ConnectTestCase(unittest.TestCase):
         self.assertEqual(verify_callback, [])
 
     def test_pipeline_mismatched_name(self):
-        a_conn = redislite.StrictRedis()
-        b_conn = redislite.StrictRedis()
+        a_conn = redislite.Redis()
+        b_conn = redislite.Redis()
         redpipe.connect_redis(a_conn, name='a')
         redpipe.connect_redis(b_conn, name='b')
 
@@ -1060,8 +1053,8 @@ class ConnectTestCase(unittest.TestCase):
             pipe.execute()
 
     def test_pipeline_nested_mismatched_name(self):
-        a_conn = redislite.StrictRedis()
-        b_conn = redislite.StrictRedis()
+        a_conn = redislite.Redis()
+        b_conn = redislite.Redis()
         redpipe.connect_redis(a_conn, name='a')
         redpipe.connect_redis(b_conn, name='b')
 
@@ -1082,8 +1075,8 @@ class ConnectTestCase(unittest.TestCase):
         self.assertEqual(ref2.result, 2)
 
     def test_pipeline_invalid_object(self):
-        a_conn = redislite.StrictRedis()
-        b_conn = redislite.StrictRedis()
+        a_conn = redislite.Redis()
+        b_conn = redislite.Redis()
         redpipe.connect_redis(a_conn)
         redpipe.connect_redis(a_conn, name='a')
         redpipe.connect_redis(b_conn, name='b')
@@ -1106,6 +1099,7 @@ class ConnectTestCase(unittest.TestCase):
         self.assertRaises(redpipe.InvalidPipeline, nested_invalid)
 
 
+<<<<<<< HEAD
 @unittest.skipIf(rediscluster is None, 'rediscluster is disabled')
 class ConnectRedisClusterTestCase(unittest.TestCase):
     def tearDown(self):
@@ -1124,7 +1118,6 @@ class ConnectRedisClusterTestCase(unittest.TestCase):
             self.assertRaises(Exception, pipe.execute)
 
 
-@unittest.skipIf(rediscluster is None, 'rediscluster package failed to import')
 class RedisClusterTestCase(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -1224,22 +1217,6 @@ class RedisClusterTestCase(unittest.TestCase):
         self.assertEqual(pfcount, 4)
 
 
-@unittest.skipIf(rediscluster is None, 'rediscluster package failed to import')
-class StrictRedisClusterTestCase(RedisClusterTestCase):
-    @classmethod
-    def setUpClass(cls):
-        cls.c = SingleNodeRedisCluster()
-        cls.r = cls.c.client
-        redpipe.connect_redis(cls.r)
-
-    @classmethod
-    def tearDownClass(cls):
-        cls.r = None
-        cls.c.shutdown()
-        cls.c = None
-        redpipe.reset()
-
-
 class StrictStringTestCase(BaseTestCase):
     class Data(redpipe.String):
         keyspace = 'STRING'
@@ -1248,7 +1225,6 @@ class StrictStringTestCase(BaseTestCase):
             f = redpipe.Future()
 
             with self.super_pipe as pipe:
-
                 res = self.get(key)
 
                 def cb():
@@ -1322,7 +1298,7 @@ class StrictStringTestCase(BaseTestCase):
         self.assertEqual(incrby.result, 5)
         self.assertEqual(incrbyfloat.result, 7.1)
         self.assertEqual(setnx.result, 0)
-        self.assertEqual(getaftersetnx.result, '7.1')
+        self.assertEqual(float(getaftersetnx.result), 7.1)
         self.assertEqual(setex, 1)
         self.assertEqual(getaftersetex, 'bar')
         self.assertAlmostEqual(ttl, 60, delta=1)
@@ -2198,7 +2174,7 @@ class FutureBooleanTestCase(unittest.TestCase):
 
 
 class Issue2NamedConnectionsTestCase(unittest.TestCase):
-    conn = redislite.StrictRedis()
+    conn = redislite.Redis()
 
     class T(redpipe.Struct):
         connection = 't'
@@ -2236,7 +2212,7 @@ class Issue2NamedConnectionsTestCase(unittest.TestCase):
 
 
 class StructExpiresTestCase(unittest.TestCase):
-    conn = redislite.StrictRedis()
+    conn = redislite.Redis()
 
     class T(redpipe.Struct):
         connection = 't'
