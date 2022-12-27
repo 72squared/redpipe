@@ -10,7 +10,7 @@ NAME = 'redpipe'
 
 ROOTDIR = path.abspath(os.path.dirname(__file__))
 
-with open(os.path.join(ROOTDIR, 'README.md'), mode="r", encoding="utf-8") as f:
+with open(os.path.join(ROOTDIR, 'README.rst'), mode="r", encoding="utf-8") as f:
     readme = f.read()
 
 with open(os.path.join(ROOTDIR, 'docs', 'release-notes.rst'), mode="r", encoding="utf-8") as f:
