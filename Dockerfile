@@ -25,9 +25,9 @@ RUN pyenv global 3.5.2
 RUN pip install -r dev-requirements.txt
 COPY tox.ini /app/
 COPY setup.py /app/
-COPY README.rst /app/
+COPY README.md /app/
 COPY MANIFEST.in /app/
-COPY README.rst /app/
+COPY README.md /app/
 COPY LICENSE /app/
 COPY conftest.py /app/
 COPY test.py /app/

@@ -10,13 +10,13 @@ NAME = 'redpipe'
 
 ROOTDIR = path.abspath(os.path.dirname(__file__))
 
-with open(os.path.join(ROOTDIR, 'README.rst')) as f:
+with open(os.path.join(ROOTDIR, 'README.md'), mode="r", encoding="utf-8") as f:
     readme = f.read()
 
-with open(os.path.join(ROOTDIR, 'docs', 'release-notes.rst')) as f:
+with open(os.path.join(ROOTDIR, 'docs', 'release-notes.rst'), mode="r", encoding="utf-8") as f:
     history = f.read()
 
-with open(os.path.join(ROOTDIR, 'redpipe', 'VERSION')) as f:
+with open(os.path.join(ROOTDIR, 'redpipe', 'VERSION'), mode="r", encoding="utf-8") as f:
     version = str(f.read().strip())
 
 
@@ -72,6 +72,7 @@ setup(
     tests_require=['redislite>=3.0.271'],
     include_package_data=True,
     long_description=readme + '\n\n' + history,
+    long_description_content_type="text/markdown",
     cmdclass=cmdclass,
     ext_modules=ext_modules
 )
