@@ -50,7 +50,7 @@ Here's an example of pipelining heterogenous commands.
 .. code:: python
 
     # redis-py code example, not redpipe!
-    client = redis.StrictRedis()
+    client = redis.Redis()
     with client.pipeline() as pipe:
         pipe.incr('key1')
         pipe.expire('key1', 60)

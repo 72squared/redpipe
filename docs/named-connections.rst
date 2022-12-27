@@ -10,8 +10,8 @@ How to Configure multiple Connections
 
 .. code:: python
 
-    redpipe.connect_redis(redis.StrictRedis(port=6379), name='users')
-    redpipe.connect_redis(redis.StrictRedis(port=6380), name='messages')
+    redpipe.connect_redis(redis.Redis(port=6379), name='users')
+    redpipe.connect_redis(redis.Redis(port=6380), name='messages')
 
 
 Now I can refer to those named connections inside my functions and throughout my application.
@@ -28,7 +28,7 @@ If you don't specify a name, it assumes a default connection set up like this:
 
 .. code:: python
 
-    redpipe.connect_redis(redis.StrictRedis(port=6379))
+    redpipe.connect_redis(redis.Redis(port=6379))
 
 You can actually map the same redis connection to multiple names if you want.
 This is good for aliasing names when preparing to split up data, or for testing.

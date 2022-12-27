@@ -196,25 +196,6 @@ You just need an object that provides two methods:
 The encode method that converts your python data structure into binary string.
 And the decode method to will convert it back consistently into your original python structure.
 
-Strict or No?
--------------
-Redis-py gives you two different interfaces:
-
-* Redis
-* StrictRedis
-
-They provide the same functionality.
-`Redis` rewrites the the order of arguments to be more intuitive since the server order of arguments can be confusing in some cases.
-Whereas `StrictRedis` gives an interface that conforms to the same argument order that the server presents.
-
-*Keyspace* classes conform to the `Redis` interface.
-It doesn't matter which type of object you pass into `redpipe.connect_redis`.
-The Keyspace object knows the right thing to do and will pass the arguments through correctly.
-It does this by using keyword arguments when it can do so and when there is ambiguity about the order of the command arguments.
-In some cases, keyword arguments cannot be used because `Redis` and `StrictRedis` used different keyword arguments.
-In those rare cases, the Keyspace classes bypass the issue and invoke `execute_command` directly.
-
-
 Scanning the Keys in a Keyspace
 -------------------------------
 When you use the `scan` command on a keyspace, **RedPipe** automatically builds a pattern that matches the keyspace you are using.
