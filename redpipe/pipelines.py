@@ -414,7 +414,7 @@ class NestedPipeline(object):
 def pipeline(pipe: Optional[PipelineInterface] = None,
              name: Optional[str] = None,
              autoexec: bool = False, # noqa
-             exit_handler: Callable = None
+             exit_handler: Optional[Callable] = None
              ) -> Union[Pipeline, NestedPipeline]:
     """
     This is the foundational function for all of redpipe.

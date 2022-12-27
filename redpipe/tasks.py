@@ -13,9 +13,18 @@ But if you see any issues, you can easily disable this in your application.
 
 Please report any `issues <https://github.com/72squared/redpipe/issues>`_.
 """
+
 import threading
 
 __all__ = ['enable_threads', 'disable_threads']
+
+
+def reraise(tp, value, tb=None):
+    if value is None:
+        value = tp()
+    if value.__traceback__ is not tb:
+        raise value.with_traceback(tb)
+    raise value
 
 
 class SynchronousTask(object):

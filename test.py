@@ -12,7 +12,6 @@ import redislite  # type: ignore
 import redpipe
 import redpipe.tasks
 
-
 # Tegalu: I can eat glass ...
 utf8_sample = u'నేను గాజు తినగలను మరియు అలా చేసినా నాకు ఏమి ఇబ్బంది లేదు'
 
@@ -1097,25 +1096,6 @@ class ConnectTestCase(unittest.TestCase):
 
         self.assertRaises(redpipe.InvalidPipeline, invalid)
         self.assertRaises(redpipe.InvalidPipeline, nested_invalid)
-
-
-<<<<<<< HEAD
-@unittest.skipIf(rediscluster is None, 'rediscluster is disabled')
-class ConnectRedisClusterTestCase(unittest.TestCase):
-    def tearDown(self):
-        redpipe.reset()
-
-    def test(self):
-        # i don't need to set up a full cluster to test. this.
-        # it's enough to know I wired it into the code correctly for now.
-        r = rediscluster.RedisCluster(
-            startup_nodes=[{'host': '0', 'port': 999999}],
-            init_slot_cache=False
-        )
-        redpipe.connect_redis(r, 'test')
-        with redpipe.pipeline(name='test') as pipe:
-            pipe.set('foo', 'bar')
-            self.assertRaises(Exception, pipe.execute)
 
 
 class RedisClusterTestCase(unittest.TestCase):

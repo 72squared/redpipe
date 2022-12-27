@@ -68,6 +68,8 @@ Hash
 HyperLogLog
 """.split()
 
+string_types = str,
+
 
 def _parse_values(values, extra=None) -> typing.List[Union[str, bytes]]:
     """
@@ -1698,8 +1700,8 @@ class SortedSet(Keyspace):
                          name: str,
                          max: float,
                          min: float,
-                         start: int = None,
-                         num: int = None,
+                         start: Optional[int] = None,
+                         num: Optional[int] = None,
                          withscores: bool = False,
                          score_cast_func: Callable = float
                          ) -> Future[typing.List[Any]]:
@@ -1842,8 +1844,8 @@ class SortedSet(Keyspace):
                     name: str,
                     min: float,
                     max: float,
-                    start: int = None,
-                    num: int = None
+                    start: Optional[int] = None,
+                    num: Optional[int] = None
                     ) -> Future[typing.List[Any]]:
         """
         Return the lexicographical range of values from sorted set ``name``
@@ -1875,8 +1877,8 @@ class SortedSet(Keyspace):
                        name: str,
                        max: float,
                        min: float,
-                       start: int = None,
-                       num: int = None
+                       start: Optional[int] = None,
+                       num: Optional[int] = None
                        ) -> Future[typing.List[Any]]:
         """
         Return the reversed lexicographical range of values from the sorted set

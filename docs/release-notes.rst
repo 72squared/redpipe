@@ -1,6 +1,11 @@
 Release Notes
 =============
 
+3.0.2 (December 27, 2022)
+-------------------------
+Remove dependency on "six" library now that only python3 is supported.
+
+
 3.0.1 (December 26, 2022)
 -------------------------
 Update the docs to reflect deprecation of redis-py-cluster.

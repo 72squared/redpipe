@@ -63,7 +63,7 @@ setup(
         'Environment :: Web Environment',
         'Operating System :: POSIX'],
     license='MIT',
-    install_requires=['redis>=2.10.2'],
+    install_requires=['redis>=4.1.0'],
     tests_require=['redislite>=3.0.271'],
     include_package_data=True,
     long_description=readme + '\n\n' + history,
