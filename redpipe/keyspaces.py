@@ -2173,7 +2173,8 @@ class HyperLogLog(Keyspace):
         the set observed by the HyperLogLog at key(s).
 
         Using the execute_command because redis-py disabled it
-        unnecessarily for c;luster. but you can only send one key at a time in that case,
+        unnecessarily for cluster.
+        You can only send one key at a time in that case,
         or only keys that map to the same keyslot.
         Use at your own risk.
 

@@ -10,13 +10,13 @@ NAME = 'redpipe'
 
 ROOTDIR = path.abspath(os.path.dirname(__file__))
 
-with open(os.path.join(ROOTDIR, 'README.rst'), mode="r", encoding="utf-8") as f:
+with open(os.path.join(ROOTDIR, 'README.rst')) as f:
     readme = f.read()
 
-with open(os.path.join(ROOTDIR, 'docs', 'release-notes.rst'), mode="r", encoding="utf-8") as f:
+with open(os.path.join(ROOTDIR, 'docs', 'release-notes.rst')) as f:
     history = f.read()
 
-with open(os.path.join(ROOTDIR, 'redpipe', 'VERSION'), mode="r", encoding="utf-8") as f:
+with open(os.path.join(ROOTDIR, 'redpipe', 'VERSION')) as f:
     version = str(f.read().strip())
 
 
