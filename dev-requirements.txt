@@ -1,12 +1,9 @@
 -r requirements.txt
 coverage >= 3.7.1
-tox
 importlib_metadata<5
 flake8
 mypy
 coveralls
 types-redis
 redislite>=3.0.271
-pytest-benchmark
-twine
-wheel
+

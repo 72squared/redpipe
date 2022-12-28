@@ -1,6 +1,7 @@
 sudo: false
 language: python
 python:
+  - "3.7"
   - "3.8"
   - "3.9"
   - "nightly"
@@ -28,9 +29,11 @@ after_success:
   - coveralls
 matrix:
   allow_failures:
+    - python: "3.7"
     - python: "nightly"
     - python: "pypy3"
   include:
+    - python: 3.7
     - python: 3.8
     - python: 3.9
       dist: xenial

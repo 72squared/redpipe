@@ -1,6 +1,10 @@
 Release Notes
 =============
 
+4.0.1 (December 28, 2022)
+-------------------------
+Modify Protocol import to allow python 3.7 to work.
+
 4.0.0 (December 27, 2022)
 -------------------------
 Add support for type hints. Remove any python 2 references.

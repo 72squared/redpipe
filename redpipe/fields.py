@@ -12,7 +12,15 @@ values.
 import json
 import re
 import typing
-from typing import (Protocol, TypeVar, Generic, Optional, Union)
+
+# python 3.7 compatibility change
+from typing import (TypeVar, Generic, Optional, Union)
+try:
+    from typing import Protocol
+except ImportError:
+    from typing_extensions import Protocol  # type: ignore
+
+
 from .exceptions import InvalidValue
 
 __all__ = [
