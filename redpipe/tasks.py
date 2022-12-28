@@ -13,11 +13,18 @@ But if you see any issues, you can easily disable this in your application.
 
 Please report any `issues <https://github.com/72squared/redpipe/issues>`_.
 """
-import sys
-from six import reraise
+
 import threading
 
 __all__ = ['enable_threads', 'disable_threads']
+
+
+def reraise(tp, value, tb=None):
+    if value is None:
+        value = tp()
+    if value.__traceback__ is not tb:
+        raise value.with_traceback(tb)
+    raise value
 
 
 class SynchronousTask(object):
@@ -34,15 +41,15 @@ class SynchronousTask(object):
         self._target = target
         self._args = args
         self._kwargs = kwargs
-        self._exc_info = None
+        self._exception = None
         self._result = None
 
     def run(self):
         # noinspection PyBroadException
         try:
             self._result = self._target(*self._args, **self._kwargs)
-        except Exception:
-            self._exc_info = sys.exc_info()
+        except Exception as e:
+            self._exception = e
         finally:
             # Avoid a refcycle if the thread is running a function with
             # an argument that has a member that points to the thread.
@@ -52,8 +59,8 @@ class SynchronousTask(object):
 
     @property
     def result(self):
-        if self._exc_info is not None:
-            reraise(*self._exc_info)
+        if self._exception is not None:
+            raise self._exception
 
         return self._result
 
@@ -74,15 +81,15 @@ class AsynchronousTask(threading.Thread):
         self._target = target
         self._args = args
         self._kwargs = kwargs
-        self._exc_info = None
+        self._exception = None
         self._result = None
 
     def run(self):
         # noinspection PyBroadException
         try:
             self._result = self._target(*self._args, **self._kwargs)
-        except Exception:
-            self._exc_info = sys.exc_info()
+        except Exception as e:
+            self._exception = e
         finally:
             # Avoid a refcycle if the thread is running a function with
             # an argument that has a member that points to the thread.
@@ -92,8 +99,8 @@ class AsynchronousTask(threading.Thread):
     def result(self):
         if self.is_alive():
             self.join()
-        if self._exc_info is not None:
-            reraise(*self._exc_info)
+        if self._exception is not None:
+            raise self._exception
 
         return self._result
 

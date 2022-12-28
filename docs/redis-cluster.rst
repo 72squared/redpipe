@@ -15,3 +15,4 @@ This became even easier now that redis-py supports redis cluster natively.
 The reason you can do this is because **RedPipe** wraps the interface.
 
 If it quacks like a duck ...
+

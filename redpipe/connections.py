@@ -14,6 +14,8 @@ These functions are all you will need to call from your code:
 
 Everything else is for internal use.
 """
+import redis
+from typing import (Optional, Callable, Dict)
 from .exceptions import AlreadyConnected, InvalidPipeline
 
 __all__ = [
@@ -35,10 +37,10 @@ class ConnectionManager(object):
     * reset
 
     """
-    connections = {}
+    connections: Dict[Optional[str], Callable] = {}
 
     @classmethod
-    def get(cls, name=None):
+    def get(cls, name: Optional[str] = None) -> redis.client.Pipeline:
         """
         Get a new redis-py pipeline object or similar object.
         Called by the redpipe.pipelines module.
@@ -53,7 +55,8 @@ class ConnectionManager(object):
             raise InvalidPipeline('%s is not configured' % name)
 
     @classmethod
-    def connect(cls, pipeline_method, name=None):
+    def connect(cls, pipeline_method: Callable,
+                name: Optional[str] = None) -> None:
         """
         Low level logic to bind a callable method to a name.
         Don't call this directly unless you know what you are doing.
@@ -72,7 +75,7 @@ class ConnectionManager(object):
         cls.connections[name] = pipeline_method
 
     @classmethod
-    def connect_redis(cls, redis_client, name=None, transaction=False):
+    def connect_redis(cls, redis_client, name=None, transaction=False) -> None:
         """
         Store the redis connection in our connector instance.
 
@@ -120,7 +123,7 @@ class ConnectionManager(object):
         cls.connect(pipeline_method=pipeline_method, name=name)
 
     @classmethod
-    def disconnect(cls, name=None):
+    def disconnect(cls, name: Optional[str] = None) -> None:
         """
         remove a connection by name.
         If no name is passed in, it assumes default.
@@ -136,7 +139,7 @@ class ConnectionManager(object):
             pass
 
     @classmethod
-    def reset(cls):
+    def reset(cls) -> None:
         """
         remove all connections.
         Useful for testing scenarios.
@@ -146,7 +149,7 @@ class ConnectionManager(object):
         cls.connections = {}
 
 
-def connect_redis(redis_client, name=None, transaction=False):
+def connect_redis(redis_client, name=None, transaction=False) -> None:
     """
     Connect your redis-py instance to redpipe.
 
@@ -178,11 +181,11 @@ def connect_redis(redis_client, name=None, transaction=False):
     :param transaction:
     :return:
     """
-    return ConnectionManager.connect_redis(
+    ConnectionManager.connect_redis(
         redis_client=redis_client, name=name, transaction=transaction)
 
 
-def disconnect(name=None):
+def disconnect(name: Optional[str] = None) -> None:
     """
     remove a connection by name.
     If no name is passed in, it assumes default.
@@ -198,10 +201,10 @@ def disconnect(name=None):
     :param name:
     :return: None
     """
-    return ConnectionManager.disconnect(name=name)
+    ConnectionManager.disconnect(name=name)
 
 
-def reset():
+def reset() -> None:
     """
     remove all connections.
 
@@ -218,4 +221,4 @@ def reset():
 
     :return: None
     """
-    return ConnectionManager.reset()
+    ConnectionManager.reset()

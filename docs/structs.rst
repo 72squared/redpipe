@@ -156,11 +156,6 @@ You can iterate on the object like a dictionary:
     assert({k: v for k, v in user.items()} == user)
 
 
-You can see the user object has an `items` method.
-There is also a `iteritems` method for backward compatibility with python 2.
-The `iteritems` method is a generator, whereas `items` returns a list of key/value tuples.
-
-
 You can access an unknown data element like you would a dictionary:
 
 .. code-block:: python

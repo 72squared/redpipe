@@ -1,15 +1,10 @@
 sudo: false
 language: python
 python:
-  - "3.6"
   - "3.7"
   - "3.8"
   - "3.9"
   - "nightly"
-  - "pypy"
-  # pypy3 doesn't work with redislite
-  # redpipe should work with it but it's too much of a pain to test.
-  # https://bitbucket.org/pypy/pypy/issues/2450/cant-import-psutil-on-pypy3-missing
   - "pypy3"
 
 install:
@@ -26,7 +21,8 @@ env:
 script:
   - coverage erase
   - coverage run --source redpipe -p test.py
-  - flake8 --exclude="./build,.venv*,.tox,dist"
+  - flake8 --exclude=./build,.venv*,.tox,dist
+  - mypy redpipe test.py
 
 after_success:
   - coverage combine
@@ -37,6 +33,8 @@ matrix:
     - python: "nightly"
     - python: "pypy3"
   include:
+    - python: 3.7
     - python: 3.8
+    - python: 3.9
       dist: xenial
       sudo: true

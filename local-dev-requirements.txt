@@ -1,0 +1,5 @@
+-r dev-requirements.txt
+tox
+pytest-benchmark
+twine
+wheel

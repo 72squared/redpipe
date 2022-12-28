@@ -8,9 +8,7 @@ import unittest
 import uuid
 
 import redis
-import redislite
-import six
-
+import redislite  # type: ignore
 import redpipe
 import redpipe.tasks
 
@@ -184,10 +182,10 @@ class FieldsTestCase(unittest.TestCase):
         self.assertRaises(redpipe.InvalidValue, lambda: field.encode('1a'))
         self.assertRaises(redpipe.InvalidValue, lambda: field.encode([]))
         self.assertRaises(redpipe.InvalidValue, lambda: field.encode({}))
-        self.assertEqual(field.encode('1'), '1')
-        self.assertEqual(field.encode(1), '1')
-        self.assertEqual(field.encode(1.2), '1.2')
-        self.assertEqual(field.encode(1.2345), '1.2345')
+        self.assertEqual(field.encode('1'), b'1')
+        self.assertEqual(field.encode(1), b'1')
+        self.assertEqual(field.encode(1.2), b'1.2')
+        self.assertEqual(field.encode(1.2345), b'1.2345')
         self.assertEqual(field.decode('1'), 1)
         self.assertEqual(field.decode('1.2'), 1.2)
         self.assertEqual(field.decode('1.2345'), 1.2345)
@@ -195,12 +193,12 @@ class FieldsTestCase(unittest.TestCase):
 
     def test_int(self):
         field = redpipe.IntegerField
-        self.assertEqual(field.encode(0), '0')
-        self.assertEqual(field.encode(2), '2')
-        self.assertEqual(field.encode(123456), '123456')
-        self.assertEqual(field.encode(1.2), '1')
-        self.assertEqual(field.encode('1'), '1')
-        self.assertEqual(field.encode(1), '1')
+        self.assertEqual(field.encode(0), b'0')
+        self.assertEqual(field.encode(2), b'2')
+        self.assertEqual(field.encode(123456), b'123456')
+        self.assertEqual(field.encode(1.2), b'1')
+        self.assertEqual(field.encode('1'), b'1')
+        self.assertEqual(field.encode(1), b'1')
 
         self.assertRaises(redpipe.InvalidValue, lambda: field.encode(''))
         self.assertRaises(redpipe.InvalidValue, lambda: field.encode('a'))
@@ -272,12 +270,11 @@ class FieldsTestCase(unittest.TestCase):
         self.assertRaises(redpipe.InvalidValue,
                           lambda: field.encode(0.1))
 
-        if six.PY3:
-            self.assertRaises(redpipe.InvalidValue,
-                              lambda: field.encode(''))
+        self.assertRaises(redpipe.InvalidValue,
+                          lambda: field.encode(''))
 
-            self.assertRaises(redpipe.InvalidValue,
-                              lambda: field.encode('dddd'))
+        self.assertRaises(redpipe.InvalidValue,
+                          lambda: field.encode('dddd'))
 
         sample = json.loads('"15\u00f8C"')
         self.assertRaises(redpipe.InvalidValue,
@@ -375,13 +372,15 @@ class FieldsTestCase(unittest.TestCase):
 
         self.assertEqual(field.decode(data), data)
         self.assertIsNone(field.decode(b''))
+        self.assertIsNone(field.decode(None))
+        self.assertIsNone(field.decode({}))
 
 
 class StructUser(redpipe.Struct):
     keyspace = 'U'
     fields = {
-        'first_name': redpipe.TextField,
-        'last_name': redpipe.TextField,
+        'first_name': redpipe.TextField(),
+        'last_name': redpipe.TextField(),
     }
 
     @property
@@ -400,8 +399,8 @@ class StructTestCase(BaseTestCase):
         field_attr_on = True
         keyspace = 'U'
         fields = {
-            'first_name': redpipe.TextField,
-            'last_name': redpipe.TextField,
+            'first_name': redpipe.TextField(),
+            'last_name': redpipe.TextField(),
         }
 
     def test(self):
@@ -1806,13 +1805,13 @@ class HashFieldsTestCase(BaseTestCase):
     class Data(redpipe.Hash):
         keyspace = 'HASH'
         fields = {
-            'b': redpipe.BooleanField,
-            'i': redpipe.IntegerField,
-            'f': redpipe.FloatField,
-            't': redpipe.TextField,
-            'l': redpipe.ListField,
-            'd': redpipe.DictField,
-            'sl': redpipe.StringListField,
+            'b': redpipe.BooleanField(),
+            'i': redpipe.IntegerField(),
+            'f': redpipe.FloatField(),
+            't': redpipe.TextField(),
+            'l': redpipe.ListField(),
+            'd': redpipe.DictField(),
+            'sl': redpipe.StringListField(),
         }
 
     def test(self):
@@ -2126,6 +2125,20 @@ class FutureListTestCase(unittest.TestCase):
 class FutureCallableTestCase(unittest.TestCase):
     def setUp(self):
         def cb():
+            return True
+
+        self.result = cb
+        self.future = redpipe.Future()
+        self.future.set(self.result)
+
+    def test(self):
+        self.assertTrue(self.future)
+        self.assertEqual(bool(self.future), True)
+
+
+class FutureBooleanTestCase(unittest.TestCase):
+    def setUp(self):
+        def cb():
             return 1
 
         self.result = cb
@@ -2148,7 +2161,7 @@ class Issue2NamedConnectionsTestCase(unittest.TestCase):
         keyspace = 't'
 
         fields = {
-            'foo': redpipe.IntegerField
+            'foo': redpipe.IntegerField()
         }
 
     class H(redpipe.Hash):
@@ -2187,7 +2200,7 @@ class StructExpiresTestCase(unittest.TestCase):
         ttl = 30
 
         fields = {
-            'foo': redpipe.IntegerField
+            'foo': redpipe.IntegerField()
         }
 
     def setUp(self):
