@@ -35,7 +35,8 @@ Character Encoding
 ------------------
 To be honest, I never spent a whole lot of time thinking about character encoding in redis until recently.
 Most of the values I manipulate in `redis` are numbers and simple ascii keys.
-And python 2 doesn't make you think about character encoding vs bytes much at all.
+When I wrote this library originally for python 2, it doesn't make you think about character
+encoding vs bytes much at all.
 However, I think a good library should fully support proper character encoding.
 And since RedPipe is fully tested on python 3, I am making more of an effort to understand the nuances.
 

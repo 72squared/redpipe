@@ -1,8 +1,9 @@
 Release Notes
 =============
 
-3.0.2 (December 27, 2022)
+4.0.0 (December 27, 2022)
 -------------------------
+Add support for type hints. Remove any python 2 references.
 Remove dependency on "six" library now that only python3 is supported.
 
 
@@ -65,7 +66,7 @@ In python documentation it states:
   "Note For new-style classes, if __getstate__() returns a false value,
   the __setstate__() method will not be called."
 
-reference: https://docs.python.org/2/library/pickle.html
+reference: https://docs.python.org/3/library/pickle.html
 
 The fix is to return a dictionary with the result in __getstate__ and expect one
 in __setstate__ so the value never evaluates to false.

@@ -56,10 +56,8 @@ To go through a more thorough test suite, run:
 This will run tox against a bunch of different python versions and print out coverage.
 To run this, you need the following python versions installed and discoverable in your path:
 
-* python2.7
-* python3.3
-* python3.4
-* python3.5
+* python3.8
+* python3.9
 
 This will also print out code coverage statistics and lint tests.
 

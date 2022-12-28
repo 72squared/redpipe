@@ -18,7 +18,7 @@ If you have no idea what Redis is or why you should pipeline commands, `look it 
 Requirements
 ------------
 
-The *redpipe* module requires Python 2.7 or higher.
+The *redpipe* module requires Python 3 or higher.
 
 It also requires `redis-py`_.
 
@@ -153,7 +153,7 @@ You can see everything.
 .. |Version| image:: https://badge.fury.io/py/redpipe.svg
     :target: https://badge.fury.io/py/redpipe
 
-.. |Python| image:: https://img.shields.io/badge/python-2.7,3.4,pypy-blue.svg
+.. |Python| image:: https://img.shields.io/badge/python-3.8,3.9,pypy3-blue.svg
     :target:  https://pypi.python.org/pypi/redpipe/
 
 .. _report any issues: https://github.com/72squared/redpipe/issues
