@@ -151,6 +151,15 @@ class Future(object):
     """
     __slots__ = ['_result']
 
+    def __init__(self):
+        # Increment the global thread_local counter for futures created.
+        try:
+            from system_stats import threading_local
+            threading_local.futures_created += 1
+        except AttributeError:
+            pass
+        super().__init__()
+
     def set(self, data):
         """
         Write the data into the object.
@@ -172,9 +181,20 @@ class Future(object):
 
         :return: None, str, int, list, set, dict
         """
+        from system_stats import threading_local
         try:
-            return self._result
-        except AttributeError:
+            res = self._result
+
+            # Increment the global thread_local counter for futures accessed.
+            try:
+                if res and id(res) not in threading_local.futures_accessed_ids:
+                    threading_local.futures_accessed += 1
+                    threading_local.futures_accessed_ids.append(id(res))
+            except AttributeError:
+                pass
+
+            return res
+        except AttributeError as e:
             pass
 
         raise ResultNotReady('Wait until after the pipeline executes.')
