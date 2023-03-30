@@ -95,15 +95,14 @@ more examples or explanation.
 from .exceptions import ResultNotReady
 from json.encoder import JSONEncoder
 from functools import wraps
-from os import getenv
+from .system_stats import ENABLE_REDPIPE_STATS, threading_local
+
 
 __all__ = [
     'Future',
     'IS',
     'ISINSTANCE'
 ]
-
-ENABLE_REDPIPE_STATS = getenv('ENABLE_REDPIPE_STATS', 'false') == 'true'
 
 def IS(instance, other):  # noqa
     """
@@ -157,7 +156,6 @@ class Future(object):
         # Increment the global thread_local counter for futures created.
         try:
             if ENABLE_REDPIPE_STATS:
-                from system_stats import threading_local
                 threading_local.futures_created += 1
         except AttributeError:
             pass
@@ -190,7 +188,6 @@ class Future(object):
             # Increment the global thread_local counter for futures accessed.
             try:
                 if ENABLE_REDPIPE_STATS:
-                    from system_stats import threading_local
                     if res and id(res) not in threading_local.futures_accessed_ids:
                         threading_local.futures_accessed += 1
                         threading_local.futures_accessed_ids.append(id(res))
