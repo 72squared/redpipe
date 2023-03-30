@@ -95,6 +95,7 @@ more examples or explanation.
 from .exceptions import ResultNotReady
 from json.encoder import JSONEncoder
 from functools import wraps
+from os import getenv
 
 __all__ = [
     'Future',
@@ -154,8 +155,9 @@ class Future(object):
     def __init__(self):
         # Increment the global thread_local counter for futures created.
         try:
-            from system_stats import threading_local
-            threading_local.futures_created += 1
+            if getenv('ENABLE_REDPIPE_STATS', 'false') == 'true':
+                from system_stats import threading_local
+                threading_local.futures_created += 1
         except AttributeError:
             pass
         super().__init__()
@@ -181,15 +183,16 @@ class Future(object):
 
         :return: None, str, int, list, set, dict
         """
-        from system_stats import threading_local
         try:
             res = self._result
 
             # Increment the global thread_local counter for futures accessed.
             try:
-                if res and id(res) not in threading_local.futures_accessed_ids:
-                    threading_local.futures_accessed += 1
-                    threading_local.futures_accessed_ids.append(id(res))
+                if getenv('ENABLE_REDPIPE_STATS', 'false') == 'true':
+                    from system_stats import threading_local
+                    if res and id(res) not in threading_local.futures_accessed_ids:
+                        threading_local.futures_accessed += 1
+                        threading_local.futures_accessed_ids.append(id(res))
             except AttributeError:
                 pass
 
