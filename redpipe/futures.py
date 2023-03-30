@@ -103,6 +103,7 @@ __all__ = [
     'ISINSTANCE'
 ]
 
+ENABLE_REDPIPE_STATS = getenv('ENABLE_REDPIPE_STATS', 'false') == 'true'
 
 def IS(instance, other):  # noqa
     """
@@ -155,7 +156,7 @@ class Future(object):
     def __init__(self):
         # Increment the global thread_local counter for futures created.
         try:
-            if getenv('ENABLE_REDPIPE_STATS', 'false') == 'true':
+            if ENABLE_REDPIPE_STATS:
                 from system_stats import threading_local
                 threading_local.futures_created += 1
         except AttributeError:
@@ -188,7 +189,7 @@ class Future(object):
 
             # Increment the global thread_local counter for futures accessed.
             try:
-                if getenv('ENABLE_REDPIPE_STATS', 'false') == 'true':
+                if ENABLE_REDPIPE_STATS:
                     from system_stats import threading_local
                     if res and id(res) not in threading_local.futures_accessed_ids:
                         threading_local.futures_accessed += 1
